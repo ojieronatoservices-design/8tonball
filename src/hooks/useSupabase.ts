@@ -8,9 +8,13 @@ export function useSupabase() {
     return useMemo(() => {
         return {
             getClient: async () => {
-                const token = await getToken({ template: 'supabase' }) // Assumes 'supabase' template is set up in Clerk
-                if (!token) return null
-                return createClerkSupabaseClient(token)
+                try {
+                    const token = await getToken({ template: 'supabase' })
+                    if (token) return createClerkSupabaseClient(token)
+                } catch (error) {
+                    // Fallback to anon client if auth fails
+                }
+                return supabase
             }
         }
     }, [getToken])
