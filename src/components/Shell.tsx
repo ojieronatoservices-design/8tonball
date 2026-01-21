@@ -80,7 +80,7 @@ export function Shell({ children }: ShellProps) {
                         schema: 'public',
                         table: 'profiles',
                         filter: `id=eq.${user.id}`
-                    }, (payload) => {
+                    }, (payload: any) => {
                         if (payload.new && typeof payload.new.tibs_balance === 'number') {
                             setBalance(payload.new.tibs_balance)
                         }
