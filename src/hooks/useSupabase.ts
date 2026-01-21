@@ -1,5 +1,5 @@
 import { useAuth } from '@clerk/nextjs'
-import { createClerkSupabaseClient } from '@/lib/supabase'
+import { createClerkSupabaseClient, supabase } from '@/lib/supabase'
 import { useMemo } from 'react'
 
 export function useSupabase() {
