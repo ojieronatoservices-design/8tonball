@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState } from 'react'
-import { Plus, Check, X, Image as ImageIcon, Trash2, LayoutDashboard, Camera, Loader2, CheckCircle2, Trophy, Settings, LogOut } from 'lucide-react'
+import { Plus, Check, X, LayoutDashboard, Loader2, CheckCircle2, Trophy } from 'lucide-react'
 import { useUser, useAuth } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
 
@@ -9,9 +9,9 @@ export default function AdminDashboard() {
     const { user } = useUser()
     const { userId } = useAuth()
     const { getClient } = useSupabase()
-    const [activeTab, setActiveTab] = useState<'raffles' | 'payments'>('raffles')
-    const [raffleImages, setRaffleImages] = useState<File[]>([])
-    const [rafflePreviews, setRafflePreviews] = useState<string[]>([])
+    const [activeTab, setActiveTab] = useState<'events' | 'payments'>('events')
+    const [eventImages, setEventImages] = useState<File[]>([])
+    const [eventPreviews, setEventPreviews] = useState<string[]>([])
     const [isLaunching, setIsLaunching] = useState(false)
 
     // Form State
@@ -24,15 +24,15 @@ export default function AdminDashboard() {
     const [payments, setPayments] = useState<any[]>([])
     const [isLoadingPayments, setIsLoadingPayments] = useState(false)
 
-    // Manage Raffles State
-    const [existingRaffles, setExistingRaffles] = useState<any[]>([])
-    const [isLoadingRaffles, setIsLoadingRaffles] = useState(false)
+    // Manage Events State
+    const [existingEvents, setExistingEvents] = useState<any[]>([])
+    const [isLoadingEvents, setIsLoadingEvents] = useState(false)
 
-    const fetchRaffles = async () => {
+    const fetchEvents = async () => {
         const supabaseClient = await getClient()
         if (!supabaseClient) return
 
-        setIsLoadingRaffles(true)
+        setIsLoadingEvents(true)
         try {
             const { data, error } = await supabaseClient
                 .from('raffles')
@@ -40,11 +40,11 @@ export default function AdminDashboard() {
                 .order('created_at', { ascending: false })
 
             if (error) throw error
-            setExistingRaffles(data || [])
+            setExistingEvents(data || [])
         } catch (error) {
-            console.error('Error fetching raffles:', error)
+            console.error('Error fetching events:', error)
         } finally {
-            setIsLoadingRaffles(false)
+            setIsLoadingEvents(false)
         }
     }
 
@@ -72,34 +72,41 @@ export default function AdminDashboard() {
     React.useEffect(() => {
         if (activeTab === 'payments') {
             fetchPayments()
-        } else if (activeTab === 'raffles') {
-            fetchRaffles()
+        } else if (activeTab === 'events') {
+            fetchEvents()
         }
     }, [activeTab, userId])
 
-    const handleDrawWinner = async (raffleId: string) => {
+    const handleDrawWinner = async (eventId: string, eventTitle: string, eventImage: string) => {
         const supabaseClient = await getClient()
         if (!supabaseClient) return
 
         if (!confirm('Are you sure you want to draw a winner now?')) return
 
         try {
-            // 1. Get all entries for this raffle
+            // 1. Get all entries for this event
             const { data: entries, error: entriesError } = await supabaseClient
                 .from('entries')
                 .select('user_id')
-                .eq('raffle_id', raffleId)
+                .eq('raffle_id', eventId)
 
             if (entriesError) throw entriesError
             if (!entries || entries.length === 0) {
-                alert('No entries found for this raffle.')
+                alert('No entries found for this event.')
                 return
             }
 
             // 2. Randomly select a winner
             const winner = entries[Math.floor(Math.random() * entries.length)]
 
-            // 3. Update raffle status and winner
+            // 3. Get winner's email
+            const { data: winnerProfile } = await supabaseClient
+                .from('profiles')
+                .select('email, display_name')
+                .eq('id', winner.user_id)
+                .single()
+
+            // 4. Update event status and winner
             const { error: updateError } = await supabaseClient
                 .from('raffles')
                 .update({
@@ -107,19 +114,33 @@ export default function AdminDashboard() {
                     winner_user_id: winner.user_id,
                     drawn_at: new Date().toISOString()
                 })
-                .eq('id', raffleId)
+                .eq('id', eventId)
 
             if (updateError) throw updateError
 
-            // 4. Create notification for the winner
+            // 5. Create notification for the winner
             await supabaseClient.from('notifications').insert([{
                 user_id: winner.user_id,
-                message: `Congratulations! You won the raffle! Check your profile for details.`,
+                message: `🎉 Congratulations! You won "${eventTitle}"! Check your email for details.`,
                 type: 'win'
             }])
 
-            alert('Winner drawn successfully!')
-            fetchRaffles()
+            // 6. Send winner email
+            if (winnerProfile?.email) {
+                await fetch('/api/send-winner-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        to: winnerProfile.email,
+                        winnerName: winnerProfile.display_name,
+                        eventTitle: eventTitle,
+                        eventImage: eventImage
+                    })
+                })
+            }
+
+            alert('Winner drawn successfully! Email notification sent.')
+            fetchEvents()
         } catch (error: any) {
             console.error('Error drawing winner:', error)
             alert(error.message || 'Error drawing winner.')
@@ -167,25 +188,19 @@ export default function AdminDashboard() {
         const files = e.target.files
         if (files && files.length > 0) {
             const newFiles = Array.from(files)
-            setRaffleImages(prev => [...prev, ...newFiles])
+            setEventImages((prev: File[]) => [...prev, ...newFiles])
 
-            // Generate previews
             const newPreviews = newFiles.map(file => URL.createObjectURL(file))
-            setRafflePreviews(prev => [...prev, ...newPreviews])
+            setEventPreviews((prev: string[]) => [...prev, ...newPreviews])
         }
     }
 
     const removeImage = (index: number) => {
-        setRaffleImages(prev => prev.filter((_, i) => i !== index))
-        setRafflePreviews(prev => {
-            const newPreviews = prev.filter((_, i) => i !== index)
-            // Revoke the old URL to avoid memory leaks (optional but good practice)
-            // URL.revokeObjectURL(prev[index]) 
-            return newPreviews
-        })
+        setEventImages((prev: File[]) => prev.filter((_: File, i: number) => i !== index))
+        setEventPreviews((prev: string[]) => prev.filter((_: string, i: number) => i !== index))
     }
 
-    const handleLaunchRaffle = async () => {
+    const handleLaunchEvent = async () => {
         if (!title || !cost || !drawTime) {
             alert('Please fill in all required fields (Title, Cost, Draw Time)')
             return
@@ -193,7 +208,7 @@ export default function AdminDashboard() {
 
         const supabaseClient = await getClient()
         if (!supabaseClient || !userId) {
-            alert('You must be logged in to launch a raffle.')
+            alert('You must be logged in to launch an event.')
             return
         }
 
@@ -202,8 +217,8 @@ export default function AdminDashboard() {
             const mediaUrls: string[] = []
 
             // 1. Upload Images to Supabase Storage
-            if (raffleImages.length > 0) {
-                for (const image of raffleImages) {
+            if (eventImages.length > 0) {
+                for (const image of eventImages) {
                     const fileExt = image.name.split('.').pop()
                     const fileName = `${userId}-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
                     const filePath = `raffles/${fileName}`
@@ -222,7 +237,7 @@ export default function AdminDashboard() {
                 }
             }
 
-            // 2. Insert Raffle into Database
+            // 2. Insert Event into Database
             const { error: insertError } = await supabaseClient
                 .from('raffles')
                 .insert([{
@@ -237,18 +252,19 @@ export default function AdminDashboard() {
 
             if (insertError) throw insertError
 
-            alert('Raffle launched successfully!')
+            alert('Event launched successfully!')
             // Reset form
             setTitle('')
             setDescription('')
             setCost('')
             setDrawTime('')
-            setRaffleImages([])
-            setRafflePreviews([])
+            setEventImages([])
+            setEventPreviews([])
+            fetchEvents()
 
         } catch (error: any) {
-            console.error('Error launching raffle:', error)
-            alert(error.message || 'Error launching raffle. Check your connection or permissions.')
+            console.error('Error launching event:', error)
+            alert(error.message || 'Error launching event.')
         } finally {
             setIsLaunching(false)
         }
@@ -269,11 +285,11 @@ export default function AdminDashboard() {
             {/* Admin Tabs */}
             <div className="flex bg-card p-1.5 rounded-2xl border border-white/5">
                 <button
-                    onClick={() => setActiveTab('raffles')}
-                    className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'raffles' ? 'bg-primary text-black' : 'text-white/40 hover:text-white/60'
+                    onClick={() => setActiveTab('events')}
+                    className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'events' ? 'bg-primary text-black' : 'text-white/40 hover:text-white/60'
                         }`}
                 >
-                    Manage Raffles
+                    Manage Events
                 </button>
                 <button
                     onClick={() => setActiveTab('payments')}
@@ -284,13 +300,13 @@ export default function AdminDashboard() {
                 </button>
             </div>
 
-            {activeTab === 'raffles' ? (
+            {activeTab === 'events' ? (
                 <div className="flex flex-col gap-10">
-                    {/* Create Raffle Card */}
+                    {/* Create Event Card */}
                     <div className="bg-card p-8 rounded-3xl border border-dashed border-primary/30 flex flex-col gap-6">
                         <h3 className="text-lg font-bold flex items-center gap-2">
                             <Plus className="text-primary" size={20} />
-                            New Raffle
+                            New Event
                         </h3>
                         <div className="flex flex-col gap-4">
                             <div className="flex flex-col gap-1.5">
@@ -336,7 +352,7 @@ export default function AdminDashboard() {
                                 <div className="flex flex-col gap-1.5 col-span-2">
                                     <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Media (Multiple allowed)</label>
                                     <div className="grid grid-cols-4 gap-2">
-                                        {rafflePreviews.map((preview, index) => (
+                                        {eventPreviews.map((preview: string, index: number) => (
                                             <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-white/10 group">
                                                 <img src={preview} alt="Preview" className="w-full h-full object-cover" />
                                                 <button
@@ -356,7 +372,7 @@ export default function AdminDashboard() {
                                 </div>
                             </div>
                             <button
-                                onClick={handleLaunchRaffle}
+                                onClick={handleLaunchEvent}
                                 disabled={isLaunching}
                                 className="w-full py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 mt-2 transition-transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
@@ -366,29 +382,29 @@ export default function AdminDashboard() {
                         </div>
                     </div>
 
-                    {/* Active Raffles List */}
+                    {/* Active Events List */}
                     <div className="flex flex-col gap-4">
-                        <h3 className="text-lg font-bold px-2">Manage Active Raffles</h3>
-                        {isLoadingRaffles ? (
+                        <h3 className="text-lg font-bold px-2">Manage Active Events</h3>
+                        {isLoadingEvents ? (
                             <div className="flex items-center justify-center py-10">
                                 <Loader2 className="animate-spin text-primary" size={24} />
                             </div>
-                        ) : existingRaffles.filter(r => r.status === 'open').length === 0 ? (
-                            <p className="text-white/20 text-center py-10 text-sm font-bold uppercase tracking-widest">No active raffles to draw.</p>
+                        ) : existingEvents.filter((e: any) => e.status === 'open').length === 0 ? (
+                            <p className="text-white/20 text-center py-10 text-sm font-bold uppercase tracking-widest">No active events to draw.</p>
                         ) : (
-                            existingRaffles.filter(r => r.status === 'open').map((raffle) => (
-                                <div key={raffle.id} className="bg-card p-5 rounded-3xl border border-white/5 flex items-center gap-4">
+                            existingEvents.filter((e: any) => e.status === 'open').map((event: any) => (
+                                <div key={event.id} className="bg-card p-5 rounded-3xl border border-white/5 flex items-center gap-4">
                                     <div className="w-16 h-16 bg-white/5 rounded-2xl overflow-hidden shrink-0 border border-white/10">
-                                        <img src={raffle.media_urls?.[0] || 'https://via.placeholder.com/150'} alt="proof" className="w-full h-full object-cover" />
+                                        <img src={event.media_urls?.[0] || 'https://via.placeholder.com/150'} alt="proof" className="w-full h-full object-cover" />
                                     </div>
                                     <div className="flex-1 overflow-hidden">
-                                        <h4 className="font-bold text-sm truncate">{raffle.title}</h4>
+                                        <h4 className="font-bold text-sm truncate">{event.title}</h4>
                                         <p className="text-white/40 text-[10px] font-black uppercase tracking-widest">
-                                            {raffle.entries?.[0]?.count || 0} Entries
+                                            {event.entries?.[0]?.count || 0} Entries
                                         </p>
                                     </div>
                                     <button
-                                        onClick={() => handleDrawWinner(raffle.id)}
+                                        onClick={() => handleDrawWinner(event.id, event.title, event.media_urls?.[0])}
                                         className="px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-black transition-all"
                                     >
                                         Draw Winner
@@ -410,7 +426,7 @@ export default function AdminDashboard() {
                             <p className="font-bold">Queue is clear!</p>
                         </div>
                     ) : (
-                        payments.map((pmt) => (
+                        payments.map((pmt: any) => (
                             <div key={pmt.id} className="bg-card p-5 rounded-3xl border border-white/5 flex items-center gap-4">
                                 <div className="w-16 h-16 bg-white/5 rounded-2xl overflow-hidden shrink-0 border border-white/10 group relative cursor-zoom-in">
                                     <img src={pmt.proof_image_url} alt="proof" className="w-full h-full object-cover" />
@@ -441,9 +457,7 @@ export default function AdminDashboard() {
                         ))
                     )}
                 </div>
-
             )}
         </div>
     )
 }
-
