@@ -26,6 +26,8 @@ export function Shell({ children }: ShellProps) {
     const { getClient } = useSupabase()
     const { showToast } = useToast()
     const [balance, setBalance] = useState<number>(0)
+    const [isAdmin, setIsAdmin] = useState(false)
+    const [isHostEligible, setIsHostEligible] = useState(false)
     const [isSyncing, setIsSyncing] = useState(false)
 
     const isAuthPage = pathname === '/login'
@@ -43,7 +45,7 @@ export function Shell({ children }: ShellProps) {
             // Check if profile exists
             const { data: profile, error: fetchError } = await supabaseClient
                 .from('profiles')
-                .select('tibs_balance')
+                .select('tibs_balance, is_admin, is_host_eligible')
                 .eq('id', user.id)
                 .single()
 
@@ -70,6 +72,8 @@ export function Shell({ children }: ShellProps) {
                 console.error('[syncProfile] Error fetching profile:', fetchError.code, fetchError.message)
             } else if (profile) {
                 setBalance(profile.tibs_balance)
+                setIsAdmin(profile.is_admin || false)
+                setIsHostEligible(profile.is_host_eligible || false)
             }
         } catch (err: any) {
             console.error('[syncProfile] Unexpected error:', err?.message || err)
@@ -120,10 +124,16 @@ export function Shell({ children }: ShellProps) {
 
 
 
+    // Build nav items - Admin tab only for admins, Host tab for eligible hosts
     const navItems = [
         { label: 'Feed', href: '/', icon: Trophy },
         { label: 'Wallet', href: '/wallet', icon: Wallet },
-        { label: 'Admin', href: '/admin', icon: LayoutDashboard },
+        // Only show Admin for admins, or Host for eligible hosts
+        ...(isAdmin
+            ? [{ label: 'Admin', href: '/admin', icon: LayoutDashboard }]
+            : isHostEligible
+                ? [{ label: 'Host', href: '/admin', icon: LayoutDashboard }]
+                : []),
         { label: 'Activity', href: '/notifications', icon: Bell },
         { label: 'Profile', href: '/profile', icon: User },
     ]

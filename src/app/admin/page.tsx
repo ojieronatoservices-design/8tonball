@@ -1,7 +1,7 @@
 "use client"
 
-import React, { useState } from 'react'
-import { Plus, Check, X, LayoutDashboard, Loader2, CheckCircle2, Trophy } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Plus, Check, X, LayoutDashboard, Loader2, CheckCircle2, Trophy, ShieldAlert } from 'lucide-react'
 import { useUser, useAuth } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
 
@@ -13,6 +13,11 @@ export default function AdminDashboard() {
     const [eventImages, setEventImages] = useState<File[]>([])
     const [eventPreviews, setEventPreviews] = useState<string[]>([])
     const [isLaunching, setIsLaunching] = useState(false)
+
+    // Permission State
+    const [isAdmin, setIsAdmin] = useState(false)
+    const [isHostEligible, setIsHostEligible] = useState(false)
+    const [isCheckingPermissions, setIsCheckingPermissions] = useState(true)
 
     // Form State
     const [title, setTitle] = useState('')
@@ -27,6 +32,41 @@ export default function AdminDashboard() {
     // Manage Events State
     const [existingEvents, setExistingEvents] = useState<any[]>([])
     const [isLoadingEvents, setIsLoadingEvents] = useState(false)
+
+    // Check permissions on load
+    useEffect(() => {
+        const checkPermissions = async () => {
+            if (!userId) {
+                setIsCheckingPermissions(false)
+                return
+            }
+
+            const supabaseClient = await getClient()
+            if (!supabaseClient) {
+                setIsCheckingPermissions(false)
+                return
+            }
+
+            try {
+                const { data: profile, error } = await supabaseClient
+                    .from('profiles')
+                    .select('is_admin, is_host_eligible')
+                    .eq('id', userId)
+                    .single()
+
+                if (profile) {
+                    setIsAdmin(profile.is_admin || false)
+                    setIsHostEligible(profile.is_host_eligible || false)
+                }
+            } catch (err) {
+                console.error('Error checking permissions:', err)
+            } finally {
+                setIsCheckingPermissions(false)
+            }
+        }
+
+        checkPermissions()
+    }, [userId])
 
     const fetchEvents = async () => {
         const supabaseClient = await getClient()
@@ -271,35 +311,69 @@ export default function AdminDashboard() {
         }
     }
 
+    // Show loading while checking permissions
+    if (isCheckingPermissions) {
+        return (
+            <div className="flex flex-col items-center justify-center py-32 gap-4">
+                <Loader2 className="animate-spin text-primary" size={32} />
+                <p className="text-white/40 text-sm">Checking permissions...</p>
+            </div>
+        )
+    }
+
+    // Block access if not admin or host eligible
+    if (!isAdmin && !isHostEligible) {
+        return (
+            <div className="flex flex-col items-center justify-center py-32 gap-6 text-center px-8">
+                <div className="bg-red-500/20 p-4 rounded-2xl border border-red-500/30">
+                    <ShieldAlert className="text-red-500" size={48} />
+                </div>
+                <h2 className="text-2xl font-black">Access Denied</h2>
+                <p className="text-white/40 text-sm max-w-xs">
+                    You need to spend at least <span className="text-primary font-bold">8,000 Tibs</span> to become eligible to host events.
+                </p>
+                <a href="/wallet" className="mt-4 px-6 py-3 bg-primary text-black font-black uppercase tracking-widest rounded-2xl text-sm">
+                    Go to Wallet
+                </a>
+            </div>
+        )
+    }
+
     return (
         <div className="flex flex-col gap-8 pb-20">
             <div className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
-                    <h2 className="text-2xl font-black tracking-tight">Admin Hub</h2>
-                    <p className="text-white/40 text-sm">Control center for 8TONBALL.</p>
+                    <h2 className="text-2xl font-black tracking-tight">
+                        {isAdmin ? 'Admin Hub' : 'Host Dashboard'}
+                    </h2>
+                    <p className="text-white/40 text-sm">
+                        {isAdmin ? 'Control center for 8TONBALL.' : 'Launch and manage your events.'}
+                    </p>
                 </div>
                 <div className="bg-primary/20 p-2 rounded-xl border border-primary/30">
                     <LayoutDashboard className="text-primary" size={24} />
                 </div>
             </div>
 
-            {/* Admin Tabs */}
-            <div className="flex bg-card p-1.5 rounded-2xl border border-white/5">
-                <button
-                    onClick={() => setActiveTab('events')}
-                    className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'events' ? 'bg-primary text-black' : 'text-white/40 hover:text-white/60'
-                        }`}
-                >
-                    Manage Events
-                </button>
-                <button
-                    onClick={() => setActiveTab('payments')}
-                    className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'payments' ? 'bg-primary text-black' : 'text-white/40 hover:text-white/60'
-                        }`}
-                >
-                    Payments Queue
-                </button>
-            </div>
+            {/* Admin Tabs - Only show Payments tab for admins */}
+            {isAdmin ? (
+                <div className="flex bg-card p-1.5 rounded-2xl border border-white/5">
+                    <button
+                        onClick={() => setActiveTab('events')}
+                        className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'events' ? 'bg-primary text-black' : 'text-white/40 hover:text-white/60'
+                            }`}
+                    >
+                        Manage Events
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('payments')}
+                        className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'payments' ? 'bg-primary text-black' : 'text-white/40 hover:text-white/60'
+                            }`}
+                    >
+                        Payments Queue
+                    </button>
+                </div>
+            ) : null}
 
             {activeTab === 'events' ? (
                 <div className="flex flex-col gap-10">
@@ -385,33 +459,46 @@ export default function AdminDashboard() {
 
                     {/* Active Events List */}
                     <div className="flex flex-col gap-4">
-                        <h3 className="text-lg font-bold px-2">Manage Active Events</h3>
+                        <h3 className="text-lg font-bold px-2">
+                            {isAdmin ? 'Manage Active Events' : 'Your Events'}
+                        </h3>
                         {isLoadingEvents ? (
                             <div className="flex items-center justify-center py-10">
                                 <Loader2 className="animate-spin text-primary" size={24} />
                             </div>
-                        ) : existingEvents.filter((e: any) => e.status === 'open').length === 0 ? (
-                            <p className="text-white/20 text-center py-10 text-sm font-bold uppercase tracking-widest">No active events to draw.</p>
+                        ) : existingEvents
+                            .filter((e: any) => e.status === 'open')
+                            .filter((e: any) => isAdmin || e.host_user_id === userId) // Hosts only see their own
+                            .length === 0 ? (
+                            <p className="text-white/20 text-center py-10 text-sm font-bold uppercase tracking-widest">
+                                {isAdmin ? 'No active events to draw.' : 'You haven\'t launched any events yet.'}
+                            </p>
                         ) : (
-                            existingEvents.filter((e: any) => e.status === 'open').map((event: any) => (
-                                <div key={event.id} className="bg-card p-5 rounded-3xl border border-white/5 flex items-center gap-4">
-                                    <div className="w-16 h-16 bg-white/5 rounded-2xl overflow-hidden shrink-0 border border-white/10">
-                                        <img src={event.media_urls?.[0] || 'https://via.placeholder.com/150'} alt="proof" className="w-full h-full object-cover" />
+                            existingEvents
+                                .filter((e: any) => e.status === 'open')
+                                .filter((e: any) => isAdmin || e.host_user_id === userId)
+                                .map((event: any) => (
+                                    <div key={event.id} className="bg-card p-5 rounded-3xl border border-white/5 flex items-center gap-4">
+                                        <div className="w-16 h-16 bg-white/5 rounded-2xl overflow-hidden shrink-0 border border-white/10">
+                                            <img src={event.media_urls?.[0] || 'https://via.placeholder.com/150'} alt="proof" className="w-full h-full object-cover" />
+                                        </div>
+                                        <div className="flex-1 overflow-hidden">
+                                            <h4 className="font-bold text-sm truncate">{event.title}</h4>
+                                            <p className="text-white/40 text-[10px] font-black uppercase tracking-widest">
+                                                {event.entries?.[0]?.count || 0} Entries
+                                            </p>
+                                        </div>
+                                        {/* Only admins can draw winners */}
+                                        {isAdmin && (
+                                            <button
+                                                onClick={() => handleDrawWinner(event.id, event.title, event.media_urls?.[0])}
+                                                className="px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-black transition-all"
+                                            >
+                                                Draw Winner
+                                            </button>
+                                        )}
                                     </div>
-                                    <div className="flex-1 overflow-hidden">
-                                        <h4 className="font-bold text-sm truncate">{event.title}</h4>
-                                        <p className="text-white/40 text-[10px] font-black uppercase tracking-widest">
-                                            {event.entries?.[0]?.count || 0} Entries
-                                        </p>
-                                    </div>
-                                    <button
-                                        onClick={() => handleDrawWinner(event.id, event.title, event.media_urls?.[0])}
-                                        className="px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-black transition-all"
-                                    >
-                                        Draw Winner
-                                    </button>
-                                </div>
-                            ))
+                                ))
                         )}
                     </div>
                 </div>
