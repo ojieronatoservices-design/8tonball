@@ -102,19 +102,13 @@ CREATE POLICY "Users can view own notifications" ON notifications FOR SELECT USI
 -- 7. Functions & RPCs
 
 -- Atomic Entry Creation
-CREATE OR REPLACE FUNCTION enter_raffle(p_raffle_id UUID)
+CREATE OR REPLACE FUNCTION enter_raffle(p_raffle_id UUID, p_user_id TEXT)
 RETURNS JSONB AS $$
 DECLARE
     v_cost INTEGER;
     v_user_balance BIGINT;
     v_status TEXT;
-    v_user_id TEXT;
 BEGIN
-    v_user_id := auth_uid_text();
-    IF v_user_id IS NULL THEN
-        RETURN jsonb_build_object('success', false, 'message', 'Not authenticated');
-    END IF;
-
     -- 1. Get cost and raffle status
     SELECT entry_cost_tibs, status INTO v_cost, v_status FROM raffles WHERE id = p_raffle_id;
     
@@ -123,7 +117,7 @@ BEGIN
     END IF;
 
     -- 2. Check user balance
-    SELECT tibs_balance INTO v_user_balance FROM profiles WHERE id = v_user_id;
+    SELECT tibs_balance INTO v_user_balance FROM profiles WHERE id = p_user_id;
     
     IF v_user_balance < v_cost THEN
         RETURN jsonb_build_object('success', false, 'message', 'Insufficient Tibs balance');
@@ -135,10 +129,10 @@ BEGIN
         tibs_balance = tibs_balance - v_cost,
         total_tibs_spent = total_tibs_spent + v_cost,
         is_host_eligible = (total_tibs_spent + v_cost >= 8000)
-    WHERE id = v_user_id;
+    WHERE id = p_user_id;
 
     -- 4. Create entry
-    INSERT INTO entries (raffle_id, user_id) VALUES (p_raffle_id, v_user_id);
+    INSERT INTO entries (raffle_id, user_id) VALUES (p_raffle_id, p_user_id);
 
     RETURN jsonb_build_object('success', true, 'new_balance', v_user_balance - v_cost);
 EXCEPTION WHEN OTHERS THEN
@@ -147,17 +141,15 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Transaction Approval
-CREATE OR REPLACE FUNCTION approve_transaction(p_transaction_id UUID)
+CREATE OR REPLACE FUNCTION approve_transaction(p_transaction_id UUID, p_admin_id TEXT)
 RETURNS JSONB AS $$
 DECLARE
     v_user_id TEXT;
     v_tibs INTEGER;
     v_status TEXT;
-    v_admin_id TEXT;
 BEGIN
-    v_admin_id := auth_uid_text();
     -- Check if caller is admin
-    IF NOT (SELECT is_admin FROM profiles WHERE id = v_admin_id) THEN
+    IF NOT (SELECT is_admin FROM profiles WHERE id = p_admin_id) THEN
         RETURN jsonb_build_object('success', false, 'message', 'Unauthorized');
     END IF;
 
@@ -172,7 +164,7 @@ BEGIN
     SET 
         status = 'approved', 
         processed_at = NOW(), 
-        processed_by = v_admin_id 
+        processed_by = p_admin_id 
     WHERE id = p_transaction_id;
 
     -- Credit user

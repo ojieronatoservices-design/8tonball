@@ -153,7 +153,8 @@ export default function AdminDashboard() {
 
         try {
             const { data, error } = await supabaseClient.rpc('approve_transaction', {
-                p_transaction_id: id
+                p_transaction_id: id,
+                p_admin_id: userId
             })
 
             if (error) throw error

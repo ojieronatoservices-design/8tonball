@@ -210,7 +210,8 @@ export default function HomePage() {
 
     try {
       const { data, error } = await supabaseClient.rpc('enter_raffle', {
-        p_raffle_id: eventId
+        p_raffle_id: eventId,
+        p_user_id: userId
       })
 
       if (error) throw error
