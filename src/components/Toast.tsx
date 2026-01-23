@@ -17,10 +17,14 @@ interface ToastContextType {
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined)
 
+// Safe no-op fallback for when useToast is called outside provider (e.g., during SSG/SSR)
+const noopShowToast = () => { }
+
 export function useToast() {
     const context = useContext(ToastContext)
     if (!context) {
-        throw new Error('useToast must be used within a ToastProvider')
+        // Return no-op instead of throwing - this allows static rendering to work
+        return { showToast: noopShowToast }
     }
     return context
 }
