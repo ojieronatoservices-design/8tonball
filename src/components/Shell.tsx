@@ -9,6 +9,7 @@ import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { useUser, SignInButton, UserButton, useClerk } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
+import { useToast } from '@/components/Toast'
 
 function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs))
@@ -23,6 +24,7 @@ export function Shell({ children }: ShellProps) {
     const { user, isLoaded } = useUser()
     const { signOut } = useClerk()
     const { getClient } = useSupabase()
+    const { showToast } = useToast()
     const [balance, setBalance] = useState<number>(0)
     const [isSyncing, setIsSyncing] = useState(false)
 
@@ -31,7 +33,10 @@ export function Shell({ children }: ShellProps) {
     const syncProfile = async () => {
         if (!user) return
         const supabaseClient = await getClient()
-        if (!supabaseClient) return
+        if (!supabaseClient) {
+            console.error('[syncProfile] Failed to get Supabase client')
+            return
+        }
 
         setIsSyncing(true)
         try {
@@ -44,23 +49,36 @@ export function Shell({ children }: ShellProps) {
 
             if (fetchError && fetchError.code === 'PGRST116') {
                 // Profile doesn't exist, create it
-                const { error: insertError } = await supabaseClient
+                console.log('[syncProfile] Creating new profile for user:', user.id)
+                const { data: insertData, error: insertError } = await supabaseClient
                     .from('profiles')
                     .insert([{
                         id: user.id,
                         email: user.primaryEmailAddress?.emailAddress,
-                        display_name: user.fullName || user.username || user.primaryEmailAddress?.emailAddress.split('@')[0],
+                        display_name: user.fullName || user.username || user.primaryEmailAddress?.emailAddress?.split('@')[0],
                     }])
-                if (insertError) console.error('Error creating profile:', insertError)
+                    .select()
+
+                if (insertError) {
+                    console.error('[syncProfile] Error creating profile:', insertError.code, insertError.message, insertError.details)
+                    showToast(`Profile sync failed: ${insertError.message}`, 'error')
+                } else {
+                    console.log('[syncProfile] Profile created successfully:', insertData)
+                    showToast('Welcome! Your profile has been created.', 'success')
+                }
+            } else if (fetchError) {
+                console.error('[syncProfile] Error fetching profile:', fetchError.code, fetchError.message)
             } else if (profile) {
                 setBalance(profile.tibs_balance)
             }
-        } catch (err) {
-            console.error('Sync error:', err)
+        } catch (err: any) {
+            console.error('[syncProfile] Unexpected error:', err?.message || err)
+            showToast('Failed to sync profile. Please try again.', 'error')
         } finally {
             setIsSyncing(false)
         }
     }
+
 
     useEffect(() => {
         let channel: any = null

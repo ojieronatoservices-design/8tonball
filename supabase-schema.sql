@@ -72,8 +72,10 @@ RETURNS TEXT AS $$
   SELECT NULLIF(current_setting('request.jwt.claims', true)::json->>'sub', '')::TEXT;
 $$ LANGUAGE sql STABLE;
 
--- Profiles: Users can view their own
+-- Profiles: Users can view, insert, and update their own
 CREATE POLICY "Users can view own profile" ON profiles FOR SELECT USING (auth_uid_text() = id);
+CREATE POLICY "Users can insert own profile" ON profiles FOR INSERT WITH CHECK (auth_uid_text() = id);
+CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth_uid_text() = id) WITH CHECK (auth_uid_text() = id);
 CREATE POLICY "Admin can view all profiles" ON profiles FOR ALL USING (
     (SELECT is_admin FROM profiles WHERE id = auth_uid_text()) = TRUE
 );
