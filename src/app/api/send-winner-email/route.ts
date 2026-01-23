@@ -7,12 +7,16 @@ export async function POST(request: NextRequest) {
     try {
         const { to, winnerName, eventTitle, eventImage } = await request.json()
 
+        console.log('[send-winner-email] Attempting to send email to:', to)
+
         if (!to || !eventTitle) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
         }
 
+        // Use Resend's shared domain until custom domain is verified
+        // To use your own domain, verify it at https://resend.com/domains
         const { data, error } = await resend.emails.send({
-            from: '8TONBALL <noreply@8tonball.com>',
+            from: '8TONBALL <onboarding@resend.dev>',
             to: [to],
             subject: `🎉 Congratulations! You won ${eventTitle}!`,
             html: `

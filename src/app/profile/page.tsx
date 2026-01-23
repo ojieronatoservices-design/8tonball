@@ -284,7 +284,10 @@ export default function ProfilePage() {
 
             {/* Actions */}
             <div className="flex flex-col gap-3">
-                <button className="w-full p-4 bg-white/5 rounded-2xl flex items-center justify-between hover:bg-white/10 transition-colors group">
+                <button
+                    onClick={() => window.open('https://accounts.clerk.dev/user', '_blank')}
+                    className="w-full p-4 bg-white/5 rounded-2xl flex items-center justify-between hover:bg-white/10 transition-colors group"
+                >
                     <div className="flex items-center gap-3">
                         <Settings size={20} className="text-white/40 group-hover:text-primary transition-colors" />
                         <span className="font-bold text-sm">Account Settings</span>

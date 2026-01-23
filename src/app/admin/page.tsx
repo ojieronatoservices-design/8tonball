@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from 'react'
-import { Plus, Check, X, LayoutDashboard, Loader2, CheckCircle2, Trophy, ShieldAlert } from 'lucide-react'
+import { Plus, Check, X, LayoutDashboard, Loader2, CheckCircle2, Trophy, ShieldAlert, BarChart3, Users, Ticket, Coins } from 'lucide-react'
 import { useUser, useAuth } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
 
@@ -9,7 +9,7 @@ export default function AdminDashboard() {
     const { user } = useUser()
     const { userId } = useAuth()
     const { getClient } = useSupabase()
-    const [activeTab, setActiveTab] = useState<'events' | 'payments'>('events')
+    const [activeTab, setActiveTab] = useState<'events' | 'payments' | 'analytics'>('events')
     const [eventImages, setEventImages] = useState<File[]>([])
     const [eventPreviews, setEventPreviews] = useState<string[]>([])
     const [isLaunching, setIsLaunching] = useState(false)
@@ -32,6 +32,16 @@ export default function AdminDashboard() {
     // Manage Events State
     const [existingEvents, setExistingEvents] = useState<any[]>([])
     const [isLoadingEvents, setIsLoadingEvents] = useState(false)
+
+    // Analytics State
+    const [analytics, setAnalytics] = useState<{
+        totalUsers: number
+        totalEvents: number
+        totalEntries: number
+        totalTibsSpent: number
+        pendingPayments: number
+    } | null>(null)
+    const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false)
 
     // Check permissions on load
     useEffect(() => {
@@ -88,6 +98,42 @@ export default function AdminDashboard() {
         }
     }
 
+    const fetchAnalytics = async () => {
+        const supabaseClient = await getClient()
+        if (!supabaseClient) return
+
+        setIsLoadingAnalytics(true)
+        try {
+            const [
+                { count: usersCount },
+                { count: eventsCount },
+                { count: entriesCount },
+                { data: profilesData },
+                { count: pendingCount }
+            ] = await Promise.all([
+                supabaseClient.from('profiles').select('*', { count: 'exact', head: true }),
+                supabaseClient.from('raffles').select('*', { count: 'exact', head: true }),
+                supabaseClient.from('entries').select('*', { count: 'exact', head: true }),
+                supabaseClient.from('profiles').select('total_tibs_spent'),
+                supabaseClient.from('transactions').select('*', { count: 'exact', head: true }).eq('status', 'pending')
+            ])
+
+            const totalSpent = profilesData?.reduce((acc, curr) => acc + (curr.total_tibs_spent || 0), 0) || 0
+
+            setAnalytics({
+                totalUsers: usersCount || 0,
+                totalEvents: eventsCount || 0,
+                totalEntries: entriesCount || 0,
+                totalTibsSpent: totalSpent,
+                pendingPayments: pendingCount || 0
+            })
+        } catch (error) {
+            console.error('Error fetching analytics:', error)
+        } finally {
+            setIsLoadingAnalytics(false)
+        }
+    }
+
     const fetchPayments = async () => {
         const supabaseClient = await getClient()
         if (!supabaseClient) return
@@ -109,11 +155,13 @@ export default function AdminDashboard() {
         }
     }
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (activeTab === 'payments') {
             fetchPayments()
         } else if (activeTab === 'events') {
             fetchEvents()
+        } else if (activeTab === 'analytics') {
+            fetchAnalytics()
         }
     }, [activeTab, userId])
 
@@ -372,10 +420,63 @@ export default function AdminDashboard() {
                     >
                         Payments Queue
                     </button>
+                    <button
+                        onClick={() => setActiveTab('analytics')}
+                        className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'analytics' ? 'bg-primary text-black' : 'text-white/40 hover:text-white/60'
+                            }`}
+                    >
+                        Analytics
+                    </button>
                 </div>
             ) : null}
 
-            {activeTab === 'events' ? (
+            {activeTab === 'analytics' ? (
+                <div className="flex flex-col gap-6">
+                    {isLoadingAnalytics ? (
+                        <div className="flex items-center justify-center py-20">
+                            <Loader2 className="animate-spin text-primary" size={32} />
+                        </div>
+                    ) : analytics ? (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2">
+                                <div className="flex items-center gap-2 text-white/40">
+                                    <Users size={18} />
+                                    <span className="text-xs font-bold uppercase tracking-widest">Total Users</span>
+                                </div>
+                                <div className="text-3xl font-black">{analytics.totalUsers}</div>
+                            </div>
+                            <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2">
+                                <div className="flex items-center gap-2 text-white/40">
+                                    <Trophy size={18} />
+                                    <span className="text-xs font-bold uppercase tracking-widest">Total Events</span>
+                                </div>
+                                <div className="text-3xl font-black">{analytics.totalEvents}</div>
+                            </div>
+                            <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2">
+                                <div className="flex items-center gap-2 text-white/40">
+                                    <Ticket size={18} />
+                                    <span className="text-xs font-bold uppercase tracking-widest">Total Entries</span>
+                                </div>
+                                <div className="text-3xl font-black">{analytics.totalEntries}</div>
+                            </div>
+                            <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2">
+                                <div className="flex items-center gap-2 text-white/40">
+                                    <Coins size={18} />
+                                    <span className="text-xs font-bold uppercase tracking-widest">Tibs Spent</span>
+                                </div>
+                                <div className="text-3xl font-black text-primary">{analytics.totalTibsSpent.toLocaleString()}</div>
+                            </div>
+                            <div className="col-span-2 bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2">
+                                <div className="flex items-center gap-2 text-white/40">
+                                    <ShieldAlert size={18} />
+                                    <span className="text-xs font-bold uppercase tracking-widest">Pending Payments</span>
+                                </div>
+                                <div className="text-3xl font-black">{analytics.pendingPayments}</div>
+                            </div>
+                        </div>
+                    ) : null}
+                </div>
+            ) : activeTab === 'events' ? (
                 <div className="flex flex-col gap-10">
                     {/* Create Event Card */}
                     <div className="bg-card p-8 rounded-3xl border border-dashed border-primary/30 flex flex-col gap-6">
