@@ -175,7 +175,7 @@ export default function AdminDashboard() {
             // 1. Get all entries for this event
             const { data: entries, error: entriesError } = await supabaseClient
                 .from('entries')
-                .select('user_id')
+                .select('user_id, id')
                 .eq('raffle_id', eventId)
 
             if (entriesError) throw entriesError
@@ -200,6 +200,7 @@ export default function AdminDashboard() {
                 .update({
                     status: 'drawn',
                     winner_user_id: winner.user_id,
+                    winning_entry_id: winner.id,
                     drawn_at: new Date().toISOString()
                 })
                 .eq('id', eventId)

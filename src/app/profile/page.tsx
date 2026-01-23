@@ -17,6 +17,7 @@ type EntryWithEvent = {
         status: string
         ends_at: string
         winner_user_id: string | null
+        winning_entry_id: string | null
         media_urls: string[]
     }
 }
@@ -51,7 +52,7 @@ export default function ProfilePage() {
             // Fetch user's entries with event details
             const { data: entriesData, error: entriesError } = await supabaseClient
                 .from('entries')
-                .select('id, raffle_id, created_at, raffles(id, title, status, ends_at, winner_user_id, media_urls)')
+                .select('id, raffle_id, created_at, raffles(id, title, status, ends_at, winner_user_id, winning_entry_id, media_urls)')
                 .eq('user_id', userId)
                 .order('created_at', { ascending: false })
 
@@ -87,7 +88,14 @@ export default function ProfilePage() {
     const archivedEntries = myEntries.filter(e => e.raffles?.status !== 'open')
 
     // Check if user won an event
-    const didWin = (entry: EntryWithEvent) => entry.raffles?.winner_user_id === userId
+    const didWin = (entry: EntryWithEvent) => {
+        // If specific winning entry is recorded, check against it
+        if (entry.raffles?.winning_entry_id) {
+            return entry.raffles.winning_entry_id === entry.id
+        }
+        // Fallback for old raffles (before schema update)
+        return entry.raffles?.winner_user_id === userId
+    }
 
     if (isLoading) {
         return (
