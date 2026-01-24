@@ -20,6 +20,7 @@ type EntryWithEvent = {
         winning_entry_id: string | null
         media_urls: string[]
     }
+    ticketNumber?: number
 }
 
 export default function ProfilePage() {
@@ -57,7 +58,29 @@ export default function ProfilePage() {
                 .order('created_at', { ascending: false })
 
             if (entriesError) throw entriesError
-            setMyEntries(entriesData as any || [])
+
+            // Calculate ticket numbers
+            const processedEntries = (entriesData as any[]).map(entry => ({ ...entry })) // Clone
+
+            // Group by raffle to calculate ticket numbers (1st purchased = Ticket #1)
+            const entriesByRaffle: Record<string, EntryWithEvent[]> = {}
+            processedEntries.forEach((entry: EntryWithEvent) => {
+                if (!entriesByRaffle[entry.raffle_id]) entriesByRaffle[entry.raffle_id] = []
+                entriesByRaffle[entry.raffle_id].push(entry)
+            })
+
+            // Sort each group by date ASC and assign numbers
+            Object.values(entriesByRaffle).forEach(group => {
+                group.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+                group.forEach((entry, index) => {
+                    entry.ticketNumber = index + 1
+                })
+            })
+
+            // Flatten and sort by date DESC (newest first) for display
+            const finalEntries = Object.values(entriesByRaffle).flat().sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+            setMyEntries(finalEntries)
         } catch (error) {
             console.error('Error fetching profile:', error)
         } finally {
@@ -238,7 +261,12 @@ export default function ProfilePage() {
                                         />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <h4 className="font-bold text-sm truncate">{entry.raffles?.title}</h4>
+                                        <div className="flex justify-between items-start">
+                                            <h4 className="font-bold text-sm truncate">{entry.raffles?.title}</h4>
+                                            <span className="text-[10px] font-black uppercase tracking-widest bg-white/10 px-2 py-1 rounded text-white/50">
+                                                Ticket #{entry.ticketNumber}
+                                            </span>
+                                        </div>
                                         <CountdownTimer endsAt={entry.raffles?.ends_at} className="text-xs" />
                                     </div>
                                 </Link>
@@ -264,7 +292,12 @@ export default function ProfilePage() {
                                         />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <h4 className="font-bold text-sm truncate">{entry.raffles?.title}</h4>
+                                        <div className="flex justify-between items-start">
+                                            <h4 className="font-bold text-sm truncate">{entry.raffles?.title}</h4>
+                                            <span className="text-[10px] font-black uppercase tracking-widest bg-white/10 px-2 py-1 rounded text-white/50">
+                                                Ticket #{entry.ticketNumber}
+                                            </span>
+                                        </div>
                                         <span className="text-xs text-white/40">
                                             {entry.raffles?.status === 'drawn' ? 'Ended' : 'Closed'}
                                         </span>

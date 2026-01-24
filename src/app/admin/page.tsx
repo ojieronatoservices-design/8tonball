@@ -13,6 +13,7 @@ export default function AdminDashboard() {
     const [eventImages, setEventImages] = useState<File[]>([])
     const [eventPreviews, setEventPreviews] = useState<string[]>([])
     const [isLaunching, setIsLaunching] = useState(false)
+    const [viewArchive, setViewArchive] = useState(false)
 
     // Permission State
     const [isAdmin, setIsAdmin] = useState(false)
@@ -561,23 +562,42 @@ export default function AdminDashboard() {
 
                     {/* Active Events List */}
                     <div className="flex flex-col gap-4">
-                        <h3 className="text-lg font-bold px-2">
-                            {isAdmin ? 'Manage Active Events' : 'Your Events'}
-                        </h3>
+                        <div className="flex items-center justify-between px-2">
+                            <h3 className="text-lg font-bold">
+                                {isAdmin ? (viewArchive ? 'Event Archives' : 'Manage Active Events') : 'Your Events'}
+                            </h3>
+                            {isAdmin && (
+                                <button
+                                    onClick={() => setViewArchive(!viewArchive)}
+                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-colors ${viewArchive
+                                        ? 'bg-white text-black border-white'
+                                        : 'bg-white/5 text-white/40 border-white/10 hover:text-white'
+                                        }`}
+                                >
+                                    {viewArchive ? 'View Active' : 'View Archives'}
+                                </button>
+                            )}
+                        </div>
                         {isLoadingEvents ? (
                             <div className="flex items-center justify-center py-10">
                                 <Loader2 className="animate-spin text-primary" size={24} />
                             </div>
                         ) : existingEvents
-                            .filter((e: any) => e.status === 'open')
-                            .filter((e: any) => isAdmin || e.host_user_id === userId) // Hosts only see their own
+                            .filter((e: any) => isAdmin
+                                ? (viewArchive ? e.status !== 'open' : e.status === 'open')
+                                : (e.host_user_id === userId && e.status === 'open') // Hosts see their open events (simplifying for now)
+                            )
+                            .filter((e: any) => isAdmin || e.host_user_id === userId)
                             .length === 0 ? (
                             <p className="text-white/20 text-center py-10 text-sm font-bold uppercase tracking-widest">
-                                {isAdmin ? 'No active events to draw.' : 'You haven\'t launched any events yet.'}
+                                {viewArchive ? 'No archived events found.' : (isAdmin ? 'No active events to draw.' : 'You haven\'t launched any events yet.')}
                             </p>
                         ) : (
                             existingEvents
-                                .filter((e: any) => e.status === 'open')
+                                .filter((e: any) => isAdmin
+                                    ? (viewArchive ? e.status !== 'open' : e.status === 'open')
+                                    : (e.host_user_id === userId && e.status === 'open')
+                                )
                                 .filter((e: any) => isAdmin || e.host_user_id === userId)
                                 .map((event: any) => (
                                     <div key={event.id} className="bg-card p-5 rounded-3xl border border-white/5 flex items-center gap-4">
