@@ -590,8 +590,8 @@ export default function AdminDashboard() {
                                                 {event.entries?.[0]?.count || 0} Entries
                                             </p>
                                         </div>
-                                        {/* Only admins can draw winners */}
-                                        {isAdmin && (
+                                        {/* Admins or the Event Host can draw winners */}
+                                        {(isAdmin || (isHostEligible && event.host_user_id === userId)) && (
                                             <button
                                                 onClick={() => handleDrawWinner(event.id, event.title, event.media_urls?.[0])}
                                                 className="px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-black transition-all"
