@@ -24,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 'pk_test_placeholder_for_build'}>
+    <ClerkProvider publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 'pk_test_c2tpbGxlZC1jYXRmaXNoLTI0LmNsZXJrLmFjY291bnRzLmRldiQ'}>
       <html lang="en">
         <body className={inter.className}>
           <Shell>{children}</Shell>
