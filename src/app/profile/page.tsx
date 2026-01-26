@@ -31,7 +31,8 @@ export default function ProfilePage() {
     const [profile, setProfile] = useState<any>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [myEntries, setMyEntries] = useState<EntryWithEvent[]>([])
-    const [activeTab, setActiveTab] = useState<'live' | 'archives'>('live')
+    const [hostedEvents, setHostedEvents] = useState<any[]>([])
+    const [activeTab, setActiveTab] = useState<'live' | 'archives' | 'hosted'>('live')
 
     const fetchProfile = async () => {
         if (!userId) return
@@ -81,6 +82,19 @@ export default function ProfilePage() {
             const finalEntries = Object.values(entriesByRaffle).flat().sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
             setMyEntries(finalEntries)
+
+            // Fetch hosted events if eligible
+            if (profileData.is_host_eligible) {
+                const { data: hostedData, error: hostedError } = await supabaseClient
+                    .from('raffles')
+                    .select('*')
+                    .eq('host_user_id', userId)
+                    .order('created_at', { ascending: false })
+
+                if (!hostedError) {
+                    setHostedEvents(hostedData || [])
+                }
+            }
         } catch (error) {
             console.error('Error fetching profile:', error)
         } finally {
@@ -227,7 +241,7 @@ export default function ProfilePage() {
                             }`}
                     >
                         <Clock size={14} />
-                        Live ({liveEntries.length})
+                        Live
                     </button>
                     <button
                         onClick={() => setActiveTab('archives')}
@@ -235,8 +249,18 @@ export default function ProfilePage() {
                             }`}
                     >
                         <Trophy size={14} />
-                        Archives ({archivedEntries.length})
+                        Archive
                     </button>
+                    {isHostEligible && (
+                        <button
+                            onClick={() => setActiveTab('hosted')}
+                            className={`flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'hosted' ? 'bg-primary text-black' : 'text-white/40 hover:text-white/60'
+                                }`}
+                        >
+                            <ShieldCheck size={14} />
+                            Hosted
+                        </button>
+                    )}
                 </div>
 
                 {/* Event List */}
@@ -272,7 +296,7 @@ export default function ProfilePage() {
                                 </Link>
                             ))
                         )
-                    ) : (
+                    ) : activeTab === 'archives' ? (
                         archivedEntries.length === 0 ? (
                             <div className="py-10 text-center text-white/20 text-sm">
                                 No past events yet.
@@ -316,6 +340,48 @@ export default function ProfilePage() {
                                             </div>
                                         )
                                     )}
+                                </Link>
+                            ))
+                        )
+                    ) : (
+                        hostedEvents.length === 0 ? (
+                            <div className="py-10 text-center text-white/20 text-sm">
+                                You haven't hosted any events yet.
+                                <br />
+                                <Link href="/admin" className="text-primary hover:underline mt-2 inline-block">
+                                    Create one now!
+                                </Link>
+                            </div>
+                        ) : (
+                            hostedEvents.map((event) => (
+                                <Link
+                                    key={event.id}
+                                    href={`/event/${event.id}`}
+                                    className="bg-white/5 hover:bg-white/10 p-4 rounded-2xl flex items-center gap-4 transition-colors"
+                                >
+                                    <div className="w-14 h-14 rounded-xl overflow-hidden bg-white/5 shrink-0">
+                                        <img
+                                            src={event.media_urls?.[0] || '/placeholder.png'}
+                                            alt={event.title}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex justify-between items-start">
+                                            <h4 className="font-bold text-sm truncate">{event.title}</h4>
+                                            <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded ${event.status === 'open'
+                                                    ? 'bg-green-500/10 text-green-500 border border-green-500/20'
+                                                    : 'bg-white/10 text-white/40'
+                                                }`}>
+                                                {event.status === 'open' ? 'LIVE' : 'ENDED'}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-3 mt-1 text-xs text-white/40">
+                                            <span>{event.entry_cost_tibs} Tibs</span>
+                                            <span>•</span>
+                                            <CountdownTimer endsAt={event.ends_at} className="" />
+                                        </div>
+                                    </div>
                                 </Link>
                             ))
                         )

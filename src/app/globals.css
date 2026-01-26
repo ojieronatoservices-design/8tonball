@@ -4,8 +4,8 @@
   --color-background: #0a0a0b;
   --color-foreground: #ffffff;
 
-  --color-primary: #f59e0b;
-  /* Amber/Gold */
+  --color-primary: #39FF14;
+  /* Neon Green */
   --color-secondary: #ec4899;
   /* Pink/Neon */
   --color-accent: #8b5cf6;
@@ -15,6 +15,18 @@
   --color-border: #27272a;
 }
 
+@media (prefers-color-scheme: light) {
+  :root {
+    --background: #ffffff;
+    --foreground: #000000;
+    --primary: #39FF14;
+    --primary-foreground: #000000;
+    --secondary: #e4e4e7;
+    --border: #d4d4d8;
+    --card: #f4f4f5;
+  }
+}
+
 :root {
   --background: #0a0a0b;
   --foreground: #ffffff;
@@ -22,6 +34,13 @@
   --primary-foreground: #000000;
   --secondary: #161618;
   --border: #27272a;
+}
+
+@media (prefers-color-scheme: light) {
+  .glass {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+  }
 }
 
 body {
@@ -42,7 +61,13 @@ body {
 }
 
 .neon-border {
-  box-shadow: 0 0 15px rgba(245, 158, 11, 0.3);
+  box-shadow: 0 0 15px rgba(57, 255, 20, 0.3);
+}
+
+@media (prefers-color-scheme: light) {
+  .shadow-colored {
+    box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.1), -5px -5px 15px rgba(255, 255, 255, 0.8);
+  }
 }
 
 @layer base {

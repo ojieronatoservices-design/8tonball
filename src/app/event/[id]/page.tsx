@@ -3,10 +3,11 @@ import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+const getSupabase = () => {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
+    return createClient(supabaseUrl, supabaseKey)
+}
 
 type Props = {
     params: Promise<{ id: string }>
@@ -15,6 +16,7 @@ type Props = {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const { id } = await params
 
+    const supabase = getSupabase()
     const { data: event } = await supabase
         .from('raffles')
         .select('*')
@@ -48,6 +50,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function EventPage({ params }: Props) {
     const { id } = await params
 
+    const supabase = getSupabase()
     const { data: event } = await supabase
         .from('raffles')
         .select('*')

@@ -566,7 +566,7 @@ export default function AdminDashboard() {
                             <h3 className="text-lg font-bold">
                                 {isAdmin ? (viewArchive ? 'Event Archives' : 'Manage Active Events') : 'Your Events'}
                             </h3>
-                            {isAdmin && (
+                            {(isAdmin || isHostEligible) && (
                                 <button
                                     onClick={() => setViewArchive(!viewArchive)}
                                     className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-colors ${viewArchive
@@ -585,7 +585,7 @@ export default function AdminDashboard() {
                         ) : existingEvents
                             .filter((e: any) => isAdmin
                                 ? (viewArchive ? e.status !== 'open' : e.status === 'open')
-                                : (e.host_user_id === userId && e.status === 'open') // Hosts see their open events (simplifying for now)
+                                : (viewArchive ? (e.host_user_id === userId && e.status !== 'open') : (e.host_user_id === userId && e.status === 'open'))
                             )
                             .filter((e: any) => isAdmin || e.host_user_id === userId)
                             .length === 0 ? (
@@ -596,7 +596,7 @@ export default function AdminDashboard() {
                             existingEvents
                                 .filter((e: any) => isAdmin
                                     ? (viewArchive ? e.status !== 'open' : e.status === 'open')
-                                    : (e.host_user_id === userId && e.status === 'open')
+                                    : (viewArchive ? (e.host_user_id === userId && e.status !== 'open') : (e.host_user_id === userId && e.status === 'open'))
                                 )
                                 .filter((e: any) => isAdmin || e.host_user_id === userId)
                                 .map((event: any) => (
