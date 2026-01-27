@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from 'react'
-import { Plus, Check, X, LayoutDashboard, Loader2, CheckCircle2, Trophy, ShieldAlert, BarChart3, Users, Ticket, Coins, Image as ImageIcon } from 'lucide-react'
+import { Plus, Check, X, LayoutDashboard, Loader2, CheckCircle2, Trophy, ShieldAlert, BarChart3, Users, Ticket, Coins, Image as ImageIcon, Edit, Trash2 } from 'lucide-react'
 import { useUser, useAuth } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
 
@@ -39,6 +39,8 @@ export default function AdminDashboard() {
     const [existingEvents, setExistingEvents] = useState<any[]>([])
     const [isLoadingEvents, setIsLoadingEvents] = useState(false)
     const [selectedEvent, setSelectedEvent] = useState<any>(null)
+    const [editingEvent, setEditingEvent] = useState<any>(null)
+    const [isUpdating, setIsUpdating] = useState(false)
     const [dateFilter, setDateFilter] = useState('')
 
     const [analytics, setAnalytics] = useState<{
@@ -560,6 +562,236 @@ export default function AdminDashboard() {
         )
     }
 
+    const handleUpdateEvent = async (eventId: string, updatedData: any, newImages: File[]) => {
+        const supabaseClient = await getClient()
+        if (!supabaseClient) return
+
+        setIsUpdating(true)
+        try {
+            let mediaUrls = [...(updatedData.existingMediaUrls || [])]
+
+            // 1. Upload new images if any
+            if (newImages.length > 0) {
+                for (const image of newImages) {
+                    const fileExt = image.name.split('.').pop()
+                    const fileName = `${userId}-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+                    const filePath = `raffles/${fileName}`
+
+                    const { error: uploadError } = await supabaseClient.storage
+                        .from('media')
+                        .upload(filePath, image)
+
+                    if (uploadError) throw uploadError
+
+                    const { data: { publicUrl } } = supabaseClient.storage
+                        .from('media')
+                        .getPublicUrl(filePath)
+
+                    mediaUrls.push(publicUrl)
+                }
+            }
+
+            // 2. Update raffle record
+            const { error: updateError } = await supabaseClient
+                .from('raffles')
+                .update({
+                    title: updatedData.title,
+                    description: updatedData.description,
+                    media_urls: mediaUrls,
+                    entry_cost_tibs: parseInt(updatedData.cost),
+                    ends_at: new Date(updatedData.drawTime).toISOString(),
+                    goal_tibs: parseInt(updatedData.goal) || 0
+                })
+                .eq('id', eventId)
+
+            if (updateError) throw updateError
+
+            alert('Event updated successfully!')
+            setEditingEvent(null)
+            fetchEvents()
+        } catch (error: any) {
+            console.error('Error updating event:', error)
+            alert(error.message || 'Error updating event.')
+        } finally {
+            setIsUpdating(false)
+        }
+    }
+
+    const handleDeleteEvent = async (eventId: string) => {
+        const supabaseClient = await getClient()
+        if (!supabaseClient) return
+
+        if (!confirm('Are you sure you want to delete this event? This will also delete all entries associated with it.')) return
+
+        try {
+            await supabaseClient.from('entries').delete().eq('raffle_id', eventId)
+            const { error } = await supabaseClient.from('raffles').delete().eq('id', eventId)
+
+            if (error) throw error
+
+            alert('Event deleted successfully.')
+            fetchEvents()
+            if (selectedEvent?.id === eventId) setSelectedEvent(null)
+        } catch (error: any) {
+            alert(error.message || 'Error deleting event')
+        }
+    }
+
+    const EditEventModal = ({ event, onClose }: { event: any, onClose: () => void }) => {
+        const [editTitle, setEditTitle] = useState(event.title)
+        const [editDesc, setEditDesc] = useState(event.description || '')
+        const [editCost, setEditCost] = useState(event.entry_cost_tibs.toString())
+        const [editGoal, setEditGoal] = useState((event.goal_tibs || 0).toString())
+        const [editDrawTime, setEditDrawTime] = useState(new Date(event.ends_at).toISOString().slice(0, 16))
+        const [editMediaUrls, setEditMediaUrls] = useState<string[]>(event.media_urls || [])
+        const [newFiles, setNewFiles] = useState<File[]>([])
+        const [newPreviews, setNewPreviews] = useState<string[]>([])
+
+        const handleNewFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+            const files = e.target.files
+            if (files && files.length > 0) {
+                const addedFiles = Array.from(files)
+                setNewFiles(prev => [...prev, ...addedFiles])
+                const addedPreviews = addedFiles.map(file => URL.createObjectURL(file))
+                setNewPreviews(prev => [...prev, ...addedPreviews])
+            }
+        }
+
+        const removeExistingMedia = (index: number) => {
+            setEditMediaUrls(prev => prev.filter((_, i) => i !== index))
+        }
+
+        const removeNewMedia = (index: number) => {
+            setNewFiles(prev => prev.filter((_, i) => i !== index))
+            setNewPreviews(prev => prev.filter((_, i) => i !== index))
+        }
+
+        return (
+            <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
+                <div className="bg-card w-full max-w-lg rounded-3xl border border-white/10 overflow-auto max-h-[90vh] shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col">
+                    <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+                        <h3 className="text-xl font-black tracking-tight">Edit Event</h3>
+                        <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+                            <X size={20} />
+                        </button>
+                    </div>
+
+                    <div className="p-8 flex flex-col gap-6">
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Title</label>
+                            <input
+                                type="text"
+                                value={editTitle}
+                                onChange={(e) => setEditTitle(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none"
+                            />
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Description</label>
+                            <textarea
+                                value={editDesc}
+                                onChange={(e) => setEditDesc(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none min-h-[100px]"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Cost (Tibs)</label>
+                                <input
+                                    type="number"
+                                    value={editCost}
+                                    onChange={(e) => setEditCost(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Goal (Tibs)</label>
+                                <input
+                                    type="number"
+                                    value={editGoal}
+                                    onChange={(e) => setEditGoal(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Draw Time</label>
+                            <input
+                                type="datetime-local"
+                                value={editDrawTime}
+                                onChange={(e) => setEditDrawTime(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none [color-scheme:dark]"
+                            />
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Media Management</label>
+                            <div className="grid grid-cols-4 gap-2">
+                                {/* Existing Media */}
+                                {editMediaUrls.map((url, idx) => (
+                                    <div key={`old-${idx}`} className="relative aspect-square rounded-xl overflow-hidden border border-white/10 group">
+                                        {isVideo(url) ? (
+                                            <video src={url} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <img src={url} className="w-full h-full object-cover" />
+                                        )}
+                                        <button
+                                            onClick={() => removeExistingMedia(idx)}
+                                            className="absolute inset-0 bg-red-500/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                            <Trash2 size={16} className="text-white" />
+                                        </button>
+                                    </div>
+                                ))}
+                                {/* New Media Previews */}
+                                {newPreviews.map((preview, idx) => (
+                                    <div key={`new-${idx}`} className="relative aspect-square rounded-xl overflow-hidden border border-primary/20 group">
+                                        {isVideo(preview) ? (
+                                            <video src={preview} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <img src={preview} className="w-full h-full object-cover" />
+                                        )}
+                                        <button
+                                            onClick={() => removeNewMedia(idx)}
+                                            className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                            <X size={16} className="text-white" />
+                                        </button>
+                                        <div className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
+                                    </div>
+                                ))}
+                                {/* Add More Button */}
+                                <label className="aspect-square bg-white/5 border border-white/10 border-dashed rounded-xl flex items-center justify-center text-white/20 hover:text-white/40 cursor-pointer transition-colors group">
+                                    <input type="file" className="hidden" accept="image/*,video/*" multiple onChange={handleNewFileChange} />
+                                    <Plus size={18} />
+                                </label>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => handleUpdateEvent(event.id, {
+                                title: editTitle,
+                                description: editDesc,
+                                cost: editCost,
+                                goal: editGoal,
+                                drawTime: editDrawTime,
+                                existingMediaUrls: editMediaUrls
+                            }, newFiles)}
+                            disabled={isUpdating}
+                            className="w-full py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 mt-2 transition-transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                            {isUpdating && <Loader2 size={18} className="animate-spin" />}
+                            {isUpdating ? 'Updating...' : 'Save Changes'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
     const handleRefund = async (eventId: string) => {
         const supabaseClient = await getClient()
         if (!supabaseClient) return
@@ -903,8 +1135,19 @@ export default function AdminDashboard() {
                                                             </p>
                                                         </div>
                                                     </div>
-                                                    <div className="text-primary font-black text-xs group-hover:scale-110 transition-transform">
-                                                        {formatDisplayId(event.id, event.display_id)}
+                                                    <div className="flex gap-2 shrink-0">
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setEditingEvent(event); }}
+                                                            className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-white/40 hover:text-primary transition-all"
+                                                        >
+                                                            <Edit size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event.id); }}
+                                                            className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-white/40 hover:text-red-500 transition-all"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
                                                     </div>
                                                 </div>
                                             ))
@@ -912,6 +1155,9 @@ export default function AdminDashboard() {
                                 </div>
                             )}
                         </div>
+
+                        {selectedEvent && <EventDetailsModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />}
+                        {editingEvent && <EditEventModal event={editingEvent} onClose={() => setEditingEvent(null)} />}
                     </div>
                 ) : activeTab === 'payouts' ? (
                     <div className="flex flex-col gap-4">
