@@ -5,9 +5,10 @@ import { useState, useEffect } from 'react'
 interface CountdownTimerProps {
     endsAt: string
     className?: string
+    showLabels?: boolean
 }
 
-export function CountdownTimer({ endsAt, className = '' }: CountdownTimerProps) {
+export function CountdownTimer({ endsAt, className = '', showLabels = true }: CountdownTimerProps) {
     const [timeLeft, setTimeLeft] = useState<string>('')
     const [isExpired, setIsExpired] = useState(false)
 
@@ -47,7 +48,7 @@ export function CountdownTimer({ endsAt, className = '' }: CountdownTimerProps) 
 
     return (
         <div className={`font-mono font-bold ${isExpired ? 'text-red-500' : 'text-primary'} ${className}`}>
-            {isExpired ? '⏱️ ENDED' : `⏱️ ${timeLeft}`}
+            {isExpired ? (showLabels ? '⏱️ ENDED' : 'ENDED') : (showLabels ? `⏱️ ${timeLeft}` : timeLeft)}
         </div>
     )
 }
