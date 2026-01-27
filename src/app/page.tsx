@@ -44,49 +44,7 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
   return (
     <>
       <div className="group relative bg-card rounded-3xl overflow-hidden border border-white/5 hover:border-primary/20 transition-all duration-300">
-        {/* Content Section */}
-        <div className="p-6 flex flex-col gap-5">
-          {/* Top Meta Info */}
-          <div className="flex items-center gap-3">
-            <div className="bg-primary/10 text-primary px-2.5 py-1 rounded-full border border-primary/20 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 whitespace-nowrap">
-              <Trophy size={11} />
-              {event.entry_cost_tibs} Tibs
-            </div>
-            <div className="bg-white/5 text-white/40 px-2.5 py-1 rounded-full border border-white/5 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 whitespace-nowrap">
-              <Users size={11} />
-              {entryCount} Entries
-            </div>
-            <div className="bg-white/5 text-white/40 px-2.5 py-1 rounded-full border border-white/5 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 whitespace-nowrap ml-auto">
-              <Clock size={11} />
-              <CountdownTimer endsAt={event.ends_at} showLabels={false} />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <h3 className="text-xl font-black tracking-tight">{event.title}</h3>
-            {description && (
-              <div className="mt-1">
-                <p className={`text-white/40 text-sm leading-relaxed ${!isDescriptionExpanded && isLongDescription ? 'line-clamp-2' : ''}`}>
-                  {description}
-                </p>
-                {isLongDescription && (
-                  <button
-                    onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                    className="text-primary text-[10px] font-black uppercase tracking-widest flex items-center gap-1 mt-2"
-                  >
-                    {isDescriptionExpanded ? (
-                      <>Show less <ChevronUp size={14} /></>
-                    ) : (
-                      <>Read more <ChevronDown size={14} /></>
-                    )}
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Image Section */}
+        {/* Image Section (NOW AT TOP) */}
         <div
           className="aspect-[16/10] overflow-hidden relative cursor-pointer"
           onClick={() => setShowLightbox(true)}
@@ -136,9 +94,52 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
           )}
         </div>
 
-        {/* Footer Actions */}
-        <div className="p-6 pt-2">
-          <div className="flex gap-2">
+        {/* Content Section */}
+        <div className="p-6 flex flex-col gap-5">
+          {/* Meta Info Bar (Equally Spaced) */}
+          <div className="grid grid-cols-3 gap-2 py-3 border-b border-white/5">
+            <div className="flex flex-col items-center gap-1.5">
+              <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center border border-black/10 shadow-lg shadow-primary/20">
+                <span className="text-[10px] font-black text-black leading-none mt-0.5">8T</span>
+              </div>
+              <span className="text-[10px] font-black uppercase text-white/60 tracking-widest">{event.entry_cost_tibs}</span>
+            </div>
+            <div className="flex flex-col items-center gap-1.5 border-x border-white/5">
+              <Users size={16} className="text-white/40" />
+              <span className="text-[10px] font-black uppercase text-white/60 tracking-widest">{entryCount}</span>
+            </div>
+            <div className="flex flex-col items-center gap-1.5">
+              <Clock size={16} className="text-white/40" />
+              <div className="text-[10px] font-black uppercase text-white/60 tracking-widest">
+                <CountdownTimer endsAt={event.ends_at} showLabels={false} />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <h3 className="text-xl font-black tracking-tight">{event.title}</h3>
+            {description && (
+              <div className="mt-1">
+                <p className={`text-white/40 text-sm leading-relaxed ${!isDescriptionExpanded && isLongDescription ? 'line-clamp-2' : ''}`}>
+                  {description}
+                </p>
+                {isLongDescription && (
+                  <button
+                    onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                    className="text-primary text-[10px] font-black uppercase tracking-widest flex items-center gap-1 mt-2"
+                  >
+                    {isDescriptionExpanded ? (
+                      <>Show less <ChevronUp size={14} /></>
+                    ) : (
+                      <>Read more <ChevronDown size={14} /></>
+                    )}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-2 pt-2">
             {isAdmin || userId === event.host_user_id ? (
               <div className="flex-1 py-4 bg-white/5 text-white/20 border border-white/5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center italic">
                 {isAdmin ? 'Admin Restricted' : 'Host Restricted'}
@@ -148,7 +149,7 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
                 onClick={() => onEnter(event.id, event.entry_cost_tibs)}
                 className="flex-1 py-4 bg-primary text-black rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] transition-all duration-200 active:scale-95 shadow-lg shadow-primary/10 flex items-center justify-center gap-2"
               >
-                Join Event <ArrowRight size={14} />
+                Join Event
               </button>
             )}
             <button
