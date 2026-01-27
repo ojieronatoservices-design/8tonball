@@ -146,7 +146,7 @@ export default function AdminDashboard() {
                 { count: pendingCount }
             ] = await Promise.all([
                 supabaseClient.from('profiles').select('*', { count: 'exact', head: true }),
-                supabaseClient.from('raffles').select('*, entries!entries_raffle_id_fkey(count)'),
+                supabaseClient.from('raffles').select('*, entries:entries!entries_raffle_id_fkey(count)'),
                 supabaseClient.from('entries').select('*', { count: 'exact', head: true }),
                 supabaseClient.from('transactions').select('requested_tibs').eq('status', 'approved'),
                 supabaseClient.from('transactions').select('*', { count: 'exact', head: true }).eq('status', 'pending')

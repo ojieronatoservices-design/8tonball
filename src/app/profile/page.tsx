@@ -66,7 +66,7 @@ export default function ProfilePage() {
                     raffle_id, 
                     created_at, 
                     ticket_number, 
-                    raffles(*)
+                    raffles:raffles!entries_raffle_id_fkey(*)
                 `)
                 .eq('user_id', userId)
                 .order('created_at', { ascending: false })
