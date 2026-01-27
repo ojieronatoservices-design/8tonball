@@ -12,6 +12,11 @@ interface ImageLightboxProps {
 export function ImageLightbox({ images, initialIndex = 0, onClose }: ImageLightboxProps) {
     const [currentIndex, setCurrentIndex] = useState(initialIndex)
 
+    const isVideo = (url: string) => {
+        const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.m4v']
+        return videoExtensions.some(ext => url.toLowerCase().includes(ext))
+    }
+
     const goNext = () => {
         setCurrentIndex((prev) => (prev + 1) % images.length)
     }
@@ -30,13 +35,23 @@ export function ImageLightbox({ images, initialIndex = 0, onClose }: ImageLightb
                 <X size={24} />
             </button>
 
-            {/* Image */}
-            <img
-                src={images[currentIndex]}
-                alt="Full view"
-                className="max-w-full max-h-full object-contain"
-                onClick={(e) => e.stopPropagation()}
-            />
+            {/* Media */}
+            {isVideo(images[currentIndex]) ? (
+                <video
+                    src={images[currentIndex]}
+                    className="max-w-full max-h-full object-contain"
+                    controls
+                    autoPlay
+                    onClick={(e) => e.stopPropagation()}
+                />
+            ) : (
+                <img
+                    src={images[currentIndex]}
+                    alt="Full view"
+                    className="max-w-full max-h-full object-contain"
+                    onClick={(e) => e.stopPropagation()}
+                />
+            )}
 
             {/* Navigation */}
             {images.length > 1 && (

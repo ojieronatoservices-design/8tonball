@@ -66,6 +66,11 @@ export default function AdminDashboard() {
         return `#${id.slice(0, 4)}`
     }
 
+    const isVideo = (url: string) => {
+        const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.m4v']
+        return videoExtensions.some(ext => url.toLowerCase().includes(ext)) || url.startsWith('data:video/')
+    }
+
     // Check permissions on load
     useEffect(() => {
         const checkPermissions = async () => {
@@ -459,7 +464,11 @@ export default function AdminDashboard() {
                 <div className="bg-card w-full max-w-lg rounded-3xl border border-white/10 overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
                     <div className="relative aspect-video w-full bg-white/5">
                         {event.media_urls?.[0] ? (
-                            <img src={event.media_urls[0]} alt={event.title} className="w-full h-full object-cover" />
+                            isVideo(event.media_urls[0]) ? (
+                                <video src={event.media_urls[0]} className="w-full h-full object-cover" controls autoPlay muted loop />
+                            ) : (
+                                <img src={event.media_urls[0]} alt={event.title} className="w-full h-full object-cover" />
+                            )
                         ) : (
                             <div className="w-full h-full flex items-center justify-center text-white/10">
                                 <ImageIcon size={48} />
@@ -782,7 +791,11 @@ export default function AdminDashboard() {
                                         <div className="grid grid-cols-4 gap-2">
                                             {eventPreviews.map((preview: string, index: number) => (
                                                 <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-white/10 group">
-                                                    <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+                                                    {isVideo(preview) ? (
+                                                        <video src={preview} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+                                                    )}
                                                     <button
                                                         onClick={() => removeImage(index)}
                                                         className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
@@ -793,7 +806,7 @@ export default function AdminDashboard() {
                                             ))}
 
                                             <label className="aspect-square bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-white/20 hover:text-white/40 cursor-pointer transition-colors group">
-                                                <input type="file" className="hidden" accept="image/*" multiple onChange={handleFileChange} />
+                                                <input type="file" className="hidden" accept="image/*,video/*" multiple onChange={handleFileChange} />
                                                 <Plus size={18} className="group-hover:text-primary transition-colors" />
                                             </label>
                                         </div>

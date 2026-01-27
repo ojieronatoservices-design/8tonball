@@ -19,6 +19,11 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
   const [showLightbox, setShowLightbox] = useState(false)
 
+  const isVideo = (url: string) => {
+    const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.m4v']
+    return videoExtensions.some(ext => url.toLowerCase().includes(ext))
+  }
+
   const images = event.media_urls && event.media_urls.length > 0
     ? event.media_urls
     : ['https://via.placeholder.com/800x500?text=No+Image']
@@ -44,11 +49,22 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
           className="aspect-[16/10] overflow-hidden relative cursor-pointer"
           onClick={() => setShowLightbox(true)}
         >
-          <img
-            src={images[currentImageIndex]}
-            alt={event.title}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-          />
+          {isVideo(images[currentImageIndex]) ? (
+            <video
+              src={images[currentImageIndex]}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+              autoPlay
+              muted
+              loop
+              playsInline
+            />
+          ) : (
+            <img
+              src={images[currentImageIndex]}
+              alt={event.title}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+            />
+          )}
 
           {/* Carousel Controls */}
           {images.length > 1 && (
