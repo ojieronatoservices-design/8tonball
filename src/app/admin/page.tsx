@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from 'react'
-import { Plus, Check, X, LayoutDashboard, Loader2, CheckCircle2, Trophy, ShieldAlert, BarChart3, Users, Ticket, Coins } from 'lucide-react'
+import { Plus, Check, X, LayoutDashboard, Loader2, CheckCircle2, Trophy, ShieldAlert, BarChart3, Users, Ticket, Coins, Image as ImageIcon } from 'lucide-react'
 import { useUser, useAuth } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
 
@@ -24,6 +24,7 @@ export default function AdminDashboard() {
     const [title, setTitle] = useState('')
     const [description, setDescription] = useState('')
     const [cost, setCost] = useState('')
+    const [goal, setGoal] = useState('')
     const [drawTime, setDrawTime] = useState('')
 
     // Payments State
@@ -33,16 +34,33 @@ export default function AdminDashboard() {
     // Manage Events State
     const [existingEvents, setExistingEvents] = useState<any[]>([])
     const [isLoadingEvents, setIsLoadingEvents] = useState(false)
+    const [selectedEvent, setSelectedEvent] = useState<any>(null)
+    const [dateFilter, setDateFilter] = useState('')
 
-    // Analytics State
     const [analytics, setAnalytics] = useState<{
         totalUsers: number
         totalEvents: number
         totalEntries: number
-        totalTibsSpent: number
+        totalTibsSpentInEvents: number
+        totalRevenuePHP: number
+        avgEntriesPerEvent: number
         pendingPayments: number
     } | null>(null)
     const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false)
+
+    const formatDisplayId = (id: string, displayId: string | null) => {
+        if (displayId) {
+            if (displayId.startsWith('#OLD.')) {
+                // Shorten UUID from #OLD.uuid-format to #O-uuidShort
+                const parts = displayId.split('.')
+                if (parts.length > 1) {
+                    return `#O-${parts[1].slice(0, 4)}`
+                }
+            }
+            return displayId
+        }
+        return `#${id.slice(0, 4)}`
+    }
 
     // Check permissions on load
     useEffect(() => {
@@ -87,7 +105,7 @@ export default function AdminDashboard() {
         try {
             const { data, error } = await supabaseClient
                 .from('raffles')
-                .select('*, entries(count)')
+                .select('*, entries!entries_raffle_id_fkey(count), winner:profiles!winner_user_id(display_name, email)')
                 .order('created_at', { ascending: false })
 
             if (error) throw error
@@ -107,25 +125,35 @@ export default function AdminDashboard() {
         try {
             const [
                 { count: usersCount },
-                { count: eventsCount },
+                { data: eventsData },
                 { count: entriesCount },
-                { data: profilesData },
+                { data: transactionData },
                 { count: pendingCount }
             ] = await Promise.all([
                 supabaseClient.from('profiles').select('*', { count: 'exact', head: true }),
-                supabaseClient.from('raffles').select('*', { count: 'exact', head: true }),
+                supabaseClient.from('raffles').select('*, entries!entries_raffle_id_fkey(count)'),
                 supabaseClient.from('entries').select('*', { count: 'exact', head: true }),
-                supabaseClient.from('profiles').select('total_tibs_spent'),
+                supabaseClient.from('transactions').select('requested_tibs').eq('status', 'approved'),
                 supabaseClient.from('transactions').select('*', { count: 'exact', head: true }).eq('status', 'pending')
             ])
 
-            const totalSpent = profilesData?.reduce((acc, curr) => acc + (curr.total_tibs_spent || 0), 0) || 0
+            // Calculate Tibs Spent in Events
+            const totalTibsInEvents = eventsData?.reduce((acc: number, curr: any) => {
+                const count = curr.entries?.[0]?.count || 0
+                return acc + (count * curr.entry_cost_tibs)
+            }, 0) || 0
+
+            const totalTibsSold = transactionData?.reduce((acc: number, curr: any) => acc + (Number(curr.requested_tibs) || 0), 0) || 0
+            const totalRevenue = totalTibsSold / 8
+            const avgEntries = eventsData && eventsData.length > 0 ? (entriesCount || 0) / eventsData.length : 0
 
             setAnalytics({
                 totalUsers: usersCount || 0,
-                totalEvents: eventsCount || 0,
+                totalEvents: eventsData?.length || 0,
                 totalEntries: entriesCount || 0,
-                totalTibsSpent: totalSpent,
+                totalTibsSpentInEvents: totalTibsInEvents,
+                totalRevenuePHP: totalRevenue,
+                avgEntriesPerEvent: Math.round(avgEntries * 10) / 10,
                 pendingPayments: pendingCount || 0
             })
         } catch (error) {
@@ -328,18 +356,32 @@ export default function AdminDashboard() {
                 }
             }
 
-            // 2. Insert Event into Database
+            // 2. Generate Display ID
+            const date = new Date()
+            const monthLetter = date.toLocaleString('default', { month: 'short' })[0].toUpperCase()
+            const yearShort = date.getFullYear().toString().slice(-2)
+            const eventCount = (existingEvents?.length || 0) + 1
+            const displayId = `#${monthLetter}${yearShort}.${eventCount}`
+
+            // 3. Insert Event into Database
+            const insertPayload: any = {
+                title,
+                description,
+                entry_cost_tibs: parseInt(cost),
+                ends_at: new Date(drawTime).toISOString(),
+                media_urls: mediaUrls,
+                host_user_id: userId,
+                status: 'open'
+            }
+
+            // Only add these columns if they exist (or use try/catch)
+            // But better to just include them and handle the potential error gracefully
+            insertPayload.goal_tibs = parseInt(goal) || 0
+            insertPayload.display_id = displayId
+
             const { error: insertError } = await supabaseClient
                 .from('raffles')
-                .insert([{
-                    title,
-                    description,
-                    entry_cost_tibs: parseInt(cost),
-                    ends_at: new Date(drawTime).toISOString(),
-                    media_urls: mediaUrls,
-                    host_user_id: userId,
-                    status: 'open'
-                }])
+                .insert([insertPayload])
 
             if (insertError) throw insertError
 
@@ -348,6 +390,7 @@ export default function AdminDashboard() {
             setTitle('')
             setDescription('')
             setCost('')
+            setGoal('')
             setDrawTime('')
             setEventImages([])
             setEventPreviews([])
@@ -361,7 +404,153 @@ export default function AdminDashboard() {
         }
     }
 
-    // Show loading while checking permissions
+    const EventDetailsModal = ({ event, onClose }: { event: any, onClose: () => void }) => {
+        const totalTibs = (event.entries?.[0]?.count || 0) * event.entry_cost_tibs
+        const totalPeso = totalTibs / 8
+        const goalMet = event.goal_tibs > 0 ? totalTibs >= event.goal_tibs : true
+        const progress = event.goal_tibs > 0 ? Math.min((totalTibs / event.goal_tibs) * 100, 100) : 100
+
+        return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+                <div className="bg-card w-full max-w-lg rounded-3xl border border-white/10 overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+                    <div className="relative aspect-video w-full bg-white/5">
+                        {event.media_urls?.[0] ? (
+                            <img src={event.media_urls[0]} alt={event.title} className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center text-white/10">
+                                <ImageIcon size={48} />
+                            </div>
+                        )}
+                        <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-black/50 backdrop-blur-md rounded-full text-white/70 hover:text-white transition-colors">
+                            <X size={20} />
+                        </button>
+                    </div>
+
+                    <div className="p-8 flex flex-col gap-6">
+                        <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-primary mb-1 block">
+                                    {formatDisplayId(event.id, event.display_id)} • {event.status.toUpperCase()}
+                                </span>
+                                <h3 className="text-2xl font-black tracking-tight">{event.title}</h3>
+                            </div>
+                            <div className="bg-primary/10 text-primary px-3 py-1 rounded-full border border-primary/20 text-xs font-black">
+                                {event.entry_cost_tibs} TIBS
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                                <p className="text-[10px] uppercase font-black text-white/30 mb-1">Total Made</p>
+                                <div className="text-xl font-black text-primary">₱{totalPeso.toLocaleString()}</div>
+                                <p className="text-[10px] text-white/20">{totalTibs.toLocaleString()} TIBS</p>
+                            </div>
+                            <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                                <p className="text-[10px] uppercase font-black text-white/30 mb-1">Participants</p>
+                                <div className="text-xl font-black">{event.entries?.[0]?.count || 0}</div>
+                                <p className="text-[10px] text-white/20">Entries</p>
+                            </div>
+                        </div>
+
+                        {event.goal_tibs > 0 && (
+                            <div className="flex flex-col gap-2">
+                                <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                                    <span className={goalMet ? "text-green-500" : "text-white/30"}>
+                                        Goal: {goalMet ? 'MET' : 'IN PROGRESS'}
+                                    </span>
+                                    <span className="text-white/30">{totalTibs.toLocaleString()} / {event.goal_tibs.toLocaleString()} TIBS</span>
+                                </div>
+                                <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                                    <div className="h-full bg-primary transition-all duration-1000" style={{ width: `${progress}%` }} />
+                                </div>
+                            </div>
+                        )}
+
+                        {event.status === 'drawn' && (
+                            <div className="p-4 bg-green-500/5 border border-green-500/20 rounded-2xl flex flex-col gap-1">
+                                <span className="text-[10px] font-black text-green-500/60 uppercase tracking-widest">🏆 Winner Drawn</span>
+                                <div className="flex flex-col gap-0.5 mt-1">
+                                    <div className="font-bold text-sm text-white">{event.winner?.display_name || 'Unknown Winner'}</div>
+                                    <div className="text-[10px] text-white/40">{event.winner?.email || 'No email available'}</div>
+                                </div>
+                                <div className="text-[10px] text-white/40 mt-2 italic">Drawn at {new Date(event.drawn_at).toLocaleString()}</div>
+                            </div>
+                        )}
+
+                        <div className="flex gap-3">
+                            {event.status === 'open' && (
+                                <>
+                                    {goalMet ? (
+                                        <button
+                                            onClick={() => { handleDrawWinner(event.id, event.title, event.media_urls?.[0]); onClose(); }}
+                                            className="flex-1 py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 transition-transform active:scale-95"
+                                        >
+                                            Draw Winner
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={() => { if (confirm('Goal not met. Refund all participants and close event?')) { handleRefund(event.id); onClose(); } }}
+                                            className="flex-1 py-4 bg-red-500/10 text-red-500 border border-red-500/20 font-black uppercase tracking-widest rounded-2xl transition-transform active:scale-95"
+                                        >
+                                            Refund & Close
+                                        </button>
+                                    )}
+                                </>
+                            )}
+                            <button onClick={onClose} className="px-8 py-4 bg-white/5 hover:bg-white/10 text-white/60 font-black uppercase tracking-widest rounded-2xl transition-all">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    const handleRefund = async (eventId: string) => {
+        const supabaseClient = await getClient()
+        if (!supabaseClient) return
+
+        try {
+            // 1. Get all entries
+            const { data: entries, error: fetchError } = await supabaseClient
+                .from('entries')
+                .select('user_id, raffles(entry_cost_tibs)')
+                .eq('raffle_id', eventId)
+
+            if (fetchError) throw fetchError
+
+            // 2. Process refunds (In a real app, this should be an RPC to ensure atomicity)
+            // But for now we'll do it manually since it's a small app
+            for (const entry of entries || []) {
+                const cost = (entry.raffles as any).entry_cost_tibs
+                const { data: profile } = await supabaseClient
+                    .from('profiles')
+                    .select('tibs_balance')
+                    .eq('id', entry.user_id)
+                    .single()
+
+                if (profile) {
+                    await supabaseClient
+                        .from('profiles')
+                        .update({ tibs_balance: profile.tibs_balance + cost })
+                        .eq('id', entry.user_id)
+                }
+            }
+
+            // 3. Close raffle as 'closed' (not drawn)
+            await supabaseClient
+                .from('raffles')
+                .update({ status: 'closed' })
+                .eq('id', eventId)
+
+            alert('Event closed and Tibs refunded successfully.')
+            fetchEvents()
+        } catch (error: any) {
+            console.error('Refund error:', error)
+            alert('Error processing refunds: ' + error.message)
+        }
+    }
     if (isCheckingPermissions) {
         return (
             <div className="flex flex-col items-center justify-center py-32 gap-4">
@@ -405,269 +594,316 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
-            {/* Admin Tabs - Only show Payments tab for admins */}
-            {isAdmin ? (
-                <div className="flex bg-card p-1.5 rounded-2xl border border-white/5">
-                    <button
-                        onClick={() => setActiveTab('events')}
-                        className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'events' ? 'bg-primary text-black' : 'text-white/40 hover:text-white/60'
-                            }`}
-                    >
-                        Manage Events
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('payments')}
-                        className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'payments' ? 'bg-primary text-black' : 'text-white/40 hover:text-white/60'
-                            }`}
-                    >
-                        Payments Queue
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('analytics')}
-                        className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'analytics' ? 'bg-primary text-black' : 'text-white/40 hover:text-white/60'
-                            }`}
-                    >
-                        Analytics
-                    </button>
-                </div>
-            ) : null}
+            {/* Admin Tabs */}
+            <div className="flex bg-card p-1.5 rounded-2xl border border-white/5">
+                <button
+                    onClick={() => setActiveTab('events')}
+                    className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'events' ? 'bg-primary text-black' : 'text-white/40 hover:text-white/60'
+                        }`}
+                >
+                    Events
+                </button>
+                {isAdmin && (
+                    <>
+                        <button
+                            onClick={() => setActiveTab('payments')}
+                            className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'payments' ? 'bg-primary text-black' : 'text-white/40 hover:text-white/60'
+                                }`}
+                        >
+                            Payments
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('analytics')}
+                            className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'analytics' ? 'bg-primary text-black' : 'text-white/40 hover:text-white/60'
+                                }`}
+                        >
+                            Analytics
+                        </button>
+                    </>
+                )}
+            </div>
 
-            {activeTab === 'analytics' ? (
-                <div className="flex flex-col gap-6">
-                    {isLoadingAnalytics ? (
-                        <div className="flex items-center justify-center py-20">
-                            <Loader2 className="animate-spin text-primary" size={32} />
-                        </div>
-                    ) : analytics ? (
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2">
-                                <div className="flex items-center gap-2 text-white/40">
-                                    <Users size={18} />
-                                    <span className="text-xs font-bold uppercase tracking-widest">Total Users</span>
-                                </div>
-                                <div className="text-3xl font-black">{analytics.totalUsers}</div>
+            {
+                activeTab === 'analytics' ? (
+                    <div className="flex flex-col gap-6">
+                        {isLoadingAnalytics ? (
+                            <div className="flex items-center justify-center py-20">
+                                <Loader2 className="animate-spin text-primary" size={32} />
                             </div>
-                            <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2">
-                                <div className="flex items-center gap-2 text-white/40">
-                                    <Trophy size={18} />
-                                    <span className="text-xs font-bold uppercase tracking-widest">Total Events</span>
-                                </div>
-                                <div className="text-3xl font-black">{analytics.totalEvents}</div>
-                            </div>
-                            <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2">
-                                <div className="flex items-center gap-2 text-white/40">
-                                    <Ticket size={18} />
-                                    <span className="text-xs font-bold uppercase tracking-widest">Total Entries</span>
-                                </div>
-                                <div className="text-3xl font-black">{analytics.totalEntries}</div>
-                            </div>
-                            <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2">
-                                <div className="flex items-center gap-2 text-white/40">
-                                    <Coins size={18} />
-                                    <span className="text-xs font-bold uppercase tracking-widest">Tibs Spent</span>
-                                </div>
-                                <div className="text-3xl font-black text-primary">{analytics.totalTibsSpent.toLocaleString()}</div>
-                            </div>
-                            <div className="col-span-2 bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2">
-                                <div className="flex items-center gap-2 text-white/40">
-                                    <ShieldAlert size={18} />
-                                    <span className="text-xs font-bold uppercase tracking-widest">Pending Payments</span>
-                                </div>
-                                <div className="text-3xl font-black">{analytics.pendingPayments}</div>
-                            </div>
-                        </div>
-                    ) : null}
-                </div>
-            ) : activeTab === 'events' ? (
-                <div className="flex flex-col gap-10">
-                    {/* Create Event Card */}
-                    <div className="bg-card p-8 rounded-3xl border border-dashed border-primary/30 flex flex-col gap-6">
-                        <h3 className="text-lg font-bold flex items-center gap-2">
-                            <Plus className="text-primary" size={20} />
-                            New Event
-                        </h3>
-                        <div className="flex flex-col gap-4">
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Prize Title</label>
-                                <input
-                                    type="text"
-                                    value={title}
-                                    onChange={(e) => setTitle(e.target.value)}
-                                    placeholder="e.g. iPhone 15 Pro"
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Description</label>
-                                <textarea
-                                    value={description}
-                                    onChange={(e) => setDescription(e.target.value)}
-                                    placeholder="Prize details..."
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none min-h-[100px]"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Draw Time</label>
-                                <input
-                                    type="datetime-local"
-                                    value={drawTime}
-                                    onChange={(e) => setDrawTime(e.target.value)}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none [color-scheme:dark]"
-                                />
-                            </div>
+                        ) : analytics ? (
                             <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2">
+                                    <div className="flex items-center gap-2 text-primary">
+                                        <Coins size={18} />
+                                        <span className="text-xs font-bold uppercase tracking-widest">Gross Revenue</span>
+                                    </div>
+                                    <div className="text-3xl font-black text-primary">₱{analytics.totalRevenuePHP.toLocaleString()}</div>
+                                    <p className="text-[10px] text-white/20 uppercase font-black tracking-widest">Total from Tibs Sales</p>
+                                </div>
+                                <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2">
+                                    <div className="flex items-center gap-2 text-white/40">
+                                        <Ticket size={18} />
+                                        <span className="text-xs font-bold uppercase tracking-widest">Event Volume</span>
+                                    </div>
+                                    <div className="text-3xl font-black">{analytics.totalTibsSpentInEvents.toLocaleString()}</div>
+                                    <p className="text-[10px] text-white/20 uppercase font-black tracking-widest">Tibs spent in events</p>
+                                </div>
+                                <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2">
+                                    <div className="flex items-center gap-2 text-white/40">
+                                        <Users size={18} />
+                                        <span className="text-xs font-bold uppercase tracking-widest">Engagement</span>
+                                    </div>
+                                    <div className="text-xl font-black">{analytics.totalEntries.toLocaleString()} <span className="text-sm font-bold text-white/40">Entries</span></div>
+                                    <p className="text-[10px] text-white/20 uppercase font-black tracking-widest">{analytics.avgEntriesPerEvent} per event</p>
+                                </div>
+                                <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2">
+                                    <div className="flex items-center gap-2 text-white/40">
+                                        <Trophy size={18} />
+                                        <span className="text-xs font-bold uppercase tracking-widest">Market Size</span>
+                                    </div>
+                                    <div className="text-xl font-black">{analytics.totalUsers} <span className="text-sm font-bold text-white/40">Members</span></div>
+                                    <div className="text-xl font-black text-primary">{analytics.totalEvents} <span className="text-sm font-bold text-white/40 italic">Live/Past Events</span></div>
+                                </div>
+                            </div>
+                        ) : null}
+                    </div>
+                ) : activeTab === 'events' ? (
+                    <div className="flex flex-col gap-10">
+                        {/* Create Event Card */}
+                        <div className="bg-card p-8 rounded-3xl border border-dashed border-primary/30 flex flex-col gap-6">
+                            <h3 className="text-lg font-bold flex items-center gap-2">
+                                <Plus className="text-primary" size={20} />
+                                New Event
+                            </h3>
+                            <div className="flex flex-col gap-4">
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Cost (Tibs)</label>
+                                    <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Prize Title</label>
                                     <input
-                                        type="number"
-                                        value={cost}
-                                        onChange={(e) => setCost(e.target.value)}
-                                        placeholder="100"
+                                        type="text"
+                                        value={title}
+                                        onChange={(e) => setTitle(e.target.value)}
+                                        placeholder="e.g. iPhone 15 Pro"
                                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none"
                                     />
                                 </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Description</label>
+                                    <textarea
+                                        value={description}
+                                        onChange={(e) => setDescription(e.target.value)}
+                                        placeholder="Prize details..."
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none min-h-[100px]"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Draw Time</label>
+                                    <input
+                                        type="datetime-local"
+                                        value={drawTime}
+                                        onChange={(e) => setDrawTime(e.target.value)}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none [color-scheme:dark]"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Cost (Tibs)</label>
+                                        <input
+                                            type="number"
+                                            value={cost}
+                                            onChange={(e) => setCost(e.target.value)}
+                                            placeholder="100"
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Goal (Tibs)</label>
+                                        <input
+                                            type="number"
+                                            value={goal}
+                                            onChange={(e) => setGoal(e.target.value)}
+                                            placeholder="5000"
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none"
+                                        />
+                                    </div>
 
-                                <div className="flex flex-col gap-1.5 col-span-2">
-                                    <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Media (Multiple allowed)</label>
-                                    <div className="grid grid-cols-4 gap-2">
-                                        {eventPreviews.map((preview: string, index: number) => (
-                                            <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-white/10 group">
-                                                <img src={preview} alt="Preview" className="w-full h-full object-cover" />
-                                                <button
-                                                    onClick={() => removeImage(index)}
-                                                    className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                                                >
-                                                    <X size={14} className="text-white" />
-                                                </button>
-                                            </div>
-                                        ))}
+                                    <div className="flex flex-col gap-1.5 col-span-2">
+                                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Media (Multiple allowed)</label>
+                                        <div className="grid grid-cols-4 gap-2">
+                                            {eventPreviews.map((preview: string, index: number) => (
+                                                <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-white/10 group">
+                                                    <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+                                                    <button
+                                                        onClick={() => removeImage(index)}
+                                                        className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    >
+                                                        <X size={14} className="text-white" />
+                                                    </button>
+                                                </div>
+                                            ))}
 
-                                        <label className="aspect-square bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-white/20 hover:text-white/40 cursor-pointer transition-colors group">
-                                            <input type="file" className="hidden" accept="image/*" multiple onChange={handleFileChange} />
-                                            <Plus size={18} className="group-hover:text-primary transition-colors" />
-                                        </label>
+                                            <label className="aspect-square bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-white/20 hover:text-white/40 cursor-pointer transition-colors group">
+                                                <input type="file" className="hidden" accept="image/*" multiple onChange={handleFileChange} />
+                                                <Plus size={18} className="group-hover:text-primary transition-colors" />
+                                            </label>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <button
-                                onClick={handleLaunchEvent}
-                                disabled={isLaunching}
-                                className="w-full py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 mt-2 transition-transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {isLaunching && <Loader2 size={18} className="animate-spin" />}
-                                {isLaunching ? 'Launching...' : 'Launch'}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Active Events List */}
-                    <div className="flex flex-col gap-4">
-                        <div className="flex items-center justify-between px-2">
-                            <h3 className="text-lg font-bold">
-                                {isAdmin ? (viewArchive ? 'Event Archives' : 'Manage Active Events') : 'Your Events'}
-                            </h3>
-                            {(isAdmin || isHostEligible) && (
                                 <button
-                                    onClick={() => setViewArchive(!viewArchive)}
-                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-colors ${viewArchive
-                                        ? 'bg-white text-black border-white'
-                                        : 'bg-white/5 text-white/40 border-white/10 hover:text-white'
-                                        }`}
+                                    onClick={handleLaunchEvent}
+                                    disabled={isLaunching}
+                                    className="w-full py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 mt-2 transition-transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    {viewArchive ? 'View Active' : 'View Archives'}
+                                    {isLaunching && <Loader2 size={18} className="animate-spin" />}
+                                    {isLaunching ? 'Launching...' : 'Launch'}
                                 </button>
+                            </div>
+                        </div>
+
+                        {/* Events List Wrapper */}
+                        <div className="flex flex-col gap-4">
+                            <div className="flex items-center justify-between px-2">
+                                <h3 className="text-lg font-bold">
+                                    {viewArchive ? 'Event Archives' : 'Manage Active Events'}
+                                </h3>
+                                <div className="flex items-center gap-3">
+                                    <input
+                                        type="date"
+                                        value={dateFilter}
+                                        onChange={(e) => setDateFilter(e.target.value)}
+                                        className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white/60 focus:outline-none focus:border-primary [color-scheme:dark]"
+                                    />
+                                    <button
+                                        onClick={() => setViewArchive(!viewArchive)}
+                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-colors ${viewArchive
+                                            ? 'bg-white text-black border-white'
+                                            : 'bg-white/5 text-white/40 border-white/10 hover:text-white'
+                                            }`}
+                                    >
+                                        {viewArchive ? 'View Active' : 'View Archives'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {isLoadingEvents ? (
+                                <div className="flex items-center justify-center py-20">
+                                    <Loader2 className="animate-spin text-primary" size={24} />
+                                </div>
+                            ) : (
+                                <div className="flex flex-col gap-4">
+                                    {existingEvents
+                                        .filter((e: any) => {
+                                            const isMyEvent = isAdmin || e.host_user_id === userId;
+                                            if (!isMyEvent) return false;
+
+                                            // Filter by status based on toggle
+                                            if (viewArchive) return e.status !== 'open';
+                                            return e.status === 'open';
+                                        })
+                                        .filter((e: any) => !dateFilter || e.created_at.startsWith(dateFilter))
+                                        .length === 0 ? (
+                                        <p className="text-white/20 text-center py-10 text-sm font-bold uppercase tracking-widest">
+                                            {viewArchive ? 'No archived events found.' : 'No active events.'}
+                                        </p>
+                                    ) : (
+                                        existingEvents
+                                            .filter((e: any) => {
+                                                const isMyEvent = isAdmin || e.host_user_id === userId;
+                                                if (!isMyEvent) return false;
+                                                if (viewArchive) return e.status !== 'open';
+                                                return e.status === 'open';
+                                            })
+                                            .filter((e: any) => !dateFilter || e.created_at.startsWith(dateFilter))
+                                            .map((event: any) => (
+                                                <div
+                                                    key={event.id}
+                                                    onClick={() => setSelectedEvent(event)}
+                                                    className="bg-card p-5 rounded-3xl border border-white/5 flex items-center gap-4 cursor-pointer hover:bg-white/5 transition-colors group"
+                                                >
+                                                    <div className="w-16 h-16 bg-white/5 rounded-2xl overflow-hidden shrink-0 border border-white/10 group-hover:border-primary/30 transition-colors">
+                                                        <img src={event.media_urls?.[0] || 'https://via.placeholder.com/150'} alt="event" className="w-full h-full object-cover" />
+                                                    </div>
+                                                    <div className="flex-1 overflow-hidden">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className="text-[9px] font-black bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                                                                {formatDisplayId(event.id, event.display_id)}
+                                                            </span>
+                                                            <h4 className="font-bold text-sm truncate">{event.title}</h4>
+                                                        </div>
+                                                        <div className="flex items-center gap-3">
+                                                            <p className="text-white/40 text-[10px] font-black uppercase tracking-widest">
+                                                                {event.entries?.[0]?.count || 0} Entries
+                                                            </p>
+                                                            <span className="text-white/10">•</span>
+                                                            <p className="text-white/40 text-[10px] font-black uppercase tracking-widest">
+                                                                {new Date(event.created_at).toLocaleDateString()}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-primary font-black text-xs group-hover:scale-110 transition-transform">
+                                                        {formatDisplayId(event.id, event.display_id)}
+                                                    </div>
+                                                </div>
+                                            ))
+                                    )}
+                                </div>
                             )}
                         </div>
-                        {isLoadingEvents ? (
-                            <div className="flex items-center justify-center py-10">
-                                <Loader2 className="animate-spin text-primary" size={24} />
+                    </div>
+                ) : (
+                    <div className="flex flex-col gap-4">
+                        {isLoadingPayments ? (
+                            <div className="flex items-center justify-center py-20">
+                                <Loader2 className="animate-spin text-primary" size={32} />
                             </div>
-                        ) : existingEvents
-                            .filter((e: any) => isAdmin
-                                ? (viewArchive ? e.status !== 'open' : e.status === 'open')
-                                : (viewArchive ? (e.host_user_id === userId && e.status !== 'open') : (e.host_user_id === userId && e.status === 'open'))
-                            )
-                            .filter((e: any) => isAdmin || e.host_user_id === userId)
-                            .length === 0 ? (
-                            <p className="text-white/20 text-center py-10 text-sm font-bold uppercase tracking-widest">
-                                {viewArchive ? 'No archived events found.' : (isAdmin ? 'No active events to draw.' : 'You haven\'t launched any events yet.')}
-                            </p>
+                        ) : payments.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-20 text-white/20 gap-4 bg-card rounded-3xl border border-white/5">
+                                <CheckCircle2 size={48} />
+                                <p className="font-bold">Queue is clear!</p>
+                            </div>
                         ) : (
-                            existingEvents
-                                .filter((e: any) => isAdmin
-                                    ? (viewArchive ? e.status !== 'open' : e.status === 'open')
-                                    : (viewArchive ? (e.host_user_id === userId && e.status !== 'open') : (e.host_user_id === userId && e.status === 'open'))
-                                )
-                                .filter((e: any) => isAdmin || e.host_user_id === userId)
-                                .map((event: any) => (
-                                    <div key={event.id} className="bg-card p-5 rounded-3xl border border-white/5 flex items-center gap-4">
-                                        <div className="w-16 h-16 bg-white/5 rounded-2xl overflow-hidden shrink-0 border border-white/10">
-                                            <img src={event.media_urls?.[0] || 'https://via.placeholder.com/150'} alt="proof" className="w-full h-full object-cover" />
-                                        </div>
-                                        <div className="flex-1 overflow-hidden">
-                                            <h4 className="font-bold text-sm truncate">{event.title}</h4>
-                                            <p className="text-white/40 text-[10px] font-black uppercase tracking-widest">
-                                                {event.entries?.[0]?.count || 0} Entries
-                                            </p>
-                                        </div>
-                                        {/* Admins or the Event Host can draw winners */}
-                                        {(isAdmin || (isHostEligible && event.host_user_id === userId)) && (
-                                            <button
-                                                onClick={() => handleDrawWinner(event.id, event.title, event.media_urls?.[0])}
-                                                className="px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-black transition-all"
-                                            >
-                                                Draw Winner
-                                            </button>
-                                        )}
+                            payments.map((pmt: any) => (
+                                <div key={pmt.id} className="bg-card p-5 rounded-3xl border border-white/5 flex items-center gap-4">
+                                    <div className="w-16 h-16 bg-white/5 rounded-2xl overflow-hidden shrink-0 border border-white/10 group relative cursor-zoom-in">
+                                        <img src={pmt.proof_image_url} alt="proof" className="w-full h-full object-cover" />
+                                        <a href={pmt.proof_image_url} target="_blank" className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-[8px] font-black uppercase tracking-tighter">View Full</a>
                                     </div>
-                                ))
+                                    <div className="flex-1 overflow-hidden">
+                                        <h4 className="font-bold text-sm truncate">{pmt.profiles?.display_name || pmt.profiles?.email || 'Unknown User'}</h4>
+                                        <p className="text-primary text-xs font-black">{pmt.requested_tibs} Tibs</p>
+                                        <span className="text-[10px] text-white/20 font-black uppercase tracking-widest">
+                                            {new Date(pmt.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => handleReject(pmt.id)}
+                                            className="w-10 h-10 bg-red-500/10 text-red-500 rounded-xl flex items-center justify-center border border-red-500/20 hover:bg-red-500 hover:text-white transition-all"
+                                        >
+                                            <X size={18} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleApprove(pmt.id)}
+                                            className="w-10 h-10 bg-green-500/10 text-green-500 rounded-xl flex items-center justify-center border border-green-500/20 hover:bg-green-500 hover:text-white transition-all"
+                                        >
+                                            <Check size={18} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))
                         )}
                     </div>
-                </div>
-            ) : (
-                <div className="flex flex-col gap-4">
-                    {isLoadingPayments ? (
-                        <div className="flex items-center justify-center py-20">
-                            <Loader2 className="animate-spin text-primary" size={32} />
-                        </div>
-                    ) : payments.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-20 text-white/20 gap-4 bg-card rounded-3xl border border-white/5">
-                            <CheckCircle2 size={48} />
-                            <p className="font-bold">Queue is clear!</p>
-                        </div>
-                    ) : (
-                        payments.map((pmt: any) => (
-                            <div key={pmt.id} className="bg-card p-5 rounded-3xl border border-white/5 flex items-center gap-4">
-                                <div className="w-16 h-16 bg-white/5 rounded-2xl overflow-hidden shrink-0 border border-white/10 group relative cursor-zoom-in">
-                                    <img src={pmt.proof_image_url} alt="proof" className="w-full h-full object-cover" />
-                                    <a href={pmt.proof_image_url} target="_blank" className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-[8px] font-black uppercase tracking-tighter">View Full</a>
-                                </div>
-                                <div className="flex-1 overflow-hidden">
-                                    <h4 className="font-bold text-sm truncate">{pmt.profiles?.display_name || pmt.profiles?.email || 'Unknown User'}</h4>
-                                    <p className="text-primary text-xs font-black">{pmt.requested_tibs} Tibs</p>
-                                    <span className="text-[10px] text-white/20 font-black uppercase tracking-widest">
-                                        {new Date(pmt.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                </div>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => handleReject(pmt.id)}
-                                        className="w-10 h-10 bg-red-500/10 text-red-500 rounded-xl flex items-center justify-center border border-red-500/20 hover:bg-red-500 hover:text-white transition-all"
-                                    >
-                                        <X size={18} />
-                                    </button>
-                                    <button
-                                        onClick={() => handleApprove(pmt.id)}
-                                        className="w-10 h-10 bg-green-500/10 text-green-500 rounded-xl flex items-center justify-center border border-green-500/20 hover:bg-green-500 hover:text-white transition-all"
-                                    >
-                                        <Check size={18} />
-                                    </button>
-                                </div>
-                            </div>
-                        ))
-                    )}
-                </div>
-            )}
-        </div>
+                )
+            }
+
+            {/* Event Details Modal */}
+            {
+                selectedEvent && (
+                    <EventDetailsModal
+                        event={selectedEvent}
+                        onClose={() => setSelectedEvent(null)}
+                    />
+                )
+            }
+        </div >
     )
 }

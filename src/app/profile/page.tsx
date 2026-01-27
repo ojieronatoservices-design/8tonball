@@ -20,7 +20,7 @@ type EntryWithEvent = {
         winning_entry_id: string | null
         media_urls: string[]
     }
-    ticketNumber?: number
+    ticket_number?: string
 }
 
 export default function ProfilePage() {
@@ -54,34 +54,13 @@ export default function ProfilePage() {
             // Fetch user's entries with event details
             const { data: entriesData, error: entriesError } = await supabaseClient
                 .from('entries')
-                .select('id, raffle_id, created_at, raffles(id, title, status, ends_at, winner_user_id, winning_entry_id, media_urls)')
+                .select('id, raffle_id, created_at, raffles!entries_raffle_id_fkey(id, title, status, ends_at, winner_user_id, winning_entry_id, media_urls)')
                 .eq('user_id', userId)
                 .order('created_at', { ascending: false })
 
             if (entriesError) throw entriesError
 
-            // Calculate ticket numbers
-            const processedEntries = (entriesData as any[]).map(entry => ({ ...entry })) // Clone
-
-            // Group by raffle to calculate ticket numbers (1st purchased = Ticket #1)
-            const entriesByRaffle: Record<string, EntryWithEvent[]> = {}
-            processedEntries.forEach((entry: EntryWithEvent) => {
-                if (!entriesByRaffle[entry.raffle_id]) entriesByRaffle[entry.raffle_id] = []
-                entriesByRaffle[entry.raffle_id].push(entry)
-            })
-
-            // Sort each group by date ASC and assign numbers
-            Object.values(entriesByRaffle).forEach(group => {
-                group.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-                group.forEach((entry, index) => {
-                    entry.ticketNumber = index + 1
-                })
-            })
-
-            // Flatten and sort by date DESC (newest first) for display
-            const finalEntries = Object.values(entriesByRaffle).flat().sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-
-            setMyEntries(finalEntries)
+            setMyEntries(entriesData as any[] || [])
 
             // Fetch hosted events if eligible
             if (profileData.is_host_eligible) {
@@ -287,8 +266,8 @@ export default function ProfilePage() {
                                     <div className="flex-1 min-w-0">
                                         <div className="flex justify-between items-start">
                                             <h4 className="font-bold text-sm truncate">{entry.raffles?.title}</h4>
-                                            <span className="text-[10px] font-black uppercase tracking-widest bg-white/10 px-2 py-1 rounded text-white/50">
-                                                Ticket #{entry.ticketNumber}
+                                            <span className="text-[10px] font-black uppercase tracking-widest bg-white/5 border border-white/10 px-2 py-1.5 rounded-lg text-white/50 leading-none">
+                                                T#-{entry.ticket_number || '---'}
                                             </span>
                                         </div>
                                         <CountdownTimer endsAt={entry.raffles?.ends_at} className="text-xs" />
@@ -318,8 +297,8 @@ export default function ProfilePage() {
                                     <div className="flex-1 min-w-0">
                                         <div className="flex justify-between items-start">
                                             <h4 className="font-bold text-sm truncate">{entry.raffles?.title}</h4>
-                                            <span className="text-[10px] font-black uppercase tracking-widest bg-white/10 px-2 py-1 rounded text-white/50">
-                                                Ticket #{entry.ticketNumber}
+                                            <span className="text-[10px] font-black uppercase tracking-widest bg-white/5 border border-white/10 px-2 py-1.5 rounded-lg text-white/50 leading-none">
+                                                T#-{entry.ticket_number || '---'}
                                             </span>
                                         </div>
                                         <span className="text-xs text-white/40">
@@ -328,17 +307,19 @@ export default function ProfilePage() {
                                     </div>
                                     {/* Win/Miss Badge */}
                                     {entry.raffles?.status === 'drawn' && (
-                                        didWin(entry) ? (
-                                            <div className="px-3 py-1 bg-green-500/20 text-green-500 text-[10px] font-black uppercase rounded-full border border-green-500/30 flex items-center gap-1">
-                                                <Trophy size={12} />
-                                                WON
-                                            </div>
-                                        ) : (
-                                            <div className="px-3 py-1 bg-red-500/20 text-red-500 text-[10px] font-black uppercase rounded-full border border-red-500/30 flex items-center gap-1">
-                                                <XCircle size={12} />
-                                                MISSED
-                                            </div>
-                                        )
+                                        <div className="shrink-0 ml-auto flex items-center h-full">
+                                            {didWin(entry) ? (
+                                                <div className="px-3 py-1.5 bg-green-500/10 text-green-500 text-[10px] font-black uppercase rounded-full border border-green-500/20 flex items-center gap-1 leading-none h-7 self-center">
+                                                    <Trophy size={12} />
+                                                    WON
+                                                </div>
+                                            ) : (
+                                                <div className="px-3 py-1.5 bg-red-500/10 text-red-500 text-[10px] font-black uppercase rounded-full border border-red-500/20 flex items-center gap-1 leading-none h-7 self-center">
+                                                    <XCircle size={12} />
+                                                    MISSED
+                                                </div>
+                                            )}
+                                        </div>
                                     )}
                                 </Link>
                             ))
@@ -370,8 +351,8 @@ export default function ProfilePage() {
                                         <div className="flex justify-between items-start">
                                             <h4 className="font-bold text-sm truncate">{event.title}</h4>
                                             <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded ${event.status === 'open'
-                                                    ? 'bg-green-500/10 text-green-500 border border-green-500/20'
-                                                    : 'bg-white/10 text-white/40'
+                                                ? 'bg-green-500/10 text-green-500 border border-green-500/20'
+                                                : 'bg-white/10 text-white/40'
                                                 }`}>
                                                 {event.status === 'open' ? 'LIVE' : 'ENDED'}
                                             </span>

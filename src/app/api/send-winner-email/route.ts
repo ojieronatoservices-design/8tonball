@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
     try {
         const { to, winnerName, eventTitle, eventImage } = await request.json()
 
-        console.log('[send-winner-email] Attempting to send email to:', to)
+        console.log('[send-winner-email] Processing winner email request...')
 
         if (!to || !eventTitle) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })

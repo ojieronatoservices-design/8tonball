@@ -10,6 +10,7 @@ import { twMerge } from 'tailwind-merge'
 import { useUser, SignInButton, UserButton, useClerk } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
 import { useToast } from '@/components/Toast'
+import { Trophy as TrophyIcon } from 'lucide-react'
 
 function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs))
@@ -29,6 +30,7 @@ export function Shell({ children }: ShellProps) {
     const [isAdmin, setIsAdmin] = useState(false)
     const [isHostEligible, setIsHostEligible] = useState(false)
     const [isSyncing, setIsSyncing] = useState(false)
+    const [showLegalModal, setShowLegalModal] = useState(false)
 
     const isAuthPage = pathname === '/login'
 
@@ -45,7 +47,7 @@ export function Shell({ children }: ShellProps) {
             // Check if profile exists
             const { data: profile, error: fetchError } = await supabaseClient
                 .from('profiles')
-                .select('tibs_balance, is_admin, is_host_eligible')
+                .select('tibs_balance, is_admin, is_host_eligible, terms_accepted, age_verified')
                 .eq('id', user.id)
                 .single()
 
@@ -62,11 +64,12 @@ export function Shell({ children }: ShellProps) {
                     .select()
 
                 if (insertError) {
-                    console.error('[syncProfile] Error creating profile:', insertError.code, insertError.message, insertError.details)
-                    showToast(`Profile sync failed: ${insertError.message}`, 'error')
+                    console.error('[syncProfile] Error creating profile')
+                    showToast(`Profile sync failed`, 'error')
                 } else {
-                    console.log('[syncProfile] Profile created successfully:', insertData)
+                    console.log('[syncProfile] Profile created successfully')
                     showToast('Welcome! Your profile has been created.', 'success')
+                    setShowLegalModal(true)
                 }
             } else if (fetchError) {
                 console.error('[syncProfile] Error fetching profile:', fetchError.code, fetchError.message)
@@ -74,12 +77,40 @@ export function Shell({ children }: ShellProps) {
                 setBalance(profile.tibs_balance)
                 setIsAdmin(profile.is_admin || false)
                 setIsHostEligible(profile.is_host_eligible || false)
+
+                // Show modal if not accepted
+                if (!profile.terms_accepted || !profile.age_verified) {
+                    setShowLegalModal(true)
+                }
             }
         } catch (err: any) {
             console.error('[syncProfile] Unexpected error:', err?.message || err)
             showToast('Failed to sync profile. Please try again.', 'error')
         } finally {
             setIsSyncing(false)
+        }
+    }
+
+    const handleAcceptLegal = async () => {
+        if (!user) return
+        const supabaseClient = await getClient()
+        if (!supabaseClient) return
+
+        try {
+            const { error } = await supabaseClient
+                .from('profiles')
+                .update({
+                    terms_accepted: true,
+                    age_verified: true
+                })
+                .eq('id', user.id)
+
+            if (error) throw error
+            setShowLegalModal(false)
+            showToast('Terms accepted. Welcome to 8TONBALL!', 'success')
+        } catch (err) {
+            console.error('[handleAcceptLegal] Error:', err)
+            showToast('Failed to save agreement. Please try again.', 'error')
         }
     }
 
@@ -105,6 +136,22 @@ export function Shell({ children }: ShellProps) {
                     }, (payload: any) => {
                         if (payload.new && typeof payload.new.tibs_balance === 'number') {
                             setBalance(payload.new.tibs_balance)
+                        }
+                    })
+                    .subscribe()
+
+                // Subscribe to notifications for Winner Alerts
+                supabaseClient
+                    .channel(`notifications:${user.id}`)
+                    .on('postgres_changes', {
+                        event: 'INSERT',
+                        schema: 'public',
+                        table: 'notifications',
+                        filter: `user_id=eq.${user.id}`
+                    }, (payload: any) => {
+                        if (payload.new && payload.new.type === 'win') {
+                            showToast(`🎉 WINNER ALERT: ${payload.new.message}`, 'success')
+                            // Play a subtle sound if possible or just the toast is enough for now
                         }
                     })
                     .subscribe()
@@ -207,6 +254,61 @@ export function Shell({ children }: ShellProps) {
                     })}
                 </div>
             </nav>
+            {/* Legal Consent Modal */}
+            {showLegalModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="w-full max-w-md bg-[#0A0A0B] border border-white/10 rounded-2xl p-8 shadow-2xl animate-in zoom-in-95 duration-300">
+                        <div className="flex flex-col items-center text-center space-y-6">
+                            <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center">
+                                <TrophyIcon size={40} className="text-primary" />
+                            </div>
+
+                            <div className="space-y-2">
+                                <h2 className="text-2xl font-black tracking-tight text-white uppercase italic">
+                                    Welcome to 8TONBALL
+                                </h2>
+                                <p className="text-white/60 text-sm leading-relaxed">
+                                    Before you jump in, please confirm you meet our safety and legal requirements.
+                                </p>
+                            </div>
+
+                            <div className="w-full space-y-4 py-4">
+                                <div className="flex items-start gap-4 p-4 bg-white/5 rounded-xl border border-white/5">
+                                    <div className="mt-1 text-primary">
+                                        <div className="w-2 h-2 rounded-full bg-primary" />
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="text-sm font-bold text-white uppercase tracking-tight">Age Verification</p>
+                                        <p className="text-xs text-white/50">I confirm that I am at least 18 years of age.</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-4 p-4 bg-white/5 rounded-xl border border-white/5">
+                                    <div className="mt-1 text-primary">
+                                        <div className="w-2 h-2 rounded-full bg-primary" />
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="text-sm font-bold text-white uppercase tracking-tight">Terms of Service</p>
+                                        <p className="text-xs text-white/50 leading-relaxed">
+                                            I agree to the <span className="text-primary underline cursor-pointer">Terms of Service</span> and acknowledge that Tibs are non-refundable digital credits.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={handleAcceptLegal}
+                                className="w-full h-14 bg-white text-black font-black uppercase tracking-widest text-sm rounded-xl hover:bg-white/90 transition-all flex items-center justify-center gap-2 group shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]"
+                            >
+                                ACCEPT & CONTINUE
+                            </button>
+
+                            <p className="text-[10px] text-white/30 uppercase font-bold tracking-[0.2em]">
+                                Philippine Digital Safety Standards
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

@@ -31,5 +31,14 @@ This document outlines the security architecture and measures implemented to pro
 
 ## 5. Storage Security
 **Mechanism**: Supabase Storage Policies.
-- **Public Read, Authenticated Write**: Anyone can view raffle sets and payment proofs (Admin only), but only authenticated users can upload files.
+- **Public Read, Authenticated Write**: Anyone can view raffle assets, but payment proofs are logically restricted to the user and Admins.
 - **Path Isolation**: Users upload proofs to `proofs/<user_id>-<timestamp>`, ensuring they cannot overwrite others' files.
+
+## 6. Privacy & Data Protection
+- **Email Privacy**: User email addresses are stored only in the `profiles` table, protected by RLS. They are never logged in plaintext in public-facing or client-side logs.
+- **Bank Info Masking**: QR codes and bank details in the UI are partially masked (e.g., `•••••••• 2142`) to protect the platform owner's private accounts while still allowing payment verification.
+- **Consumable Currency**: Tibs are strictly platform credits. There is no automated "Withdraw" or "Refund to Cash" logic, ensuring the financial flow remains internal and non-reversible once consumed.
+
+## 7. Infrastructure Safety
+- **Environment Variables**: Sensitive keys (Supabase Service Role, Resend API key) are stored as Vercel Secrets and are never committed to the repository (gitignored).
+- **Public vs Private**: Schema logic is public for transparency, but data access is locked behind Clerk-verified session tokens.
