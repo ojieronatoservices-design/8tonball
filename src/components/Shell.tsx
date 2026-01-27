@@ -289,7 +289,7 @@ export function Shell({ children }: ShellProps) {
                                     <div className="text-left">
                                         <p className="text-sm font-bold text-white uppercase tracking-tight">Terms of Service</p>
                                         <p className="text-xs text-white/50 leading-relaxed">
-                                            I agree to the <span className="text-primary underline cursor-pointer">Terms of Service</span> and acknowledge that Tibs are non-refundable digital credits.
+                                            I agree to the <Link href="/terms" className="text-primary underline hover:text-primary/80 transition-colors">Terms of Service</Link> and acknowledge that Tibs are non-refundable digital credits.
                                         </p>
                                     </div>
                                 </div>
