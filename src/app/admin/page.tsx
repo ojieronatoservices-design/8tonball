@@ -27,6 +27,10 @@ export default function AdminDashboard() {
     const [goal, setGoal] = useState('')
     const [drawTime, setDrawTime] = useState('')
 
+    // Payments State
+    const [payments, setPayments] = useState<any[]>([])
+    const [isLoadingPayments, setIsLoadingPayments] = useState(false)
+
     // Payouts State
     const [payouts, setPayouts] = useState<any[]>([])
     const [isLoadingPayouts, setIsLoadingPayouts] = useState(false)
