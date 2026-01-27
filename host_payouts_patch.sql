@@ -54,10 +54,9 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'message', 'Raffle is not open');
     END IF;
 
-    -- 3. Get entries and pick winner
-    SELECT count(*), id, user_id INTO v_total_entries, v_winning_entry_id, v_winner_id
+    -- 3. Get pick winner entry
+    SELECT id, user_id INTO v_winning_entry_id, v_winner_id
     FROM entries WHERE raffle_id = p_raffle_id
-    GROUP BY id, user_id
     ORDER BY random() LIMIT 1;
 
     IF v_winning_entry_id IS NULL THEN

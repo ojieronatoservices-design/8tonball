@@ -60,7 +60,7 @@ export default function ProfilePage() {
             // Fetch user's entries with event details
             const { data: entriesData, error: entriesError } = await supabaseClient
                 .from('entries')
-                .select('id, raffle_id, created_at, raffles!entries_raffle_id_fkey(id, title, status, ends_at, winner_user_id, winning_entry_id, media_urls)')
+                .select('id, raffle_id, created_at, ticket_number, raffles!entries_raffle_id_fkey(id, title, status, ends_at, winner_user_id, winning_entry_id, media_urls)')
                 .eq('user_id', userId)
                 .order('created_at', { ascending: false })
 
@@ -314,14 +314,14 @@ export default function ProfilePage() {
                                             className="w-full h-full object-cover"
                                         />
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex justify-between items-start">
-                                            <h4 className="font-bold text-sm truncate">{entry.raffles?.title}</h4>
-                                            <span className="text-[10px] font-black uppercase tracking-widest bg-white/5 border border-white/10 px-2 py-1.5 rounded-lg text-white/50 leading-none">
+                                    <div className="flex-1 min-w-0 flex flex-col gap-1">
+                                        <h4 className="font-bold text-sm truncate">{entry.raffles?.title}</h4>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[9px] font-black uppercase tracking-widest bg-white/5 border border-white/10 px-1.5 py-1 rounded text-white/40 leading-none">
                                                 T#-{entry.ticket_number || '---'}
                                             </span>
+                                            <CountdownTimer endsAt={entry.raffles?.ends_at} className="text-[10px]" />
                                         </div>
-                                        <CountdownTimer endsAt={entry.raffles?.ends_at} className="text-xs" />
                                     </div>
                                 </Link>
                             ))
@@ -345,28 +345,28 @@ export default function ProfilePage() {
                                             className="w-full h-full object-cover"
                                         />
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex justify-between items-start">
-                                            <h4 className="font-bold text-sm truncate">{entry.raffles?.title}</h4>
-                                            <span className="text-[10px] font-black uppercase tracking-widest bg-white/5 border border-white/10 px-2 py-1.5 rounded-lg text-white/50 leading-none">
+                                    <div className="flex-1 min-w-0 flex flex-col gap-1">
+                                        <h4 className="font-bold text-sm truncate">{entry.raffles?.title}</h4>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[9px] font-black uppercase tracking-widest bg-white/5 border border-white/10 px-1.5 py-1 rounded text-white/40 leading-none">
                                                 T#-{entry.ticket_number || '---'}
                                             </span>
+                                            <span className="text-[10px] text-white/20 font-black uppercase tracking-widest">
+                                                {entry.raffles?.status === 'drawn' ? 'Ended' : 'Closed'}
+                                            </span>
                                         </div>
-                                        <span className="text-xs text-white/40">
-                                            {entry.raffles?.status === 'drawn' ? 'Ended' : 'Closed'}
-                                        </span>
                                     </div>
                                     {/* Win/Miss Badge */}
                                     {entry.raffles?.status === 'drawn' && (
-                                        <div className="shrink-0 ml-auto flex items-center h-full">
+                                        <div className="shrink-0">
                                             {didWin(entry) ? (
-                                                <div className="px-3 py-1.5 bg-green-500/10 text-green-500 text-[10px] font-black uppercase rounded-full border border-green-500/20 flex items-center gap-1 leading-none h-7 self-center">
-                                                    <Trophy size={12} />
+                                                <div className="px-2.5 py-1 bg-green-500/10 text-green-500 text-[9px] font-black uppercase rounded-lg border border-green-500/20 flex items-center gap-1">
+                                                    <Trophy size={10} />
                                                     WON
                                                 </div>
                                             ) : (
-                                                <div className="px-3 py-1.5 bg-red-500/10 text-red-500 text-[10px] font-black uppercase rounded-full border border-red-500/20 flex items-center gap-1 leading-none h-7 self-center">
-                                                    <XCircle size={12} />
+                                                <div className="px-2.5 py-1 bg-white/5 text-white/20 text-[9px] font-black uppercase rounded-lg border border-white/5 flex items-center gap-1">
+                                                    <XCircle size={10} />
                                                     MISSED
                                                 </div>
                                             )}
