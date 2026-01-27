@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useState } from 'react'
-import { Trophy, Clock, Users, ArrowRight, Loader2, Share2, Facebook, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react'
+import { Trophy, Clock, Users, ArrowRight, Loader2, Share2, Facebook, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Coins } from 'lucide-react'
 import { useAuth, useUser } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
 import { CountdownTimer } from '@/components/CountdownTimer'
@@ -96,21 +96,19 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
 
         {/* Content Section */}
         <div className="p-6 flex flex-col gap-5">
-          {/* Meta Info Bar (Equally Spaced) */}
-          <div className="grid grid-cols-3 gap-2 py-3 border-b border-white/5">
-            <div className="flex flex-col items-center gap-1.5">
-              <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center border border-black/10 shadow-lg shadow-primary/20">
-                <span className="text-[10px] font-black text-black leading-none mt-0.5">8T</span>
-              </div>
-              <span className="text-[10px] font-black uppercase text-white/60 tracking-widest">{event.entry_cost_tibs}</span>
+          {/* Meta Info Bar (Horizontal & Balanced) */}
+          <div className="grid grid-cols-3 gap-0 py-2 border-b border-white/5 bg-white/[0.02]">
+            <div className="flex items-center justify-center gap-2">
+              <Coins size={18} className="text-primary" />
+              <span className="text-sm font-black text-white/90">{event.entry_cost_tibs}</span>
             </div>
-            <div className="flex flex-col items-center gap-1.5 border-x border-white/5">
-              <Users size={16} className="text-white/40" />
-              <span className="text-[10px] font-black uppercase text-white/60 tracking-widest">{entryCount}</span>
+            <div className="flex items-center justify-center gap-2 border-x border-white/5">
+              <Users size={18} className="text-white/40" />
+              <span className="text-sm font-black text-white/90">{entryCount}</span>
             </div>
-            <div className="flex flex-col items-center gap-1.5">
-              <Clock size={16} className="text-white/40" />
-              <div className="text-[10px] font-black uppercase text-white/60 tracking-widest">
+            <div className="flex items-center justify-center gap-2">
+              <Clock size={18} className="text-white/40" />
+              <div className="text-sm font-black text-white/90">
                 <CountdownTimer endsAt={event.ends_at} showLabels={false} />
               </div>
             </div>
