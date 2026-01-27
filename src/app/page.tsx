@@ -7,11 +7,13 @@ import { useSupabase } from '@/hooks/useSupabase'
 import { CountdownTimer } from '@/components/CountdownTimer'
 import { ImageLightbox } from '@/components/ImageLightbox'
 
-const EventCard = ({ event, entryCount, onEnter, onShare }: {
+const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
   event: any,
   entryCount: number,
   onEnter: (id: string, cost: number) => void,
-  onShare: (e: any) => void
+  onShare: (e: any) => void,
+  userId?: string | null,
+  isAdmin?: boolean
 }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
@@ -122,12 +124,18 @@ const EventCard = ({ event, entryCount, onEnter, onShare }: {
           <CountdownTimer endsAt={event.ends_at} className="text-sm" />
 
           <div className="flex gap-2">
-            <button
-              onClick={() => onEnter(event.id, event.entry_cost_tibs)}
-              className="flex-1 py-4 bg-primary text-black rounded-2xl font-black text-sm uppercase tracking-widest transition-all duration-200 active:scale-95 shadow-lg shadow-primary/10"
-            >
-              Enter Event
-            </button>
+            {isAdmin || userId === event.host_user_id ? (
+              <div className="flex-1 py-4 bg-white/5 text-white/20 border border-white/5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center italic">
+                {isAdmin ? 'Admin Restricted' : 'Host Restricted'}
+              </div>
+            ) : (
+              <button
+                onClick={() => onEnter(event.id, event.entry_cost_tibs)}
+                className="flex-1 py-4 bg-primary text-black rounded-2xl font-black text-sm uppercase tracking-widest transition-all duration-200 active:scale-95 shadow-lg shadow-primary/10"
+              >
+                Enter Event
+              </button>
+            )}
             <button
               onClick={() => onShare(event)}
               className="aspect-square w-[52px] flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-2xl border border-white/5 transition-colors"
@@ -154,6 +162,7 @@ export default function HomePage() {
   const [events, setEvents] = useState<any[]>([])
   const [entryCounts, setEntryCounts] = useState<Record<string, number>>({})
   const [isLoading, setIsLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
   const { userId, isSignedIn } = useAuth()
   const { user } = useUser()
   const { getClient } = useSupabase()
@@ -173,6 +182,16 @@ export default function HomePage() {
 
       if (eventsError) throw eventsError
       setEvents(eventsData || [])
+
+      // Fetch admin status
+      if (userId) {
+        const { data: profile } = await supabaseClient
+          .from('profiles')
+          .select('is_admin')
+          .eq('id', userId)
+          .single()
+        setIsAdmin(profile?.is_admin || false)
+      }
 
       // Fetch entry counts for each event
       if (eventsData && eventsData.length > 0) {
@@ -260,6 +279,8 @@ export default function HomePage() {
               entryCount={entryCounts[event.id] || 0}
               onEnter={handleEnterEvent}
               onShare={handleShareFacebook}
+              userId={userId}
+              isAdmin={isAdmin}
             />
           ))
         )}

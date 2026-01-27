@@ -8,6 +8,7 @@ DECLARE
     v_cost INTEGER;
     v_user_balance BIGINT;
     v_status TEXT;
+    v_host_id TEXT;
     v_ticket TEXT;
     v_exists BOOLEAN;
     v_letters TEXT := 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -17,11 +18,20 @@ DECLARE
     v_max_attempts INTEGER := 100;
     v_attempts INTEGER := 0;
 BEGIN
-    -- 1. Get cost and raffle status
-    SELECT entry_cost_tibs, status INTO v_cost, v_status FROM raffles WHERE id = p_raffle_id;
+    -- 1. Get cost, raffle status, and host ID
+    SELECT entry_cost_tibs, status, host_user_id INTO v_cost, v_status, v_host_id FROM raffles WHERE id = p_raffle_id;
     
     IF v_status != 'open' THEN
         RETURN jsonb_build_object('success', false, 'message', 'Raffle is no longer open');
+    END IF;
+
+    -- 1b. Check if user is host or admin
+    IF p_user_id = v_host_id THEN
+        RETURN jsonb_build_object('success', false, 'message', 'Hosts cannot enter their own raffles');
+    END IF;
+
+    IF (SELECT is_admin FROM profiles WHERE id = p_user_id) = TRUE THEN
+        RETURN jsonb_build_object('success', false, 'message', 'Admins are restricted from entering raffles');
     END IF;
 
     -- 2. Check user balance
