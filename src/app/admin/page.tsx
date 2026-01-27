@@ -515,7 +515,7 @@ export default function AdminDashboard() {
             // 1. Get all entries
             const { data: entries, error: fetchError } = await supabaseClient
                 .from('entries')
-                .select('user_id, raffles(entry_cost_tibs)')
+                .select('user_id, raffles!raffle_id(entry_cost_tibs)')
                 .eq('raffle_id', eventId)
 
             if (fetchError) throw fetchError
