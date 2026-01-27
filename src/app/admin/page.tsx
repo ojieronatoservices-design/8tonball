@@ -9,7 +9,7 @@ export default function AdminDashboard() {
     const { user } = useUser()
     const { userId } = useAuth()
     const { getClient } = useSupabase()
-    const [activeTab, setActiveTab] = useState<'events' | 'payments' | 'analytics'>('events')
+    const [activeTab, setActiveTab] = useState<'events' | 'payments' | 'payouts' | 'analytics'>('events')
     const [eventImages, setEventImages] = useState<File[]>([])
     const [eventPreviews, setEventPreviews] = useState<string[]>([])
     const [isLaunching, setIsLaunching] = useState(false)
@@ -27,9 +27,9 @@ export default function AdminDashboard() {
     const [goal, setGoal] = useState('')
     const [drawTime, setDrawTime] = useState('')
 
-    // Payments State
-    const [payments, setPayments] = useState<any[]>([])
-    const [isLoadingPayments, setIsLoadingPayments] = useState(false)
+    // Payouts State
+    const [payouts, setPayouts] = useState<any[]>([])
+    const [isLoadingPayouts, setIsLoadingPayouts] = useState(false)
 
     // Manage Events State
     const [existingEvents, setExistingEvents] = useState<any[]>([])
@@ -184,8 +184,31 @@ export default function AdminDashboard() {
         }
     }
 
+    const fetchPayoutRequests = async () => {
+        const supabaseClient = await getClient()
+        if (!supabaseClient) return
+
+        setIsLoadingPayouts(true)
+        try {
+            const { data, error } = await supabaseClient
+                .from('payout_requests')
+                .select('*, profiles(email, display_name)')
+                .eq('status', 'pending')
+                .order('created_at', { ascending: false })
+
+            if (error) throw error
+            setPayouts(data || [])
+        } catch (error) {
+            console.error('Error fetching payouts:', error)
+        } finally {
+            setIsLoadingPayouts(false)
+        }
+    }
+
     useEffect(() => {
-        if (activeTab === 'payments') {
+        if (activeTab === 'payouts') {
+            fetchPayoutRequests()
+        } else if (activeTab === 'payments') {
             fetchPayments()
         } else if (activeTab === 'events') {
             fetchEvents()
@@ -198,52 +221,25 @@ export default function AdminDashboard() {
         const supabaseClient = await getClient()
         if (!supabaseClient) return
 
-        if (!confirm('Are you sure you want to draw a winner now?')) return
+        if (!confirm('Are you sure you want to draw a winner now? This will also transfer the pot (minus fees) to the host.')) return
 
         try {
-            // 1. Get all entries for this event
-            const { data: entries, error: entriesError } = await supabaseClient
-                .from('entries')
-                .select('user_id, id')
-                .eq('raffle_id', eventId)
+            const { data, error } = await supabaseClient.rpc('draw_winner_and_payout', {
+                p_raffle_id: eventId,
+                p_admin_id: userId
+            })
 
-            if (entriesError) throw entriesError
-            if (!entries || entries.length === 0) {
-                alert('No entries found for this event.')
-                return
-            }
+            if (error) throw error
+            if (!data.success) throw new Error(data.message)
 
-            // 2. Randomly select a winner
-            const winner = entries[Math.floor(Math.random() * entries.length)]
-
-            // 3. Get winner's email
+            // Get winner profile for email
             const { data: winnerProfile } = await supabaseClient
                 .from('profiles')
                 .select('email, display_name')
-                .eq('id', winner.user_id)
+                .eq('id', data.winner_id)
                 .single()
 
-            // 4. Update event status and winner
-            const { error: updateError } = await supabaseClient
-                .from('raffles')
-                .update({
-                    status: 'drawn',
-                    winner_user_id: winner.user_id,
-                    winning_entry_id: winner.id,
-                    drawn_at: new Date().toISOString()
-                })
-                .eq('id', eventId)
-
-            if (updateError) throw updateError
-
-            // 5. Create notification for the winner
-            await supabaseClient.from('notifications').insert([{
-                user_id: winner.user_id,
-                message: `🎉 Congratulations! You won "${eventTitle}"! Check your email for details.`,
-                type: 'win'
-            }])
-
-            // 6. Send winner email
+            // Send winner email
             if (winnerProfile?.email) {
                 await fetch('/api/send-winner-email', {
                     method: 'POST',
@@ -257,7 +253,7 @@ export default function AdminDashboard() {
                 })
             }
 
-            alert('Winner drawn successfully! Email notification sent.')
+            alert(`Winner drawn successfully! ${data.payout_tibs} Tibs transferred to Host.`)
             fetchEvents()
         } catch (error: any) {
             console.error('Error drawing winner:', error)
@@ -300,6 +296,50 @@ export default function AdminDashboard() {
             fetchPayments()
         } catch (error: any) {
             alert(error.message || 'Error rejecting payment')
+        }
+    }
+
+    const handleApprovePayout = async (id: string) => {
+        const supabaseClient = await getClient()
+        if (!supabaseClient) return
+
+        if (!confirm('Are you sure you have sent the GCash payment? This will finalize the settlement.')) return
+
+        try {
+            const { data: request } = await supabaseClient
+                .from('payout_requests')
+                .select('user_id, amount_tibs')
+                .eq('id', id)
+                .single()
+
+            if (!request) return
+
+            const { data: profile } = await supabaseClient
+                .from('profiles')
+                .select('tibs_balance')
+                .eq('id', request.user_id)
+                .single()
+
+            if (!profile || profile.tibs_balance < request.amount_tibs) {
+                alert('User has insufficient balance to fulfill this payout.')
+                return
+            }
+
+            // Deduct balance and update request
+            await supabaseClient.from('profiles').update({
+                tibs_balance: profile.tibs_balance - request.amount_tibs
+            }).eq('id', request.user_id)
+
+            await supabaseClient.from('payout_requests').update({
+                status: 'completed',
+                processed_at: new Date().toISOString(),
+                processed_by: userId
+            }).eq('id', id)
+
+            alert('Payout settled successfully!')
+            fetchPayoutRequests()
+        } catch (error: any) {
+            alert(error.message || 'Error settling payout')
         }
     }
 
@@ -613,6 +653,13 @@ export default function AdminDashboard() {
                             Payments
                         </button>
                         <button
+                            onClick={() => setActiveTab('payouts')}
+                            className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'payouts' ? 'bg-primary text-black' : 'text-white/40 hover:text-white/60'
+                                }`}
+                        >
+                            Payouts
+                        </button>
+                        <button
                             onClick={() => setActiveTab('analytics')}
                             className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'analytics' ? 'bg-primary text-black' : 'text-white/40 hover:text-white/60'
                                 }`}
@@ -848,6 +895,47 @@ export default function AdminDashboard() {
                                 </div>
                             )}
                         </div>
+                    </div>
+                ) : activeTab === 'payouts' ? (
+                    <div className="flex flex-col gap-4">
+                        {isLoadingPayouts ? (
+                            <div className="flex items-center justify-center py-20">
+                                <Loader2 className="animate-spin text-primary" size={32} />
+                            </div>
+                        ) : payouts.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-20 text-white/20 gap-4 bg-card rounded-3xl border border-white/5">
+                                <CheckCircle2 size={48} />
+                                <p className="font-bold">No pending payouts!</p>
+                            </div>
+                        ) : (
+                            payouts.map((pmt: any) => (
+                                <div key={pmt.id} className="bg-card p-5 rounded-3xl border border-white/5 flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary border border-primary/20">
+                                        <Ticket size={24} />
+                                    </div>
+                                    <div className="flex-1 overflow-hidden">
+                                        <h4 className="font-bold text-sm truncate">{pmt.profiles?.display_name || 'Guest User'}</h4>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-white text-xs font-black">₱{(pmt.amount_tibs / 8).toLocaleString()}</p>
+                                            <span className="text-white/20 text-[10px]">•</span>
+                                            <p className="text-primary text-[10px] font-black uppercase tracking-widest">{pmt.amount_tibs.toLocaleString()} Tibs</p>
+                                        </div>
+                                        <div className="mt-1 flex flex-col gap-0.5">
+                                            <p className="text-[10px] text-white/40 font-black uppercase tracking-[0.1em]">{pmt.gcash_name}</p>
+                                            <p className="text-[10px] text-primary font-bold">{pmt.gcash_number}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => handleApprovePayout(pmt.id)}
+                                            className="px-4 py-3 bg-green-500 text-black text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-green-400 transition-all flex items-center gap-2"
+                                        >
+                                            <Check size={14} /> Settle
+                                        </button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
                     </div>
                 ) : (
                     <div className="flex flex-col gap-4">

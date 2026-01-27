@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useState } from 'react'
-import { User, Settings, LogOut, ShieldCheck, Mail, Loader2, Trophy, Clock, XCircle, Ticket, Plus } from 'lucide-react'
+import { Plus, Ticket, ShieldCheck, Clock, Trophy, Loader2, User, LogOut, Wallet, CheckSquare, X, Settings, XCircle, Mail } from 'lucide-react'
 import { useUser, useAuth, useClerk } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
 import { CountdownTimer } from '@/components/CountdownTimer'
@@ -33,6 +33,12 @@ export default function ProfilePage() {
     const [myEntries, setMyEntries] = useState<EntryWithEvent[]>([])
     const [hostedEvents, setHostedEvents] = useState<any[]>([])
     const [activeTab, setActiveTab] = useState<'live' | 'archives' | 'hosted'>('live')
+
+    // Payout State
+    const [showPayoutModal, setShowPayoutModal] = useState(false)
+    const [gcashNumber, setGcashNumber] = useState('')
+    const [gcashName, setGcashName] = useState('')
+    const [isSubmitting, setIsSubmitting] = useState(false)
 
     const fetchProfile = async () => {
         if (!userId) return
@@ -113,6 +119,41 @@ export default function ProfilePage() {
         return entry.raffles?.winner_user_id === userId
     }
 
+    const handleRequestPayout = async () => {
+        if (!gcashNumber || !gcashName) {
+            alert('Please fill in all GCash details.')
+            return
+        }
+
+        const supabaseClient = await getClient()
+        if (!supabaseClient) return
+
+        setIsSubmitting(true)
+        try {
+            const { error } = await supabaseClient
+                .from('payout_requests')
+                .insert([{
+                    user_id: userId,
+                    amount_tibs: profile.tibs_balance,
+                    gcash_number: gcashNumber,
+                    gcash_name: gcashName
+                }])
+
+            if (error) throw error
+
+            alert('Payout request submitted! Please allow 24-48 hours for processing.')
+            setShowPayoutModal(false)
+            setGcashNumber('')
+            setGcashName('')
+            fetchProfile() // Refresh balance
+        } catch (error: any) {
+            console.error('Payout error:', error)
+            alert(error.message || 'Error submitting payout request')
+        } finally {
+            setIsSubmitting(false)
+        }
+    }
+
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -163,10 +204,20 @@ export default function ProfilePage() {
 
             {/* Balance Grid */}
             <div className="grid grid-cols-2 gap-4">
-                <div className="bg-card p-6 rounded-3xl border border-white/5">
-                    <p className="text-[10px] uppercase tracking-widest font-black text-primary mb-1">Current Balance</p>
-                    <div className="text-2xl font-black">{profile.tibs_balance.toLocaleString()}</div>
-                    <p className="text-xs text-white/30 font-bold">TIBS</p>
+                <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col justify-between">
+                    <div>
+                        <p className="text-[10px] uppercase tracking-widest font-black text-primary mb-1">Current Balance</p>
+                        <div className="text-2xl font-black">{profile.tibs_balance.toLocaleString()}</div>
+                        <p className="text-xs text-white/30 font-bold uppercase">TIBS</p>
+                    </div>
+                    {profile.tibs_balance > 0 && (
+                        <button
+                            onClick={() => setShowPayoutModal(true)}
+                            className="mt-4 py-2 bg-white/5 hover:bg-white/10 text-white/70 text-[10px] font-black uppercase tracking-widest rounded-xl border border-white/5 transition-all"
+                        >
+                            Settle Balance
+                        </button>
+                    )}
                 </div>
                 <div className="bg-card p-6 rounded-3xl border border-white/5">
                     <p className="text-[10px] uppercase tracking-widest font-black text-white/40 mb-1">Total Spent</p>
@@ -391,6 +442,59 @@ export default function ProfilePage() {
                     </div>
                 </button>
             </div>
+            {/* Payout Modal */}
+            {showPayoutModal && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-card w-full max-w-sm rounded-3xl border border-white/10 p-8 flex flex-col gap-6 shadow-2xl animate-in zoom-in-95 duration-300">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-xl font-black tracking-tight">Request Payout</h3>
+                            <button onClick={() => setShowPayoutModal(false)} className="p-2 bg-white/5 rounded-full text-white/40">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="p-4 bg-primary/10 border border-primary/20 rounded-2xl">
+                            <p className="text-[10px] font-black uppercase text-primary tracking-widest mb-1">Total to Settle</p>
+                            <div className="text-2xl font-black text-white">₱{(profile.tibs_balance / 8).toLocaleString()}</div>
+                            <p className="text-[10px] text-white/40 font-bold">{profile.tibs_balance.toLocaleString()} TIBS</p>
+                        </div>
+
+                        <div className="flex flex-col gap-4">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] uppercase font-black text-white/30 ml-1">GCash Number</label>
+                                <input
+                                    type="text"
+                                    value={gcashNumber}
+                                    onChange={(e) => setGcashNumber(e.target.value)}
+                                    placeholder="0912 345 6789"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] uppercase font-black text-white/30 ml-1">Account Name</label>
+                                <input
+                                    type="text"
+                                    value={gcashName}
+                                    onChange={(e) => setGcashName(e.target.value)}
+                                    placeholder="JUAN DELA CRUZ"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none uppercase"
+                                />
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={handleRequestPayout}
+                            disabled={isSubmitting}
+                            className="w-full py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 transition-transform active:scale-95 disabled:opacity-50"
+                        >
+                            {isSubmitting ? 'Submitting...' : 'Submit Request'}
+                        </button>
+                        <p className="text-[10px] text-center text-white/20 italic">
+                            Settlements are usually processed within 24-48 hours.
+                        </p>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
