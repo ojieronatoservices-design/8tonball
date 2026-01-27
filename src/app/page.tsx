@@ -268,11 +268,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="flex flex-col gap-8 pb-8">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-2xl font-black tracking-tight">Active Events</h2>
-        <p className="text-white/40 text-sm">Tap to enter and try your luck.</p>
-      </div>
+    <div className="flex flex-col gap-6 pb-8">
 
       <div className="flex flex-col gap-6">
         {isLoading ? (
