@@ -44,6 +44,48 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
   return (
     <>
       <div className="group relative bg-card rounded-3xl overflow-hidden border border-white/5 hover:border-primary/20 transition-all duration-300">
+        {/* Content Section */}
+        <div className="p-6 flex flex-col gap-5">
+          {/* Top Meta Info */}
+          <div className="flex items-center gap-3">
+            <div className="bg-primary/10 text-primary px-2.5 py-1 rounded-full border border-primary/20 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 whitespace-nowrap">
+              <Trophy size={11} />
+              {event.entry_cost_tibs} Tibs
+            </div>
+            <div className="bg-white/5 text-white/40 px-2.5 py-1 rounded-full border border-white/5 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 whitespace-nowrap">
+              <Users size={11} />
+              {entryCount} Entries
+            </div>
+            <div className="bg-white/5 text-white/40 px-2.5 py-1 rounded-full border border-white/5 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 whitespace-nowrap ml-auto">
+              <Clock size={11} />
+              <CountdownTimer endsAt={event.ends_at} showLabels={false} />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <h3 className="text-xl font-black tracking-tight">{event.title}</h3>
+            {description && (
+              <div className="mt-1">
+                <p className={`text-white/40 text-sm leading-relaxed ${!isDescriptionExpanded && isLongDescription ? 'line-clamp-2' : ''}`}>
+                  {description}
+                </p>
+                {isLongDescription && (
+                  <button
+                    onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                    className="text-primary text-[10px] font-black uppercase tracking-widest flex items-center gap-1 mt-2"
+                  >
+                    {isDescriptionExpanded ? (
+                      <>Show less <ChevronUp size={14} /></>
+                    ) : (
+                      <>Read more <ChevronDown size={14} /></>
+                    )}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Image Section */}
         <div
           className="aspect-[16/10] overflow-hidden relative cursor-pointer"
@@ -52,7 +94,7 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
           {isVideo(images[currentImageIndex]) ? (
             <video
               src={images[currentImageIndex]}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
               autoPlay
               muted
               loop
@@ -62,7 +104,7 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
             <img
               src={images[currentImageIndex]}
               alt={event.title}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
           )}
 
@@ -71,74 +113,31 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
             <>
               <button
                 onClick={prevImage}
-                className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white/70 hover:bg-black/70 hover:text-white transition-all"
+                className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white/70 hover:bg-black/60 hover:text-white transition-all opacity-0 group-hover:opacity-100"
               >
                 <ChevronLeft size={20} />
               </button>
               <button
                 onClick={nextImage}
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white/70 hover:bg-black/70 hover:text-white transition-all"
+                className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white/70 hover:bg-black/60 hover:text-white transition-all opacity-0 group-hover:opacity-100"
               >
                 <ChevronRight size={20} />
               </button>
-              {/* Dots */}
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-                {images.map((_: any, idx: number) => (
-                  <div key={idx} className={`w-2 h-2 rounded-full transition-colors ${idx === currentImageIndex ? 'bg-white' : 'bg-white/30'}`} />
-                ))}
-              </div>
             </>
           )}
 
-          {/* Entry Count Badge */}
-          <div className="absolute top-4 left-4 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-xl text-white text-xs font-bold flex items-center gap-1.5 border border-white/10">
-            <Users size={14} className="text-primary" />
-            {entryCount} {entryCount === 1 ? 'Entry' : 'Entries'}
-          </div>
-
-          <button
-            onClick={(e) => { e.stopPropagation(); onShare(event) }}
-            className="absolute top-4 right-4 p-3 bg-black/60 backdrop-blur-md rounded-2xl text-white/80 hover:text-primary transition-colors border border-white/10"
-          >
-            <Share2 size={18} />
-          </button>
+          {/* Dots */}
+          {images.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 px-3 py-1.5 bg-black/20 backdrop-blur-sm rounded-full">
+              {images.map((_: any, idx: number) => (
+                <div key={idx} className={`w-1.5 h-1.5 rounded-full transition-colors ${idx === currentImageIndex ? 'bg-primary' : 'bg-white/30'}`} />
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Content Section */}
-        <div className="p-6 flex flex-col gap-4">
-          <div className="flex justify-between items-start">
-            <div className="flex-1">
-              <h3 className="text-lg font-bold">{event.title}</h3>
-
-              {/* Collapsible Description */}
-              {description && (
-                <div className="mt-1">
-                  <p className={`text-white/40 text-sm ${!isDescriptionExpanded && isLongDescription ? 'line-clamp-2' : ''}`}>
-                    {description}
-                  </p>
-                  {isLongDescription && (
-                    <button
-                      onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                      className="text-primary text-xs font-bold flex items-center gap-1 mt-1"
-                    >
-                      {isDescriptionExpanded ? (
-                        <>Show less <ChevronUp size={14} /></>
-                      ) : (
-                        <>Read more <ChevronDown size={14} /></>
-                      )}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-            <div className="bg-primary/10 text-primary px-3 py-1 rounded-full border border-primary/20 text-xs font-black whitespace-nowrap ml-3">
-              {event.entry_cost_tibs} TIBS
-            </div>
-          </div>
-
-          {/* Timer */}
-          <CountdownTimer endsAt={event.ends_at} className="text-sm" />
-
+        {/* Footer Actions */}
+        <div className="p-6 pt-2">
           <div className="flex gap-2">
             {isAdmin || userId === event.host_user_id ? (
               <div className="flex-1 py-4 bg-white/5 text-white/20 border border-white/5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center italic">
@@ -147,16 +146,16 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
             ) : (
               <button
                 onClick={() => onEnter(event.id, event.entry_cost_tibs)}
-                className="flex-1 py-4 bg-primary text-black rounded-2xl font-black text-sm uppercase tracking-widest transition-all duration-200 active:scale-95 shadow-lg shadow-primary/10"
+                className="flex-1 py-4 bg-primary text-black rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] transition-all duration-200 active:scale-95 shadow-lg shadow-primary/10 flex items-center justify-center gap-2"
               >
-                Enter Event
+                Join Event <ArrowRight size={14} />
               </button>
             )}
             <button
               onClick={() => onShare(event)}
-              className="aspect-square w-[52px] flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-2xl border border-white/5 transition-colors"
+              className="aspect-square w-[52px] flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-2xl border border-white/5 transition-colors text-white/40 hover:text-primary"
             >
-              <Facebook size={20} className="text-[#1877F2]" />
+              <Share2 size={18} />
             </button>
           </div>
         </div>
