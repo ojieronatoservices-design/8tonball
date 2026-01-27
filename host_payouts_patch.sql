@@ -14,12 +14,15 @@ CREATE TABLE IF NOT EXISTS payout_requests (
 -- 2. Add RLS for Payout Requests
 ALTER TABLE payout_requests ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own payout requests" ON payout_requests;
 CREATE POLICY "Users can view own payout requests" ON payout_requests
     FOR SELECT USING (auth_uid_text() = user_id);
 
+DROP POLICY IF EXISTS "Users can create own payout requests" ON payout_requests;
 CREATE POLICY "Users can create own payout requests" ON payout_requests
     FOR INSERT WITH CHECK (auth_uid_text() = user_id);
 
+DROP POLICY IF EXISTS "Admin can manage all payout requests" ON payout_requests;
 CREATE POLICY "Admin can manage all payout requests" ON payout_requests
     FOR ALL USING (
         (SELECT is_admin FROM profiles WHERE id = auth_uid_text()) = TRUE

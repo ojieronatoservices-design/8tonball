@@ -17,6 +17,7 @@ type EntryWithEvent = {
         status: string
         ends_at: string
         winner_user_id: string | null
+        winning_user_id?: string | null
         winning_entry_id: string | null
         media_urls: string[]
     }
@@ -60,11 +61,19 @@ export default function ProfilePage() {
             // Fetch user's entries with event details
             const { data: entriesData, error: entriesError } = await supabaseClient
                 .from('entries')
-                .select('id, raffle_id, created_at, ticket_number, raffles!entries_raffle_id_fkey(id, title, status, ends_at, winner_user_id, winning_entry_id, media_urls)')
+                .select(`
+                    id, 
+                    raffle_id, 
+                    created_at, 
+                    ticket_number, 
+                    raffles(*)
+                `)
                 .eq('user_id', userId)
                 .order('created_at', { ascending: false })
 
-            if (entriesError) throw entriesError
+            if (entriesError) {
+                console.error('Entries Fetch Error:', entriesError)
+            }
 
             setMyEntries(entriesData as any[] || [])
 
@@ -111,12 +120,10 @@ export default function ProfilePage() {
 
     // Check if user won an event
     const didWin = (entry: EntryWithEvent) => {
-        // If specific winning entry is recorded, check against it
-        if (entry.raffles?.winning_entry_id) {
-            return entry.raffles.winning_entry_id === entry.id
-        }
-        // Fallback for old raffles (before schema update)
-        return entry.raffles?.winner_user_id === userId
+        // Check for common winner field variants
+        return entry.raffles?.winning_entry_id === entry.id ||
+            entry.raffles?.winner_user_id === userId ||
+            entry.raffles?.winning_user_id === userId
     }
 
     const handleRequestPayout = async () => {
