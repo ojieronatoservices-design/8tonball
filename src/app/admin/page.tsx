@@ -117,7 +117,7 @@ export default function AdminDashboard() {
                 .from('raffles')
                 .select(`
                     *,
-                    entries:entries(count),
+                    entries:entries!entries_raffle_id_fkey(count),
                     winner:profiles!winner_user_id(display_name, email),
                     winning_entry:entries!winning_entry_id(ticket_number)
                 `)
