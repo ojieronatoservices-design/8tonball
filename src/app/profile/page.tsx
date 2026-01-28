@@ -120,10 +120,9 @@ export default function ProfilePage() {
 
     // Check if user won an event
     const didWin = (entry: EntryWithEvent) => {
-        // Check for common winner field variants
-        return entry.raffles?.winning_entry_id === entry.id ||
-            entry.raffles?.winner_user_id === userId ||
-            entry.raffles?.winning_user_id === userId
+        // Strictly check if THIS entry is the winning one
+        // We do NOT check winner_user_id here, because that would mark ALL of the user's tickets as winners
+        return entry.raffles?.winning_entry_id === entry.id
     }
 
     const handleRequestPayout = async () => {
