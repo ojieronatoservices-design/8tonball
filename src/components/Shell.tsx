@@ -115,6 +115,8 @@ export function Shell({ children }: ShellProps) {
     }
 
 
+    const [unreadCount, setUnreadCount] = useState(0)
+
     useEffect(() => {
         let channel: any = null
 
@@ -124,6 +126,15 @@ export function Shell({ children }: ShellProps) {
 
                 const supabaseClient = await getClient()
                 if (!supabaseClient) return
+
+                // Check for initial unread notifications (simple count for now)
+                const { count } = await supabaseClient
+                    .from('notifications')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('user_id', user.id)
+                    .eq('is_read', false)
+
+                if (count) setUnreadCount(count)
 
                 // Subscribe to profile changes
                 channel = supabaseClient
@@ -149,9 +160,11 @@ export function Shell({ children }: ShellProps) {
                         table: 'notifications',
                         filter: `user_id=eq.${user.id}`
                     }, (payload: any) => {
-                        if (payload.new && payload.new.type === 'win') {
-                            showToast(`🎉 WINNER ALERT: ${payload.new.message}`, 'success')
-                            // Play a subtle sound if possible or just the toast is enough for now
+                        if (payload.new) {
+                            setUnreadCount(prev => prev + 1)
+                            if (payload.new.type === 'win') {
+                                showToast(`🎉 WINNER ALERT: ${payload.new.message}`, 'success')
+                            }
                         }
                     })
                     .subscribe()
@@ -236,7 +249,7 @@ export function Shell({ children }: ShellProps) {
                                 key={item.href}
                                 href={isDisabled ? '/' : item.href}
                                 className={cn(
-                                    "flex flex-col items-center gap-1 transition-all duration-200",
+                                    "flex flex-col items-center gap-1 transition-all duration-200 relative",
                                     isActive ? "text-primary scale-110" : "text-white/40 hover:text-white/60",
                                     isDisabled && "opacity-20 cursor-not-allowed"
                                 )}
@@ -245,9 +258,18 @@ export function Shell({ children }: ShellProps) {
                                         e.preventDefault()
                                         // Trigger sign in
                                     }
+                                    // Reset badge on click
+                                    if (item.label === 'Activity') setUnreadCount(0)
                                 }}
                             >
-                                <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+                                <div className="relative">
+                                    <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+                                    {item.label === 'Activity' && unreadCount > 0 && (
+                                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border border-black flex items-center justify-center">
+                                            <span className="text-[8px] font-bold text-white">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                                        </div>
+                                    )}
+                                </div>
                                 <span className="text-[10px] font-bold uppercase tracking-widest">{item.label}</span>
                             </Link>
                         )

@@ -10,7 +10,7 @@ import { ImageLightbox } from '@/components/ImageLightbox'
 const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
   event: any,
   entryCount: number,
-  onEnter: (id: string, cost: number) => void,
+  onEnter: (id: string, cost: number) => Promise<boolean>,
   onShare: (e: any) => void,
   userId?: string | null,
   isAdmin?: boolean
@@ -18,6 +18,46 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
   const [showLightbox, setShowLightbox] = useState(false)
+
+  // UX States
+  const [isConfirming, setIsConfirming] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [localEntryCount, setLocalEntryCount] = useState(entryCount)
+  const [justJoined, setJustJoined] = useState(false)
+
+  // Sync prop changes unless we just joined (optimistic)
+  useEffect(() => {
+    if (!justJoined) setLocalEntryCount(entryCount)
+  }, [entryCount, justJoined])
+
+  const handleJoinClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsConfirming(true)
+  }
+
+  const handleCancel = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsConfirming(false)
+  }
+
+  const handleConfirm = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsProcessing(true)
+
+    // Play sound or haptic here if possible
+
+    const success = await onEnter(event.id, event.entry_cost_tibs)
+
+    setIsProcessing(false)
+    setIsConfirming(false)
+
+    if (success) {
+      setLocalEntryCount(prev => prev + 1)
+      setJustJoined(true)
+      // Reset "just joined" state after a while to allow sync
+      setTimeout(() => setJustJoined(false), 5000)
+    }
+  }
 
   const isVideo = (url: string) => {
     const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.m4v']
@@ -102,9 +142,9 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
               <Coins size={18} className="text-primary" />
               <span className="text-sm font-black text-white/90">{event.entry_cost_tibs}</span>
             </div>
-            <div className="flex items-center justify-center gap-2 border-x border-white/5">
-              <Users size={18} className="text-white/40" />
-              <span className="text-sm font-black text-white/90">{entryCount}</span>
+            <div className={`flex items-center justify-center gap-2 border-x border-white/5 transition-all duration-300 ${justJoined ? 'scale-125 text-primary' : ''}`}>
+              <Users size={18} className={justJoined ? "text-primary" : "text-white/40"} />
+              <span className={`text-sm font-black ${justJoined ? "text-primary" : "text-white/90"}`}>{localEntryCount}</span>
             </div>
             <div className="flex items-center justify-center gap-2">
               <Clock size={18} className="text-white/40" />
@@ -137,22 +177,47 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
             )}
           </div>
 
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2 pt-2 h-[54px]"> {/* Fixed height container for buttons */}
             {isAdmin || userId === event.host_user_id ? (
-              <div className="flex-1 py-4 bg-white/5 text-white/20 border border-white/5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center italic">
+              <div className="flex-1 h-full bg-white/5 text-white/20 border border-white/5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center italic">
                 {isAdmin ? 'Admin Restricted' : 'Host Restricted'}
+              </div>
+            ) : isConfirming ? (
+              <div className="flex-1 flex gap-2 animate-in slide-in-from-right fade-in duration-200">
+                <button
+                  onClick={handleCancel}
+                  disabled={isProcessing}
+                  className="flex-1 h-full bg-white/10 hover:bg-white/20 text-white rounded-2xl flex items-center justify-center transition-colors disabled:opacity-50"
+                >
+                  <span className="sr-only">Cancel</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-white/60"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                </button>
+                <button
+                  onClick={handleConfirm}
+                  disabled={isProcessing}
+                  className="flex-[2] h-full bg-primary hover:bg-primary/90 text-black rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center transition-all disabled:opacity-50 active:scale-95"
+                >
+                  {isProcessing ? (
+                    <Loader2 className="animate-spin" size={20} />
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span>CONFIRM ({event.entry_cost_tibs} Tibs)</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+                    </div>
+                  )}
+                </button>
               </div>
             ) : (
               <button
-                onClick={() => onEnter(event.id, event.entry_cost_tibs)}
-                className="flex-1 py-4 bg-primary text-black rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] transition-all duration-200 active:scale-95 shadow-lg shadow-primary/10 flex items-center justify-center gap-2"
+                onClick={handleJoinClick}
+                className="flex-1 h-full bg-primary text-black rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] transition-all duration-200 active:scale-95 shadow-lg shadow-primary/10 flex items-center justify-center gap-2 hover:brightness-110"
               >
                 Join Event
               </button>
             )}
             <button
               onClick={() => onShare(event)}
-              className="aspect-square w-[52px] flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-2xl border border-white/5 transition-colors text-white/40 hover:text-primary"
+              className="aspect-square h-full flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-2xl border border-white/5 transition-colors text-white/40 hover:text-primary"
             >
               <Share2 size={18} />
             </button>
@@ -230,16 +295,17 @@ export default function HomePage() {
     fetchEvents()
   }, [userId])
 
-  const handleEnterEvent = async (eventId: string, cost: number) => {
+  // Updated handleEnterEvent to return success status for UI update
+  const handleEnterEvent = async (eventId: string, cost: number): Promise<boolean> => {
     if (!isSignedIn) {
       alert('Please log in to enter events.')
-      return
+      return false
     }
 
     const supabaseClient = await getClient()
-    if (!supabaseClient) return
+    if (!supabaseClient) return false
 
-    if (!confirm(`Enter this event for ${cost} Tibs?`)) return
+    // No confirm popup here anymore - handled by UI
 
     try {
       const { data, error } = await supabaseClient.rpc('enter_raffle', {
@@ -250,14 +316,18 @@ export default function HomePage() {
       if (error) throw error
 
       if (data.success) {
-        alert('Entry successful! Good luck!')
-        fetchEvents() // Refresh to update entry count
+        // alert('Entry successful! Good luck!') // Removed alert for smoother flow
+        // We still fetch events to ensure data consistency, but UI is already updated optimistically
+        fetchEvents()
+        return true
       } else {
         alert(data.message || 'Failed to enter event.')
+        return false
       }
     } catch (error: any) {
       console.error('Error entering event:', error)
       alert(error.message || 'Error entering event.')
+      return false
     }
   }
 
