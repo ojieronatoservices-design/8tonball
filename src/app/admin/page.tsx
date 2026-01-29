@@ -119,7 +119,7 @@ export default function AdminDashboard() {
                     *,
                     entries:entries!entries_raffle_id_fkey(count),
                     winner:profiles!winner_user_id(display_name, email),
-                    winning_entry:entries!winning_entry_id(ticket_number)
+                    winning_entry:entries!raffles_winning_entry_id_fkey(ticket_number)
                 `)
                 .order('created_at', { ascending: false })
 
@@ -239,8 +239,8 @@ export default function AdminDashboard() {
         if (!confirm('Are you sure you want to draw a winner now? This will also transfer the pot (minus fees) to the host.')) return
 
         try {
-            const { data, error } = await supabaseClient.rpc('draw_raffle_winner_v3', {
-                p_raffle_id: eventId,
+            const { data, error } = await supabaseClient.rpc('draw_raffle_winner_v4', {
+                p_event_id: eventId,
                 p_admin_id: userId
             })
 
@@ -268,7 +268,19 @@ export default function AdminDashboard() {
                 })
             }
 
-            alert(`Winner drawn successfully! ${data.payout_tibs} Tibs transferred to Host.`)
+            alert(`Winner drawn! Ticket: ${data.ticket_number || 'Confirmed'}`)
+
+            // Sync UI instantly
+            if (selectedEvent && selectedEvent.id === eventId) {
+                setSelectedEvent(prev => prev ? {
+                    ...prev,
+                    status: 'drawn',
+                    winner: winnerProfile,
+                    winning_entry: { ticket_number: data.ticket_number },
+                    drawn_at: new Date().toISOString()
+                } : null)
+            }
+
             fetchEvents()
         } catch (error: any) {
             console.error('Error drawing winner:', error)
