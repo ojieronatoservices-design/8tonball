@@ -388,6 +388,9 @@ export default function AdminDashboard() {
     }
 
     const handleLaunchEvent = async () => {
+        // Prevent duplicate submissions
+        if (isLaunching) return
+
         if (!title || !cost || !drawTime) {
             alert('Please fill in all required fields (Title, Cost, Draw Time)')
             return

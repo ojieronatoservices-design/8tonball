@@ -351,9 +351,8 @@ export default function HomePage() {
       if (error) throw error
 
       if (data.success) {
-        // alert('Entry successful! Good luck!') // Removed alert for smoother flow
-        // We still fetch events to ensure data consistency, but UI is already updated optimistically
-        fetchEvents()
+        // Entry successful - real-time subscription will update entry counts
+        // Don't call fetchEvents() as it causes a page reload
         return true
       } else {
         alert(data.message || 'Failed to enter event.')
