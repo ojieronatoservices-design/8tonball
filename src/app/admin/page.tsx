@@ -272,7 +272,7 @@ export default function AdminDashboard() {
 
             // Sync UI instantly
             if (selectedEvent && selectedEvent.id === eventId) {
-                setSelectedEvent(prev => prev ? {
+                setSelectedEvent((prev: any) => prev ? {
                     ...prev,
                     status: 'drawn',
                     winner: winnerProfile,
