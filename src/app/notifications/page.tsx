@@ -23,9 +23,15 @@ interface RaffleDetails {
     entry_cost_tibs: number
     status: string
     drawn_at?: string
-    winning_entry?: { ticket_number: string }
-    host?: { display_name: string, email: string }
-    entries?: { count: number }[]
+    winning_entry?: any
+    host?: any
+    entries?: any
+}
+
+// Helper to safely get first item from Supabase array join or single object
+const getFirst = <T,>(arr: T | T[] | undefined): T | undefined => {
+    if (!arr) return undefined
+    return Array.isArray(arr) ? arr[0] : arr
 }
 
 export default function NotificationsPage() {
@@ -101,7 +107,7 @@ export default function NotificationsPage() {
                     .limit(1)
 
                 if (raffles && raffles.length > 0) {
-                    setSelectedRaffle(raffles[0] as RaffleDetails)
+                    setSelectedRaffle(raffles[0] as unknown as RaffleDetails)
                 }
             } catch (err) {
                 console.error('Error fetching raffle:', err)
@@ -117,13 +123,16 @@ export default function NotificationsPage() {
     }
 
     const handleContactHost = () => {
-        if (!selectedRaffle?.host?.email) return
+        const host = getFirst(selectedRaffle?.host)
+        const winningEntry = getFirst(selectedRaffle?.winning_entry)
 
-        const ticketNum = selectedRaffle.winning_entry?.ticket_number || 'N/A'
-        const subject = encodeURIComponent(`8TONBALL Winner: ${selectedRaffle.title} (Ticket #${ticketNum})`)
-        const body = encodeURIComponent(`Hi ${selectedRaffle.host.display_name},\n\nI won your event "${selectedRaffle.title}" with ticket #${ticketNum}.\n\nPlease let me know how to claim my prize.\n\nThank you!`)
+        if (!host?.email) return
 
-        window.open(`mailto:${selectedRaffle.host.email}?subject=${subject}&body=${body}`, '_blank')
+        const ticketNum = winningEntry?.ticket_number || 'N/A'
+        const subject = encodeURIComponent(`8TONBALL Winner: ${selectedRaffle?.title} (Ticket #${ticketNum})`)
+        const body = encodeURIComponent(`Hi ${host.display_name},\n\nI won your event "${selectedRaffle?.title}" with ticket #${ticketNum}.\n\nPlease let me know how to claim my prize.\n\nThank you!`)
+
+        window.open(`mailto:${host.email}?subject=${subject}&body=${body}`, '_blank')
     }
 
     useEffect(() => {
@@ -319,23 +328,23 @@ export default function NotificationsPage() {
                                     </div>
 
                                     {/* Winning Ticket */}
-                                    {selectedRaffle.winning_entry?.ticket_number && (
+                                    {getFirst(selectedRaffle.winning_entry)?.ticket_number && (
                                         <div className="bg-primary/10 border border-primary/20 rounded-2xl p-4 mb-6">
                                             <div className="flex items-center justify-between">
                                                 <span className="text-xs font-black uppercase tracking-widest text-primary/60">Winning Ticket</span>
-                                                <span className="text-lg font-black text-primary">#{selectedRaffle.winning_entry.ticket_number}</span>
+                                                <span className="text-lg font-black text-primary">#{getFirst(selectedRaffle.winning_entry)?.ticket_number}</span>
                                             </div>
                                         </div>
                                     )}
 
                                     {/* Host Info */}
-                                    {selectedRaffle.host && (
+                                    {getFirst(selectedRaffle.host) && (
                                         <div className="bg-white/5 rounded-2xl p-4 mb-6 flex items-center gap-3">
                                             <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white/40">
-                                                {selectedRaffle.host.display_name?.charAt(0).toUpperCase() || '?'}
+                                                {getFirst(selectedRaffle.host)?.display_name?.charAt(0).toUpperCase() || '?'}
                                             </div>
                                             <div>
-                                                <p className="text-sm font-bold">{selectedRaffle.host.display_name}</p>
+                                                <p className="text-sm font-bold">{getFirst(selectedRaffle.host)?.display_name}</p>
                                                 <p className="text-xs text-white/40">Event Host</p>
                                             </div>
                                         </div>
@@ -344,7 +353,7 @@ export default function NotificationsPage() {
                                     {/* Contact Host Button */}
                                     <button
                                         onClick={handleContactHost}
-                                        disabled={!selectedRaffle.host?.email}
+                                        disabled={!getFirst(selectedRaffle.host)?.email}
                                         className="w-full h-14 bg-white text-black font-black uppercase tracking-widest text-sm rounded-2xl flex items-center justify-center gap-2 hover:bg-white/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <Mail size={18} />
