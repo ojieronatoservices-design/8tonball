@@ -239,8 +239,9 @@ export default function AdminDashboard() {
         if (!confirm('Are you sure you want to draw a winner now? This will also transfer the pot (minus fees) to the host.')) return
 
         try {
-            const { data, error } = await supabaseClient.rpc('draw_raffle_winner_v4', {
-                p_event_id: eventId,
+            // CRITICAL: Using draw_winner_and_payout - the ONLY working function in the database
+            const { data, error } = await supabaseClient.rpc('draw_winner_and_payout', {
+                p_raffle_id: eventId,
                 p_admin_id: userId
             })
 
