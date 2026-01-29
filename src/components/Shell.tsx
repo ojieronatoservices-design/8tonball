@@ -265,8 +265,8 @@ export function Shell({ children }: ShellProps) {
                                 <div className="relative">
                                     <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
                                     {item.label === 'Activity' && unreadCount > 0 && (
-                                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border border-black flex items-center justify-center">
-                                            <span className="text-[8px] font-bold text-white">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                                        <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full border-2 border-black flex items-center justify-center">
+                                            <span className="text-[10px] font-bold text-white">{unreadCount > 9 ? '9+' : unreadCount}</span>
                                         </div>
                                     )}
                                 </div>

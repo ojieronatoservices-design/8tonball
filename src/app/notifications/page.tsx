@@ -2,19 +2,36 @@
 
 import React, { useEffect, useState } from 'react'
 import { Bell, Trophy, Wallet, Info, Loader2 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { useAuth } from '@clerk/nextjs'
+import { useSupabase } from '@/hooks/useSupabase'
 
 export default function NotificationsPage() {
     const { userId, isLoaded: isAuthLoaded } = useAuth()
+    const { getClient } = useSupabase()
     const [notifications, setNotifications] = useState<any[]>([])
     const [isLoading, setIsLoading] = useState(true)
 
+    // Mark all notifications as read when page loads
+    const markAllAsRead = async () => {
+        if (!userId) return
+        const supabaseClient = await getClient()
+        if (!supabaseClient) return
+
+        await supabaseClient
+            .from('notifications')
+            .update({ is_read: true })
+            .eq('user_id', userId)
+            .eq('is_read', false)
+    }
+
     const fetchNotifications = async () => {
         if (!userId) return
+        const supabaseClient = await getClient()
+        if (!supabaseClient) return
+
         setIsLoading(true)
         try {
-            const { data, error } = await supabase
+            const { data, error } = await supabaseClient
                 .from('notifications')
                 .select('*')
                 .eq('user_id', userId)
@@ -22,6 +39,9 @@ export default function NotificationsPage() {
 
             if (error) throw error
             setNotifications(data || [])
+
+            // Mark all as read after fetching
+            await markAllAsRead()
         } catch (error) {
             console.error('Error fetching notifications:', error)
         } finally {

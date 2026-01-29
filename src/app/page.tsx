@@ -295,6 +295,41 @@ export default function HomePage() {
     fetchEvents()
   }, [userId])
 
+  // Real-time subscription for entry count updates
+  useEffect(() => {
+    let entriesChannel: any = null
+
+    const setupRealtime = async () => {
+      const supabaseClient = await getClient()
+      if (!supabaseClient || events.length === 0) return
+
+      // Subscribe to all entry inserts
+      entriesChannel = supabaseClient
+        .channel('entries-realtime')
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'entries'
+        }, (payload: any) => {
+          // Update count for the specific raffle
+          const raffleId = payload.new.raffle_id
+          setEntryCounts(prev => ({
+            ...prev,
+            [raffleId]: (prev[raffleId] || 0) + 1
+          }))
+        })
+        .subscribe()
+    }
+
+    setupRealtime()
+
+    return () => {
+      if (entriesChannel) {
+        entriesChannel.unsubscribe()
+      }
+    }
+  }, [events.length])
+
   // Updated handleEnterEvent to return success status for UI update
   const handleEnterEvent = async (eventId: string, cost: number): Promise<boolean> => {
     if (!isSignedIn) {
