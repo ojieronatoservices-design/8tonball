@@ -310,12 +310,17 @@ export default function HomePage() {
           event: 'INSERT',
           schema: 'public',
           table: 'entries'
-        }, (payload: any) => {
-          // Update count for the specific raffle
+        }, async (payload: any) => {
+          // Robust update: fetch the actual count to avoid race conditions
           const raffleId = payload.new.raffle_id
+          const { count } = await supabaseClient
+            .from('entries')
+            .select('*', { count: 'exact', head: true })
+            .eq('raffle_id', raffleId)
+
           setEntryCounts(prev => ({
             ...prev,
-            [raffleId]: (prev[raffleId] || 0) + 1
+            [raffleId]: count || 0
           }))
         })
         .subscribe()
@@ -351,6 +356,11 @@ export default function HomePage() {
       if (error) throw error
 
       if (data.success) {
+        // Dispatch immediate balance update to Shell.tsx (immediate UI feedback)
+        window.dispatchEvent(new CustomEvent('balanceUpdate', {
+          detail: { balance: data.new_balance }
+        }))
+
         // Entry successful - real-time subscription will update entry counts
         // Don't call fetchEvents() as it causes a page reload
         return true

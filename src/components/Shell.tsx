@@ -175,10 +175,19 @@ export function Shell({ children }: ShellProps) {
 
         setupSubscription()
 
+        // Listen for manual balance updates (optimistic/immediate)
+        const handleBalanceUpdate = (e: any) => {
+            if (typeof e.detail?.balance === 'number') {
+                setBalance(e.detail.balance)
+            }
+        }
+        window.addEventListener('balanceUpdate', handleBalanceUpdate)
+
         return () => {
             if (channel) {
                 supabase.removeChannel(channel)
             }
+            window.removeEventListener('balanceUpdate', handleBalanceUpdate)
         }
     }, [isLoaded, user])
 
