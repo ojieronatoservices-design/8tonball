@@ -31,6 +31,23 @@ export function Shell({ children }: ShellProps) {
     const [isHostEligible, setIsHostEligible] = useState(false)
     const [isSyncing, setIsSyncing] = useState(false)
     const [showLegalModal, setShowLegalModal] = useState(false)
+    const [isVisible, setIsVisible] = useState(true)
+    const lastScrollY = useRef(0)
+
+    useEffect(() => {
+        const handleScroll = () => {
+            const currentScrollY = window.scrollY
+            if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
+                setIsVisible(false)
+            } else {
+                setIsVisible(true)
+            }
+            lastScrollY.current = currentScrollY
+        }
+
+        window.addEventListener('scroll', handleScroll, { passive: true })
+        return () => window.removeEventListener('scroll', handleScroll)
+    }, [])
 
     const isAuthPage = pathname === '/login'
 
@@ -234,7 +251,10 @@ export function Shell({ children }: ShellProps) {
     return (
         <div className="min-h-screen bg-background text-foreground flex flex-col items-center">
             {/* Top Header */}
-            <header className="fixed top-0 w-full max-w-lg glass z-50 px-6 py-4 flex justify-between items-center">
+            <header className={cn(
+                "fixed top-0 w-full max-w-lg glass z-50 px-6 py-4 flex justify-between items-center transition-transform duration-300",
+                !isVisible && "-translate-y-full"
+            )}>
                 <Link href="/">
                     <h1 className="text-xl font-black tracking-tighter neon-text">8TONBALL</h1>
                 </Link>
@@ -265,7 +285,10 @@ export function Shell({ children }: ShellProps) {
             </main>
 
             {/* Bottom Navigation */}
-            <nav className="fixed bottom-0 w-full max-w-lg glass z-50 px-6 py-4">
+            <nav className={cn(
+                "fixed bottom-0 w-full max-w-lg glass z-50 px-6 py-4 transition-transform duration-300",
+                !isVisible && "translate-y-full"
+            )}>
                 <div className="flex justify-between items-center">
                     {navItems.map((item) => {
                         const Icon = item.icon
