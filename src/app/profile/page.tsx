@@ -280,7 +280,7 @@ export default function ProfilePage() {
                         <div className="text-2xl font-black neon-text">{profile.tibs_balance.toLocaleString()}</div>
                         <p className="text-xs text-muted-foreground font-bold uppercase">TIBS</p>
                     </div>
-                    {profile.tibs_balance > 0 && (
+                    {(isHostEligible || profile.is_admin) && profile.tibs_balance > 0 && (
                         <button
                             onClick={() => setShowPayoutModal(true)}
                             className="mt-4 py-2 bg-muted hover:bg-foreground/5 text-foreground text-[10px] font-black uppercase tracking-widest rounded-xl border border-border transition-all"
