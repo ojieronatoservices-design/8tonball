@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { Trophy, Clock, Users, ArrowRight, Loader2, Share2, Facebook, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Coins } from 'lucide-react'
 import { useAuth, useUser } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
@@ -83,7 +83,7 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
 
   return (
     <>
-      <div className="group relative bg-card rounded-3xl overflow-hidden border border-white/5 hover:border-primary/20 transition-all duration-300">
+      <div className="group relative bg-card rounded-3xl overflow-hidden border border-border hover:border-primary/20 transition-all duration-300">
         {/* Image Section (NOW AT TOP) */}
         <div
           className="aspect-[16/10] overflow-hidden relative cursor-pointer"
@@ -111,13 +111,13 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
             <>
               <button
                 onClick={prevImage}
-                className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white/70 hover:bg-black/60 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-black/60 transition-all opacity-0 group-hover:opacity-100"
               >
                 <ChevronLeft size={20} />
               </button>
               <button
                 onClick={nextImage}
-                className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white/70 hover:bg-black/60 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-black/60 transition-all opacity-0 group-hover:opacity-100"
               >
                 <ChevronRight size={20} />
               </button>
@@ -137,18 +137,18 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
         {/* Content Section */}
         <div className="p-6 flex flex-col gap-5">
           {/* Meta Info Bar (Horizontal & Balanced) */}
-          <div className="grid grid-cols-3 gap-0 py-2 border-b border-white/5 bg-white/[0.02]">
+          <div className="grid grid-cols-3 gap-0 py-2 border-y border-border bg-muted/30">
             <div className="flex items-center justify-center gap-2">
               <Coins size={18} className="text-primary" />
-              <span className="text-sm font-black text-white/90">{event.entry_cost_tibs}</span>
+              <span className="text-sm font-black text-foreground">{event.entry_cost_tibs}</span>
             </div>
-            <div className={`flex items-center justify-center gap-2 border-x border-white/5 transition-all duration-300 ${justJoined ? 'scale-125 text-primary' : ''}`}>
-              <Users size={18} className={justJoined ? "text-primary" : "text-white/40"} />
-              <span className={`text-sm font-black ${justJoined ? "text-primary" : "text-white/90"}`}>{localEntryCount}</span>
+            <div className={`flex items-center justify-center gap-2 border-x border-border transition-all duration-300 ${justJoined ? 'scale-125 text-primary' : ''}`}>
+              <Users size={18} className={justJoined ? "text-primary" : "text-muted-foreground"} />
+              <span className={`text-sm font-black ${justJoined ? "text-primary transition-all neon-text" : "text-foreground"}`}>{localEntryCount}</span>
             </div>
             <div className="flex items-center justify-center gap-2">
-              <Clock size={18} className="text-white/40" />
-              <div className="text-sm font-black text-white/90">
+              <Clock size={18} className="text-muted-foreground" />
+              <div className="text-sm font-black text-foreground">
                 <CountdownTimer endsAt={event.ends_at} showLabels={false} />
               </div>
             </div>
@@ -158,13 +158,13 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
             <h3 className="text-xl font-black tracking-tight">{event.title}</h3>
             {description && (
               <div className="mt-1">
-                <p className={`text-white/40 text-sm leading-relaxed ${!isDescriptionExpanded && isLongDescription ? 'line-clamp-2' : ''}`}>
+                <p className={`text-muted-foreground text-sm leading-relaxed ${!isDescriptionExpanded && isLongDescription ? 'line-clamp-2' : ''}`}>
                   {description}
                 </p>
                 {isLongDescription && (
                   <button
                     onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                    className="text-primary text-[10px] font-black uppercase tracking-widest flex items-center gap-1 mt-2"
+                    className="neon-text text-[10px] font-black uppercase tracking-widest flex items-center gap-1 mt-2"
                   >
                     {isDescriptionExpanded ? (
                       <>Show less <ChevronUp size={14} /></>
@@ -179,7 +179,7 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
 
           <div className="flex gap-2 pt-2 h-[54px]"> {/* Fixed height container for buttons */}
             {isAdmin || userId === event.host_user_id ? (
-              <div className="flex-1 h-full bg-white/5 text-white/20 border border-white/5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center italic">
+              <div className="flex-1 h-full bg-muted text-muted-foreground border border-border rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center italic">
                 {isAdmin ? 'Admin Restricted' : 'Host Restricted'}
               </div>
             ) : isConfirming ? (
@@ -187,15 +187,15 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
                 <button
                   onClick={handleCancel}
                   disabled={isProcessing}
-                  className="flex-1 h-full bg-white/10 hover:bg-white/20 text-white rounded-2xl flex items-center justify-center transition-colors disabled:opacity-50"
+                  className="flex-1 h-full bg-muted hover:bg-foreground/5 text-foreground rounded-2xl flex items-center justify-center border border-border transition-colors disabled:opacity-50"
                 >
                   <span className="sr-only">Cancel</span>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-white/60"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
                 </button>
                 <button
                   onClick={handleConfirm}
                   disabled={isProcessing}
-                  className="flex-[2] h-full bg-primary hover:bg-primary/90 text-black rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center transition-all disabled:opacity-50 active:scale-95"
+                  className="flex-[2] h-full bg-primary text-primary-foreground rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center transition-all disabled:opacity-50 active:scale-95 neon-border shadow-md"
                 >
                   {isProcessing ? (
                     <Loader2 className="animate-spin" size={20} />
@@ -210,14 +210,14 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
             ) : (
               <button
                 onClick={handleJoinClick}
-                className="flex-1 h-full bg-primary text-black rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] transition-all duration-200 active:scale-95 shadow-lg shadow-primary/10 flex items-center justify-center gap-2 hover:brightness-110"
+                className="flex-1 h-full bg-primary text-primary-foreground rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] transition-all duration-200 active:scale-95 neon-border shadow-lg flex items-center justify-center gap-2 hover:brightness-110"
               >
                 Join Event
               </button>
             )}
             <button
               onClick={() => onShare(event)}
-              className="aspect-square h-full flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-2xl border border-white/5 transition-colors text-white/40 hover:text-primary"
+              className="aspect-square h-full flex items-center justify-center bg-muted hover:bg-foreground/5 rounded-2xl border border-border transition-colors text-muted-foreground hover:text-primary"
             >
               <Share2 size={18} />
             </button>
@@ -272,7 +272,6 @@ export default function HomePage() {
         setIsAdmin(profile?.is_admin || false)
       }
 
-      // Fetch entry counts for each event
       if (eventsData && eventsData.length > 0) {
         const counts: Record<string, number> = {}
         for (const event of eventsData) {
@@ -282,7 +281,18 @@ export default function HomePage() {
             .eq('raffle_id', event.id)
           counts[event.id] = count || 0
         }
-        setEntryCounts(counts)
+
+        // FORENSIC FIX: Monotonic Update
+        // If local state is HIGHER than DB (due to optimistic update), keep local.
+        // This prevents "reversal" glitches where DB lag overrides the UI.
+        setEntryCounts(prev => {
+          const newCounts = { ...prev }
+          // Merge fetched counts, but never decrease (unless explicit reset needed)
+          for (const [id, count] of Object.entries(counts)) {
+            newCounts[id] = Math.max(prev[id] || 0, count)
+          }
+          return newCounts
+        })
       }
     } catch (error) {
       console.error('Error fetching events:', error)
@@ -295,45 +305,98 @@ export default function HomePage() {
     fetchEvents()
   }, [userId])
 
-  // Real-time subscription for entry count updates
+  // Real-time subscription for entry count updates AND raffle status changes
+  const supabaseRef = useRef<any>(null)
+  const userIdRef = useRef(userId)
+  useEffect(() => { userIdRef.current = userId }, [userId])
+
   useEffect(() => {
     let entriesChannel: any = null
+    let rafflesChannel: any = null
 
     const setupRealtime = async () => {
       const supabaseClient = await getClient()
-      if (!supabaseClient || events.length === 0) return
+      if (!supabaseClient) return
+      supabaseRef.current = supabaseClient
 
-      // Subscribe to all entry inserts
+      // Subscribe to all entry inserts (for count updates on all raffles)
       entriesChannel = supabaseClient
         .channel('entries-realtime')
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
           table: 'entries'
-        }, async (payload: any) => {
-          // Robust update: fetch the actual count to avoid race conditions
+        }, (payload: any) => {
           const raffleId = payload.new.raffle_id
-          const { count } = await supabaseClient
-            .from('entries')
-            .select('*', { count: 'exact', head: true })
-            .eq('raffle_id', raffleId)
+          const entrantId = payload.new.user_id
 
+          // FORENSIC FIX:
+          // 1. If it's OUR entry, we already optimistically added +1. Ignore to prevent double count.
+          // 2. If it's SOMEONE ELSE, add +1.
+          if (entrantId === userIdRef.current) {
+            // console.log('[Realtime] Ignoring own entry (optimistic)')
+            return
+          }
+
+          console.log('[Realtime] Entry added by other user:', entrantId)
           setEntryCounts(prev => ({
             ...prev,
-            [raffleId]: count || 0
+            [raffleId]: (prev[raffleId] || 0) + 1
           }))
         })
-        .subscribe()
+        .subscribe((status: string) => {
+          console.log('[Realtime] Entries channel:', status)
+        })
+
+      // Subscribe to raffle status changes (for when drawn/closed)
+      rafflesChannel = supabaseClient
+        .channel('raffles-realtime')
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'raffles'
+        }, (payload: any) => {
+          console.log('[Realtime] Raffle updated:', payload.new?.id, 'status:', payload.new?.status)
+
+          // If raffle is no longer open, remove it from the list
+          if (payload.new?.status !== 'open') {
+            setEvents(prev => prev.filter(e => e.id !== payload.new.id))
+          } else {
+            // Update the raffle data in place
+            setEvents(prev => prev.map(e =>
+              e.id === payload.new.id ? { ...e, ...payload.new } : e
+            ))
+          }
+        })
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'raffles'
+        }, (payload: any) => {
+          // New raffle created - add to list if open
+          if (payload.new?.status === 'open') {
+            console.log('[Realtime] New raffle created:', payload.new?.title)
+            setEvents(prev => [payload.new, ...prev])
+            // Initialize entry count for new raffle
+            setEntryCounts(prev => ({ ...prev, [payload.new.id]: 0 }))
+          }
+        })
+        .subscribe((status: string) => {
+          console.log('[Realtime] Raffles channel:', status)
+        })
     }
 
     setupRealtime()
 
     return () => {
-      if (entriesChannel) {
-        entriesChannel.unsubscribe()
+      if (entriesChannel && supabaseRef.current) {
+        supabaseRef.current.removeChannel(entriesChannel)
+      }
+      if (rafflesChannel && supabaseRef.current) {
+        supabaseRef.current.removeChannel(rafflesChannel)
       }
     }
-  }, [events.length])
+  }, []) // Empty deps - setup once, cleanup on unmount
 
   // Updated handleEnterEvent to return success status for UI update
   const handleEnterEvent = async (eventId: string, cost: number): Promise<boolean> => {
@@ -359,6 +422,12 @@ export default function HomePage() {
         // Dispatch immediate balance update to Shell.tsx (immediate UI feedback)
         window.dispatchEvent(new CustomEvent('balanceUpdate', {
           detail: { balance: data.new_balance }
+        }))
+
+        // Optimistic Entry Count Update
+        setEntryCounts(prev => ({
+          ...prev,
+          [eventId]: (prev[eventId] || 0) + 1
         }))
 
         // Entry successful - real-time subscription will update entry counts
@@ -391,7 +460,7 @@ export default function HomePage() {
             <p className="text-white/20 font-black uppercase tracking-widest text-xs">Loading Events...</p>
           </div>
         ) : events.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-white/20 gap-4 bg-card rounded-3xl border border-white/5">
+          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-4 bg-card rounded-3xl border border-border">
             <Clock size={48} />
             <p className="font-bold">No active events yet.</p>
           </div>

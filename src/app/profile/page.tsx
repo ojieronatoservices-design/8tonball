@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { Plus, Ticket, ShieldCheck, Clock, Trophy, Loader2, User, LogOut, Wallet, CheckSquare, X, Settings, XCircle, Mail } from 'lucide-react'
 import { useUser, useAuth, useClerk } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
@@ -104,6 +104,70 @@ export default function ProfilePage() {
         }
     }, [isAuthLoaded, userId])
 
+    // Realtime subscriptions for profile updates
+    const supabaseRef = useRef<any>(null)
+
+    useEffect(() => {
+        if (!userId) return
+
+        let profileChannel: any = null
+        let rafflesChannel: any = null
+
+        const setupRealtime = async () => {
+            const supabaseClient = await getClient()
+            if (!supabaseClient) return
+            supabaseRef.current = supabaseClient
+
+            // Subscribe to profile changes (balance, host eligibility, etc.)
+            profileChannel = supabaseClient
+                .channel(`profile-realtime:${userId}`)
+                .on('postgres_changes', {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'profiles',
+                    filter: `id=eq.${userId}`
+                }, (payload: any) => {
+                    console.log('[Profile Realtime] Update received:', payload.new)
+                    setProfile((prev: any) => prev ? { ...prev, ...payload.new } : payload.new)
+                })
+                .subscribe((status: string) => {
+                    console.log('[Profile Realtime] Channel status:', status)
+                })
+
+            // Subscribe to raffle updates (for when events user entered are drawn)
+            rafflesChannel = supabaseClient
+                .channel('raffles-profile-realtime')
+                .on('postgres_changes', {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'raffles'
+                }, (payload: any) => {
+                    // If any raffle user is part of gets updated, refresh entries
+                    console.log('[Profile Realtime] Raffle updated:', payload.new?.id)
+                    // Update the entries list with new raffle data
+                    setMyEntries((prev: EntryWithEvent[]) => prev.map(entry =>
+                        entry.raffle_id === payload.new?.id
+                            ? { ...entry, raffles: { ...entry.raffles, ...payload.new } }
+                            : entry
+                    ))
+                })
+                .subscribe((status: string) => {
+                    console.log('[Profile Realtime] Raffles channel:', status)
+                })
+        }
+
+        setupRealtime()
+
+        return () => {
+            if (profileChannel && supabaseRef.current) {
+                supabaseRef.current.removeChannel(profileChannel)
+            }
+            if (rafflesChannel && supabaseRef.current) {
+                supabaseRef.current.removeChannel(rafflesChannel)
+            }
+        }
+    }, [userId])
+
     const handleLogout = async () => {
         await signOut()
         window.location.href = '/'
@@ -164,7 +228,7 @@ export default function ProfilePage() {
         return (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
                 <Loader2 className="animate-spin text-primary" size={40} />
-                <p className="text-white/20 font-black uppercase tracking-widest text-xs">Loading Profile...</p>
+                <p className="text-muted-foreground font-black uppercase tracking-widest text-xs">Loading Profile...</p>
             </div>
         )
     }
@@ -172,11 +236,11 @@ export default function ProfilePage() {
     if (!profile) {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
-                <User size={48} className="text-white/10" />
-                <p className="text-white/40">Please log in to view your profile.</p>
+                <User size={48} className="text-muted-foreground/20" />
+                <p className="text-muted-foreground">Please log in to view your profile.</p>
                 <button
                     onClick={() => window.location.href = '/'}
-                    className="px-6 py-2 bg-primary text-black font-black uppercase tracking-widest rounded-xl text-xs"
+                    className="px-6 py-2 bg-primary text-primary-foreground font-black uppercase tracking-widest rounded-xl text-xs neon-border shadow-md"
                 >
                     Back to Home
                 </button>
@@ -188,7 +252,7 @@ export default function ProfilePage() {
         <div className="flex flex-col gap-8 pb-24">
             {/* Header */}
             <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30 overflow-hidden">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 overflow-hidden shadow-inner">
                     {user?.imageUrl ? (
                         <img src={user.imageUrl} alt="Profile" className="w-full h-full object-cover" />
                     ) : (
@@ -197,55 +261,55 @@ export default function ProfilePage() {
                 </div>
                 <div className="flex-1">
                     <div className="flex items-center gap-2">
-                        <h2 className="text-2xl font-black tracking-tight">{profile.display_name || 'Guest'}</h2>
+                        <h2 className="text-2xl font-black tracking-tight text-foreground">{profile.display_name || 'Guest'}</h2>
                         {isHostEligible && (
-                            <span className="px-2 py-0.5 bg-green-500/20 text-green-500 text-[10px] font-black uppercase rounded-full border border-green-500/30">
+                            <span className="px-2 py-0.5 bg-green-500/10 text-green-500 text-[10px] font-black uppercase rounded-full border border-green-500/20">
                                 Host
                             </span>
                         )}
                     </div>
-                    <p className="text-white/40 text-sm">{profile.email}</p>
+                    <p className="text-muted-foreground text-sm font-medium">{profile.email}</p>
                 </div>
             </div>
 
             {/* Balance Grid */}
             <div className="grid grid-cols-2 gap-4">
-                <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col justify-between">
+                <div className="bg-card p-6 rounded-3xl border border-border flex flex-col justify-between shadow-sm">
                     <div>
                         <p className="text-[10px] uppercase tracking-widest font-black text-primary mb-1">Current Balance</p>
-                        <div className="text-2xl font-black">{profile.tibs_balance.toLocaleString()}</div>
-                        <p className="text-xs text-white/30 font-bold uppercase">TIBS</p>
+                        <div className="text-2xl font-black neon-text">{profile.tibs_balance.toLocaleString()}</div>
+                        <p className="text-xs text-muted-foreground font-bold uppercase">TIBS</p>
                     </div>
                     {profile.tibs_balance > 0 && (
                         <button
                             onClick={() => setShowPayoutModal(true)}
-                            className="mt-4 py-2 bg-white/5 hover:bg-white/10 text-white/70 text-[10px] font-black uppercase tracking-widest rounded-xl border border-white/5 transition-all"
+                            className="mt-4 py-2 bg-muted hover:bg-foreground/5 text-foreground text-[10px] font-black uppercase tracking-widest rounded-xl border border-border transition-all"
                         >
                             Settle Balance
                         </button>
                     )}
                 </div>
-                <div className="bg-card p-6 rounded-3xl border border-white/5">
-                    <p className="text-[10px] uppercase tracking-widest font-black text-white/40 mb-1">Total Spent</p>
-                    <div className="text-2xl font-black">{totalSpent.toLocaleString()}</div>
-                    <p className="text-xs text-white/30 font-bold">TIBS</p>
+                <div className="bg-card p-6 rounded-3xl border border-border shadow-sm">
+                    <p className="text-[10px] uppercase tracking-widest font-black text-muted-foreground mb-1">Total Spent</p>
+                    <div className="text-2xl font-black text-foreground">{totalSpent.toLocaleString()}</div>
+                    <p className="text-xs text-muted-foreground font-bold">TIBS</p>
                 </div>
             </div>
 
             {/* Hosting Eligibility */}
-            <div className="bg-card p-6 rounded-3xl border border-white/5 relative overflow-hidden">
+            <div className="bg-card p-6 rounded-3xl border border-border relative overflow-hidden shadow-sm">
                 <div className="relative z-10 flex flex-col gap-3">
                     <div className="flex justify-between items-center">
-                        <h3 className="font-bold flex items-center gap-2">
-                            <ShieldCheck className={isHostEligible ? "text-green-500" : "text-white/20"} size={20} />
+                        <h3 className="font-bold flex items-center gap-2 text-foreground">
+                            <ShieldCheck className={isHostEligible ? "text-green-500" : "text-muted-foreground/30"} size={20} />
                             Hosting Eligibility
                         </h3>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-primary">{totalSpent.toLocaleString()} / {threshold.toLocaleString()}</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest neon-text">{totalSpent.toLocaleString()} / {threshold.toLocaleString()}</span>
                     </div>
 
-                    <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                         <div
-                            className="h-full bg-primary transition-all duration-1000"
+                            className="h-full bg-primary transition-all duration-1000 shadow-[0_0_10px_rgba(57,255,20,0.4)]"
                             style={{ width: `${Math.min(progress, 100)}%` }}
                         />
                     </div>
@@ -253,7 +317,7 @@ export default function ProfilePage() {
                     {isHostEligible && (
                         <Link
                             href="/admin"
-                            className="mt-2 w-full py-3 bg-primary text-black font-black uppercase tracking-widest rounded-xl text-xs flex items-center justify-center gap-2"
+                            className="mt-2 w-full py-3 bg-primary text-primary-foreground font-black uppercase tracking-widest rounded-xl text-xs flex items-center justify-center gap-2 neon-border shadow-md"
                         >
                             <Plus size={16} />
                             Create Event
@@ -270,10 +334,10 @@ export default function ProfilePage() {
                 </h3>
 
                 {/* Tabs */}
-                <div className="flex bg-card p-1.5 rounded-2xl border border-white/5">
+                <div className="flex bg-muted p-1.5 rounded-2xl border border-border">
                     <button
                         onClick={() => setActiveTab('live')}
-                        className={`flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'live' ? 'bg-primary text-black' : 'text-white/40 hover:text-white/60'
+                        className={`flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'live' ? 'bg-primary text-primary-foreground neon-border' : 'text-muted-foreground hover:text-foreground'
                             }`}
                     >
                         <Clock size={14} />
@@ -281,7 +345,7 @@ export default function ProfilePage() {
                     </button>
                     <button
                         onClick={() => setActiveTab('archives')}
-                        className={`flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'archives' ? 'bg-primary text-black' : 'text-white/40 hover:text-white/60'
+                        className={`flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'archives' ? 'bg-primary text-primary-foreground neon-border' : 'text-muted-foreground hover:text-foreground'
                             }`}
                     >
                         <Trophy size={14} />
@@ -290,7 +354,7 @@ export default function ProfilePage() {
                     {isHostEligible && (
                         <button
                             onClick={() => setActiveTab('hosted')}
-                            className={`flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'hosted' ? 'bg-primary text-black' : 'text-white/40 hover:text-white/60'
+                            className={`flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'hosted' ? 'bg-primary text-primary-foreground neon-border' : 'text-muted-foreground hover:text-foreground'
                                 }`}
                         >
                             <ShieldCheck size={14} />
@@ -395,9 +459,9 @@ export default function ProfilePage() {
                                 <Link
                                     key={event.id}
                                     href={`/event/${event.id}`}
-                                    className="bg-white/5 hover:bg-white/10 p-4 rounded-2xl flex items-center gap-4 transition-colors"
+                                    className="bg-card hover:bg-muted p-4 rounded-2xl flex items-center gap-4 transition-colors border border-border mt-1 first:mt-0"
                                 >
-                                    <div className="w-14 h-14 rounded-xl overflow-hidden bg-white/5 shrink-0">
+                                    <div className="w-14 h-14 rounded-xl overflow-hidden bg-muted shrink-0 shadow-sm">
                                         <img
                                             src={event.media_urls?.[0] || '/placeholder.png'}
                                             alt={event.title}
@@ -406,18 +470,18 @@ export default function ProfilePage() {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex justify-between items-start">
-                                            <h4 className="font-bold text-sm truncate">{event.title}</h4>
+                                            <h4 className="font-bold text-sm truncate text-foreground">{event.title}</h4>
                                             <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded ${event.status === 'open'
                                                 ? 'bg-green-500/10 text-green-500 border border-green-500/20'
-                                                : 'bg-white/10 text-white/40'
+                                                : 'bg-muted text-muted-foreground border border-border'
                                                 }`}>
                                                 {event.status === 'open' ? 'LIVE' : 'ENDED'}
                                             </span>
                                         </div>
-                                        <div className="flex items-center gap-3 mt-1 text-xs text-white/40">
-                                            <span>{event.entry_cost_tibs} Tibs</span>
-                                            <span>•</span>
-                                            <CountdownTimer endsAt={event.ends_at} className="" />
+                                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground uppercase font-black tracking-tighter">
+                                            <span className="text-primary">{event.entry_cost_tibs} Tibs</span>
+                                            <span className="opacity-30">•</span>
+                                            <CountdownTimer endsAt={event.ends_at} className="text-foreground" />
                                         </div>
                                     </div>
                                 </Link>
@@ -431,16 +495,16 @@ export default function ProfilePage() {
             <div className="flex flex-col gap-3">
                 <Link
                     href="/profile/settings"
-                    className="w-full p-4 bg-white/5 rounded-2xl flex items-center justify-between hover:bg-white/10 transition-colors group"
+                    className="w-full p-4 bg-muted rounded-2xl flex items-center justify-between hover:bg-foreground/5 transition-colors group border border-border shadow-sm"
                 >
                     <div className="flex items-center gap-3">
-                        <Settings size={20} className="text-white/40 group-hover:text-primary transition-colors" />
-                        <span className="font-bold text-sm">Account Settings</span>
+                        <Settings size={20} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                        <span className="font-bold text-sm text-foreground">App Settings</span>
                     </div>
                 </Link>
                 <button
                     onClick={handleLogout}
-                    className="w-full p-4 bg-white/5 rounded-2xl flex items-center justify-between text-red-500 hover:bg-red-400/10 transition-colors"
+                    className="w-full p-4 bg-muted rounded-2xl flex items-center justify-between text-red-500 hover:bg-red-400/10 transition-colors border border-border shadow-sm"
                 >
                     <div className="flex items-center gap-3">
                         <LogOut size={20} />
@@ -448,42 +512,43 @@ export default function ProfilePage() {
                     </div>
                 </button>
             </div>
+
             {/* Payout Modal */}
             {showPayoutModal && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="bg-card w-full max-w-sm rounded-3xl border border-white/10 p-8 flex flex-col gap-6 shadow-2xl animate-in zoom-in-95 duration-300">
+                    <div className="bg-card w-full max-w-sm rounded-3xl border border-border p-8 flex flex-col gap-6 shadow-2xl animate-in zoom-in-95 duration-300">
                         <div className="flex justify-between items-center">
-                            <h3 className="text-xl font-black tracking-tight">Request Payout</h3>
-                            <button onClick={() => setShowPayoutModal(false)} className="p-2 bg-white/5 rounded-full text-white/40">
+                            <h3 className="text-xl font-black tracking-tight text-foreground">Request Payout</h3>
+                            <button onClick={() => setShowPayoutModal(false)} className="p-2 bg-muted rounded-full text-muted-foreground hover:text-foreground">
                                 <X size={18} />
                             </button>
                         </div>
 
                         <div className="p-4 bg-primary/10 border border-primary/20 rounded-2xl">
                             <p className="text-[10px] font-black uppercase text-primary tracking-widest mb-1">Total to Settle</p>
-                            <div className="text-2xl font-black text-white">₱{(profile.tibs_balance / 8).toLocaleString()}</div>
-                            <p className="text-[10px] text-white/40 font-bold">{profile.tibs_balance.toLocaleString()} TIBS</p>
+                            <div className="text-2xl font-black neon-text">₱{(profile.tibs_balance / 8).toLocaleString()}</div>
+                            <p className="text-[10px] text-muted-foreground font-bold">{profile.tibs_balance.toLocaleString()} TIBS</p>
                         </div>
 
                         <div className="flex flex-col gap-4">
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-[10px] uppercase font-black text-white/30 ml-1">GCash Number</label>
+                                <label className="text-[10px] uppercase font-black text-muted-foreground ml-1">GCash Number</label>
                                 <input
                                     type="text"
                                     value={gcashNumber}
                                     onChange={(e) => setGcashNumber(e.target.value)}
                                     placeholder="0912 345 6789"
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none"
+                                    className="w-full bg-muted border border-border rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/30"
                                 />
                             </div>
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-[10px] uppercase font-black text-white/30 ml-1">Account Name</label>
+                                <label className="text-[10px] uppercase font-black text-muted-foreground ml-1">Account Name</label>
                                 <input
                                     type="text"
                                     value={gcashName}
                                     onChange={(e) => setGcashName(e.target.value)}
                                     placeholder="JUAN DELA CRUZ"
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none uppercase"
+                                    className="w-full bg-muted border border-border rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none uppercase text-foreground placeholder:text-muted-foreground/30"
                                 />
                             </div>
                         </div>
@@ -491,11 +556,11 @@ export default function ProfilePage() {
                         <button
                             onClick={handleRequestPayout}
                             disabled={isSubmitting}
-                            className="w-full py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 transition-transform active:scale-95 disabled:opacity-50"
+                            className="w-full py-4 bg-primary text-primary-foreground font-black uppercase tracking-widest rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 neon-border"
                         >
                             {isSubmitting ? 'Submitting...' : 'Submit Request'}
                         </button>
-                        <p className="text-[10px] text-center text-white/20 italic">
+                        <p className="text-[10px] text-center text-muted-foreground italic">
                             Settlements are usually processed within 24-48 hours.
                         </p>
                     </div>

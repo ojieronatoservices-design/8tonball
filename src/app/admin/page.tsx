@@ -1185,12 +1185,14 @@ export default function AdminDashboard() {
                                                         </div>
                                                     </div>
                                                     <div className="flex gap-2 shrink-0">
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); setEditingEvent(event); }}
-                                                            className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-white/40 hover:text-primary transition-all"
-                                                        >
-                                                            <Edit size={16} />
-                                                        </button>
+                                                        {event.status === 'open' && (
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); setEditingEvent(event); }}
+                                                                className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-white/40 hover:text-primary transition-all"
+                                                            >
+                                                                <Edit size={16} />
+                                                            </button>
+                                                        )}
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event.id); }}
                                                             className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-white/40 hover:text-red-500 transition-all"

@@ -24,13 +24,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 'pk_test_c2tpbGxlZC1jYXRmaXNoLTI0LmNsZXJrLmFjY291bnRzLmRldiQ'}>
-      <html lang="en">
-        <body className={inter.className}>
+    <ClerkProvider>
+      <html lang="en" suppressHydrationWarning>
+        <body className={`${inter.className} antialiased selection:bg-primary/30`}>
           <Shell>{children}</Shell>
         </body>
       </html>
     </ClerkProvider>
   );
 }
-

@@ -69,46 +69,47 @@ export default async function EventPage({ params }: Props) {
     const entryCount = entries?.length || 0
 
     return (
-        <div className="min-h-screen bg-black text-white p-6 pb-24">
+        <div className="min-h-screen bg-background text-foreground p-6 pb-24">
             {/* Hero Image */}
-            <div className="relative aspect-square rounded-3xl overflow-hidden mb-6">
+            <div className="relative aspect-square rounded-3xl overflow-hidden mb-6 border border-border shadow-xl">
                 <img
                     src={event.media_urls?.[0] || '/placeholder.png'}
                     alt={event.title}
                     className="w-full h-full object-cover"
                 />
                 {event.status === 'drawn' && (
-                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                        <span className="text-2xl font-black text-primary">ENDED</span>
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm">
+                        <span className="text-3xl font-black neon-text drop-shadow-[0_0_15px_rgba(57,255,20,0.6)]">ENDED</span>
                     </div>
                 )}
             </div>
 
             {/* Event Info */}
-            <div className="flex flex-col gap-4">
-                <h1 className="text-2xl font-black">{event.title}</h1>
+            <div className="flex flex-col gap-6">
+                <h1 className="text-3xl font-black tracking-tight">{event.title}</h1>
 
                 {event.description && (
-                    <p className="text-white/60">{event.description}</p>
+                    <p className="text-muted-foreground leading-relaxed">{event.description}</p>
                 )}
 
-                <div className="flex gap-4 text-sm">
-                    <div className="bg-white/5 px-4 py-2 rounded-xl">
-                        <span className="text-white/40">Entry Cost:</span>{' '}
-                        <span className="font-bold text-primary">{event.entry_cost_tibs} Tibs</span>
+                <div className="flex gap-4">
+                    <div className="flex-1 bg-muted px-4 py-3 rounded-2xl border border-border flex flex-col gap-1">
+                        <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-black">Entry Cost</span>
+                        <span className="font-bold neon-text text-lg">{event.entry_cost_tibs.toLocaleString()} Tibs</span>
                     </div>
-                    <div className="bg-white/5 px-4 py-2 rounded-xl">
-                        <span className="text-white/40">Entries:</span>{' '}
-                        <span className="font-bold">{entryCount}</span>
+                    <div className="flex-1 bg-muted px-4 py-3 rounded-2xl border border-border flex flex-col gap-1">
+                        <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-black">Total Entries</span>
+                        <span className="font-bold text-lg">{entryCount.toLocaleString()}</span>
                     </div>
                 </div>
 
                 {event.status === 'open' && (
                     <Link
                         href="/"
-                        className="w-full py-4 bg-primary text-black font-black text-center uppercase tracking-widest rounded-2xl mt-4"
+                        className="w-full py-5 bg-primary text-primary-foreground font-black text-center uppercase tracking-[0.2em] rounded-2xl mt-4 neon-border shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2"
                     >
                         Enter Now
+                        <div className="w-2 h-2 rounded-full bg-primary-foreground animate-pulse" />
                     </Link>
                 )}
             </div>
