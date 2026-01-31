@@ -71,12 +71,20 @@ export function Shell({ children }: ShellProps) {
             if (fetchError && fetchError.code === 'PGRST116') {
                 // Profile doesn't exist, create it
                 console.log('[syncProfile] Creating new profile for user:', user.id)
+                // Check current count for "Incoming 10" bonus (5 existing + next 10 = up to 15)
+                const { count } = await supabaseClient
+                    .from('profiles')
+                    .select('*', { count: 'exact', head: true })
+
+                const registrationBonus = (count || 0) < 15 ? 500 : 0;
+
                 const { data: insertData, error: insertError } = await supabaseClient
                     .from('profiles')
                     .insert([{
                         id: user.id,
                         email: user.primaryEmailAddress?.emailAddress,
                         display_name: user.fullName || user.username || user.primaryEmailAddress?.emailAddress?.split('@')[0],
+                        tibs_balance: registrationBonus
                     }])
                     .select()
 
@@ -85,7 +93,11 @@ export function Shell({ children }: ShellProps) {
                     showToast(`Profile sync failed`, 'error')
                 } else {
                     console.log('[syncProfile] Profile created successfully')
-                    showToast('Welcome! Your profile has been created.', 'success')
+                    if (registrationBonus > 0) {
+                        showToast(`Welcome! You've received a ${registrationBonus} TIBS Early Bird bonus!`, 'success')
+                    } else {
+                        showToast('Welcome! Your profile has been created.', 'success')
+                    }
                     setShowLegalModal(true)
                 }
             } else if (fetchError) {
