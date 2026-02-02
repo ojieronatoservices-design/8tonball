@@ -24,6 +24,8 @@ type EntryWithEvent = {
     ticket_number?: string
 }
 
+import { EventCard } from '@/components/EventCard'
+
 export default function ProfilePage() {
     const { user, isLoaded: isUserLoaded } = useUser()
     const { userId, isLoaded: isAuthLoaded } = useAuth()
@@ -33,6 +35,7 @@ export default function ProfilePage() {
     const [isLoading, setIsLoading] = useState(true)
     const [myEntries, setMyEntries] = useState<EntryWithEvent[]>([])
     const [hostedEvents, setHostedEvents] = useState<any[]>([])
+    const [entryCounts, setEntryCounts] = useState<Record<string, number>>({})
     const [activeTab, setActiveTab] = useState<'live' | 'archives' | 'hosted'>('live')
 
     // Payout State
@@ -75,7 +78,22 @@ export default function ProfilePage() {
                 console.error('Entries Fetch Error:', entriesError)
             }
 
-            setMyEntries(entriesData as any[] || [])
+            const entries = entriesData as any[] || []
+            setMyEntries(entries)
+
+            // Fetch entry counts for all relevant raffles
+            const raffleIds = [...new Set(entries.map(e => e.raffle_id))]
+            if (raffleIds.length > 0) {
+                const counts: Record<string, number> = {}
+                for (const id of raffleIds) {
+                    const { count } = await supabaseClient
+                        .from('entries')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('raffle_id', id)
+                    counts[id] = count || 0
+                }
+                setEntryCounts(counts)
+            }
 
             // Fetch hosted events if eligible
             if (profileData.is_host_eligible) {
@@ -184,8 +202,6 @@ export default function ProfilePage() {
 
     // Check if user won an event
     const didWin = (entry: EntryWithEvent) => {
-        // Strictly check if THIS entry is the winning one
-        // We do NOT check winner_user_id here, because that would mark ALL of the user's tickets as winners
         return entry.raffles?.winning_entry_id === entry.id
     }
 
@@ -224,6 +240,12 @@ export default function ProfilePage() {
         }
     }
 
+    const handleShareFacebook = (event: any) => {
+        const url = window.location.origin + '/event/' + event.id
+        const shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(`Check out this event: ${event.title} on 8TONBALL!`)}`
+        window.open(shareUrl, '_blank', 'width=600,height=400')
+    }
+
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -249,104 +271,74 @@ export default function ProfilePage() {
     }
 
     return (
-        <div className="flex flex-col gap-8 pb-24">
-            {/* Header */}
-            <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 overflow-hidden shadow-inner">
-                    {user?.imageUrl ? (
-                        <img src={user.imageUrl} alt="Profile" className="w-full h-full object-cover" />
-                    ) : (
-                        <User size={32} className="text-primary" />
-                    )}
-                </div>
-                <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                        <h2 className="text-2xl font-black tracking-tight text-foreground">{profile.display_name || 'Guest'}</h2>
-                        {isHostEligible && (
-                            <span className="px-2 py-0.5 bg-green-500/10 text-green-500 text-[10px] font-black uppercase rounded-full border border-green-500/20">
-                                Host
-                            </span>
+        <div className="flex flex-col gap-6 -mx-6">
+            {/* COMPACT HEADER */}
+            <div className="px-6 flex flex-col gap-4">
+                <div className="flex items-start gap-4">
+                    {/* Avatar */}
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 overflow-hidden shrink-0 shadow-inner">
+                        {user?.imageUrl ? (
+                            <img src={user.imageUrl} alt="Profile" className="w-full h-full object-cover" />
+                        ) : (
+                            <User size={24} className="text-primary" />
                         )}
                     </div>
-                    <p className="text-muted-foreground text-sm font-medium">{profile.email}</p>
-                </div>
-            </div>
 
-            {/* Balance Grid */}
-            <div className="grid grid-cols-2 gap-4">
-                <div className="bg-card p-6 rounded-3xl border border-border flex flex-col justify-between shadow-sm">
-                    <div>
-                        <p className="text-[10px] uppercase tracking-widest font-black text-primary mb-1">Current Balance</p>
-                        <div className="text-2xl font-black neon-text">{profile.tibs_balance.toLocaleString()}</div>
-                        <p className="text-xs text-muted-foreground font-bold uppercase">TIBS</p>
+                    {/* Name & Eligibility */}
+                    <div className="flex-1 min-w-0">
+                        <h2 className="text-xl font-black tracking-tight text-foreground truncate uppercase">{profile.display_name || 'Guest'}</h2>
+
+                        {/* Host Eligibility Line - Minimalist */}
+                        <div className="mt-1.5 flex flex-col gap-0.5">
+                            <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/50">Hosting Eligibility</span>
+                            <div className="w-full max-w-[140px] h-1.5 bg-muted rounded-full overflow-hidden border border-border/50">
+                                <div
+                                    className="h-full bg-primary transition-all duration-1000 shadow-[0_0_8px_rgba(57,255,20,0.3)]"
+                                    style={{ width: `${Math.min(progress, 100)}%` }}
+                                />
+                            </div>
+                            {isHostEligible && (
+                                <span className="text-[8px] font-black uppercase tracking-[0.2em] text-primary mt-0.5 animate-pulse">Eligible</span>
+                            )}
+                        </div>
                     </div>
-                    {(isHostEligible || profile.is_admin) && profile.tibs_balance > 0 && (
+
+                    {/* Quick Balance & Spend (Beside Name) */}
+                    <div className="flex flex-col gap-2 shrink-0">
                         <button
                             onClick={() => setShowPayoutModal(true)}
-                            className="mt-4 py-2 bg-muted hover:bg-foreground/5 text-foreground text-[10px] font-black uppercase tracking-widest rounded-xl border border-border transition-all"
+                            className="flex flex-col items-end bg-muted/40 hover:bg-muted/80 px-4 py-2 rounded-2xl border border-border/50 transition-all active:scale-95 text-right"
                         >
-                            Settle Balance
+                            <span className="text-[10px] font-black uppercase text-primary tracking-widest leading-none mb-1">Balance</span>
+                            <div className="flex items-center gap-1">
+                                <span className="text-sm font-black neon-text leading-none">{profile.tibs_balance.toLocaleString()}</span>
+                                <span className="text-[8px] uppercase tracking-tighter text-muted-foreground font-bold">TIBS</span>
+                            </div>
                         </button>
-                    )}
-                </div>
-                <div className="bg-card p-6 rounded-3xl border border-border shadow-sm">
-                    <p className="text-[10px] uppercase tracking-widest font-black text-muted-foreground mb-1">Total Spent</p>
-                    <div className="text-2xl font-black text-foreground">{totalSpent.toLocaleString()}</div>
-                    <p className="text-xs text-muted-foreground font-bold">TIBS</p>
+                        <div className="flex flex-col items-end px-4 py-2 rounded-2xl border border-transparent text-right">
+                            <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest leading-none mb-1 opacity-50">Total Spend</span>
+                            <div className="flex items-center gap-1">
+                                <span className="text-sm font-black text-foreground leading-none">{totalSpent.toLocaleString()}</span>
+                                <span className="text-[8px] uppercase tracking-tighter text-muted-foreground font-bold">TIBS</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {/* Hosting Eligibility */}
-            <div className="bg-card p-6 rounded-3xl border border-border relative overflow-hidden shadow-sm">
-                <div className="relative z-10 flex flex-col gap-3">
-                    <div className="flex justify-between items-center">
-                        <h3 className="font-bold flex items-center gap-2 text-foreground">
-                            <ShieldCheck className={isHostEligible ? "text-green-500" : "text-muted-foreground/30"} size={20} />
-                            Hosting Eligibility
-                        </h3>
-                        <span className="text-[10px] font-black uppercase tracking-widest neon-text">{totalSpent.toLocaleString()} / {threshold.toLocaleString()}</span>
-                    </div>
-
-                    <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                        <div
-                            className="h-full bg-primary transition-all duration-1000 shadow-[0_0_10px_rgba(57,255,20,0.4)]"
-                            style={{ width: `${Math.min(progress, 100)}%` }}
-                        />
-                    </div>
-
-                    {isHostEligible && (
-                        <Link
-                            href="/admin"
-                            className="mt-2 w-full py-3 bg-primary text-primary-foreground font-black uppercase tracking-widest rounded-xl text-xs flex items-center justify-center gap-2 neon-border shadow-md"
-                        >
-                            <Plus size={16} />
-                            Create Event
-                        </Link>
-                    )}
-                </div>
-            </div>
-
-            {/* My Events Section */}
-            <div className="flex flex-col gap-4">
-                <h3 className="text-lg font-bold flex items-center gap-2">
-                    <Ticket size={20} className="text-primary" />
-                    My Events
-                </h3>
-
-                {/* Tabs */}
-                <div className="flex bg-muted p-1.5 rounded-2xl border border-border">
+            {/* TABS */}
+            <div className="px-6">
+                <div className="flex bg-muted/30 p-1 rounded-2xl border border-border/50">
                     <button
                         onClick={() => setActiveTab('live')}
-                        className={`flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'live' ? 'bg-primary text-primary-foreground neon-border' : 'text-muted-foreground hover:text-foreground'
-                            }`}
+                        className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'live' ? 'bg-primary text-primary-foreground shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
                     >
                         <Clock size={14} />
                         Live
                     </button>
                     <button
                         onClick={() => setActiveTab('archives')}
-                        className={`flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'archives' ? 'bg-primary text-primary-foreground neon-border' : 'text-muted-foreground hover:text-foreground'
-                            }`}
+                        className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'archives' ? 'bg-primary text-primary-foreground shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
                     >
                         <Trophy size={14} />
                         Archive
@@ -354,201 +346,133 @@ export default function ProfilePage() {
                     {isHostEligible && (
                         <button
                             onClick={() => setActiveTab('hosted')}
-                            className={`flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'hosted' ? 'bg-primary text-primary-foreground neon-border' : 'text-muted-foreground hover:text-foreground'
-                                }`}
+                            className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'hosted' ? 'bg-primary text-primary-foreground shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
                         >
-                            <ShieldCheck size={14} />
-                            Hosted
+                            <Plus size={14} strokeWidth={3} />
+                            Host
                         </button>
-                    )}
-                </div>
-
-                {/* Event List */}
-                <div className="flex flex-col gap-2">
-                    {activeTab === 'live' ? (
-                        liveEntries.length === 0 ? (
-                            <div className="py-10 text-center text-white/20 text-sm">
-                                No active events. Enter some events to see them here!
-                            </div>
-                        ) : (
-                            liveEntries.map((entry) => (
-                                <Link
-                                    key={entry.id}
-                                    href={`/event/${entry.raffle_id}`}
-                                    className="bg-white/5 hover:bg-white/10 p-4 rounded-2xl flex items-center gap-4 transition-colors"
-                                >
-                                    <div className="w-14 h-14 rounded-xl overflow-hidden bg-white/5 shrink-0">
-                                        <img
-                                            src={entry.raffles?.media_urls?.[0] || '/placeholder.png'}
-                                            alt={entry.raffles?.title}
-                                            className="w-full h-full object-cover"
-                                        />
-                                    </div>
-                                    <div className="flex-1 min-w-0 flex flex-col gap-1">
-                                        <h4 className="font-bold text-sm truncate">{entry.raffles?.title}</h4>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[9px] font-black uppercase tracking-widest bg-white/5 border border-white/10 px-1.5 py-1 rounded text-white/40 leading-none">
-                                                T#-{entry.ticket_number || '---'}
-                                            </span>
-                                            <CountdownTimer endsAt={entry.raffles?.ends_at} className="text-[10px]" />
-                                        </div>
-                                    </div>
-                                </Link>
-                            ))
-                        )
-                    ) : activeTab === 'archives' ? (
-                        archivedEntries.length === 0 ? (
-                            <div className="py-10 text-center text-white/20 text-sm">
-                                No past events yet.
-                            </div>
-                        ) : (
-                            archivedEntries.map((entry) => (
-                                <Link
-                                    key={entry.id}
-                                    href={`/event/${entry.raffle_id}`}
-                                    className="bg-white/5 hover:bg-white/10 p-4 rounded-2xl flex items-center gap-4 transition-colors"
-                                >
-                                    <div className="w-14 h-14 rounded-xl overflow-hidden bg-white/5 shrink-0">
-                                        <img
-                                            src={entry.raffles?.media_urls?.[0] || '/placeholder.png'}
-                                            alt={entry.raffles?.title}
-                                            className="w-full h-full object-cover"
-                                        />
-                                    </div>
-                                    <div className="flex-1 min-w-0 flex flex-col gap-1">
-                                        <h4 className="font-bold text-sm truncate">{entry.raffles?.title}</h4>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[9px] font-black uppercase tracking-widest bg-white/5 border border-white/10 px-1.5 py-1 rounded text-white/40 leading-none">
-                                                T#-{entry.ticket_number || '---'}
-                                            </span>
-                                            <span className="text-[10px] text-white/20 font-black uppercase tracking-widest">
-                                                {entry.raffles?.status === 'drawn' ? 'Ended' : 'Closed'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    {/* Win/Miss Badge */}
-                                    {entry.raffles?.status === 'drawn' && (
-                                        <div className="shrink-0">
-                                            {didWin(entry) ? (
-                                                <div className="px-2.5 py-1 bg-green-500/10 text-green-500 text-[9px] font-black uppercase rounded-lg border border-green-500/20 flex items-center gap-1">
-                                                    <Trophy size={10} />
-                                                    WON
-                                                </div>
-                                            ) : (
-                                                <div className="px-2.5 py-1 bg-white/5 text-white/20 text-[9px] font-black uppercase rounded-lg border border-white/5 flex items-center gap-1">
-                                                    <XCircle size={10} />
-                                                    MISSED
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </Link>
-                            ))
-                        )
-                    ) : (
-                        hostedEvents.length === 0 ? (
-                            <div className="py-10 text-center text-white/20 text-sm">
-                                You haven't hosted any events yet.
-                                <br />
-                                <Link href="/admin" className="text-primary hover:underline mt-2 inline-block">
-                                    Create one now!
-                                </Link>
-                            </div>
-                        ) : (
-                            hostedEvents.map((event) => (
-                                <Link
-                                    key={event.id}
-                                    href={`/event/${event.id}`}
-                                    className="bg-card hover:bg-muted p-4 rounded-2xl flex items-center gap-4 transition-colors border border-border mt-1 first:mt-0"
-                                >
-                                    <div className="w-14 h-14 rounded-xl overflow-hidden bg-muted shrink-0 shadow-sm">
-                                        <img
-                                            src={event.media_urls?.[0] || '/placeholder.png'}
-                                            alt={event.title}
-                                            className="w-full h-full object-cover"
-                                        />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex justify-between items-start">
-                                            <h4 className="font-bold text-sm truncate text-foreground">{event.title}</h4>
-                                            <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded ${event.status === 'open'
-                                                ? 'bg-green-500/10 text-green-500 border border-green-500/20'
-                                                : 'bg-muted text-muted-foreground border border-border'
-                                                }`}>
-                                                {event.status === 'open' ? 'LIVE' : 'ENDED'}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground uppercase font-black tracking-tighter">
-                                            <span className="text-primary">{event.entry_cost_tibs} Tibs</span>
-                                            <span className="opacity-30">•</span>
-                                            <CountdownTimer endsAt={event.ends_at} className="text-foreground" />
-                                        </div>
-                                    </div>
-                                </Link>
-                            ))
-                        )
                     )}
                 </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex flex-col gap-3">
+            {/* EVENT MINI FEED */}
+            <div className="flex flex-col">
+                {activeTab === 'live' ? (
+                    liveEntries.length === 0 ? (
+                        <div className="py-20 text-center text-muted-foreground/20 font-black uppercase tracking-[0.2em] text-xs">
+                            No Active Entries
+                        </div>
+                    ) : (
+                        liveEntries.map((entry) => (
+                            <EventCard
+                                key={entry.id}
+                                event={entry.raffles}
+                                entryCount={entryCounts[entry.raffle_id] || 0}
+                                onShare={handleShareFacebook}
+                                userId={userId}
+                                variant="profile-live"
+                            />
+                        ))
+                    )
+                ) : activeTab === 'archives' ? (
+                    archivedEntries.length === 0 ? (
+                        <div className="py-20 text-center text-muted-foreground/20 font-black uppercase tracking-[0.2em] text-xs">
+                            No Archive History
+                        </div>
+                    ) : (
+                        archivedEntries.map((entry) => (
+                            <EventCard
+                                key={entry.id}
+                                event={entry.raffles}
+                                entryCount={entryCounts[entry.raffle_id] || 0}
+                                onShare={handleShareFacebook}
+                                userId={userId}
+                                variant="profile-archive"
+                                isWinner={didWin(entry)}
+                            />
+                        ))
+                    )
+                ) : (
+                    hostedEvents.length === 0 ? (
+                        <div className="py-20 text-center">
+                            <p className="text-muted-foreground/20 font-black uppercase tracking-[0.2em] text-xs mb-6">No Hosted Events</p>
+                            <Link href="/admin" className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground font-black uppercase tracking-widest rounded-xl text-[10px] neon-border">
+                                <Plus size={16} strokeWidth={3} /> Create One
+                            </Link>
+                        </div>
+                    ) : (
+                        hostedEvents.map((event) => (
+                            <EventCard
+                                key={event.id}
+                                event={event}
+                                entryCount={entryCounts[event.id] || 0}
+                                onShare={handleShareFacebook}
+                                userId={userId}
+                                variant={event.status === 'open' ? 'feed' : 'profile-archive'}
+                                isWinner={false} // Host doesn't win their own event in this view
+                            />
+                        ))
+                    )
+                )}
+            </div>
+
+            {/* SETTINGS FOOTER */}
+            <div className="px-6 py-8 flex flex-col gap-3">
                 <Link
                     href="/profile/settings"
-                    className="w-full p-4 bg-muted rounded-2xl flex items-center justify-between hover:bg-foreground/5 transition-colors group border border-border shadow-sm"
+                    className="w-full h-14 bg-muted/40 rounded-2xl flex items-center px-6 gap-4 border border-border/50 hover:bg-muted/80 transition-all text-muted-foreground hover:text-foreground"
                 >
-                    <div className="flex items-center gap-3">
-                        <Settings size={20} className="text-muted-foreground group-hover:text-primary transition-colors" />
-                        <span className="font-bold text-sm text-foreground">App Settings</span>
-                    </div>
+                    <Settings size={20} />
+                    <span className="font-black text-[10px] uppercase tracking-[0.2em]">App Settings</span>
                 </Link>
                 <button
                     onClick={handleLogout}
-                    className="w-full p-4 bg-muted rounded-2xl flex items-center justify-between text-red-500 hover:bg-red-400/10 transition-colors border border-border shadow-sm"
+                    className="w-full h-14 bg-red-500/5 rounded-2xl flex items-center px-6 gap-4 border border-red-500/10 hover:bg-red-500/10 transition-all text-red-500/50 hover:text-red-500"
                 >
-                    <div className="flex items-center gap-3">
-                        <LogOut size={20} />
-                        <span className="font-bold text-sm">Log Out</span>
-                    </div>
+                    <LogOut size={20} />
+                    <span className="font-black text-[10px] uppercase tracking-[0.2em]">Log Out</span>
                 </button>
             </div>
 
             {/* Payout Modal */}
             {showPayoutModal && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="bg-card w-full max-w-sm rounded-3xl border border-border p-8 flex flex-col gap-6 shadow-2xl animate-in zoom-in-95 duration-300">
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/95 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-card w-full max-w-sm rounded-[2.5rem] border border-border p-10 flex flex-col gap-8 shadow-2xl animate-in zoom-in-95 duration-300">
                         <div className="flex justify-between items-center">
-                            <h3 className="text-xl font-black tracking-tight text-foreground">Request Payout</h3>
-                            <button onClick={() => setShowPayoutModal(false)} className="p-2 bg-muted rounded-full text-muted-foreground hover:text-foreground">
-                                <X size={18} />
+                            <h3 className="text-2xl font-black tracking-tight text-foreground uppercase italic">Request Payout</h3>
+                            <button onClick={() => setShowPayoutModal(false)} className="w-10 h-10 bg-muted flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-all">
+                                <X size={20} />
                             </button>
                         </div>
 
-                        <div className="p-4 bg-primary/10 border border-primary/20 rounded-2xl">
-                            <p className="text-[10px] font-black uppercase text-primary tracking-widest mb-1">Total to Settle</p>
-                            <div className="text-2xl font-black neon-text">₱{(profile.tibs_balance / 8).toLocaleString()}</div>
-                            <p className="text-[10px] text-muted-foreground font-bold">{profile.tibs_balance.toLocaleString()} TIBS</p>
+                        <div className="p-6 bg-primary/5 border border-primary/20 rounded-[2rem] flex flex-col items-center">
+                            <p className="text-[10px] font-black uppercase text-primary/50 tracking-widest mb-1">Estimated Value</p>
+                            <div className="text-4xl font-black neon-text mb-2">₱{(profile.tibs_balance / 8).toLocaleString()}</div>
+                            <div className="flex items-center gap-2 px-3 py-1 bg-black/20 rounded-full border border-white/5">
+                                <span className="text-[11px] text-foreground font-black">{profile.tibs_balance.toLocaleString()}</span>
+                                <span className="text-[8px] text-muted-foreground font-black uppercase">TIBS</span>
+                            </div>
                         </div>
 
-                        <div className="flex flex-col gap-4">
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-[10px] uppercase font-black text-muted-foreground ml-1">GCash Number</label>
+                        <div className="flex flex-col gap-5">
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">GCash or Bank Details</label>
                                 <input
                                     type="text"
                                     value={gcashNumber}
                                     onChange={(e) => setGcashNumber(e.target.value)}
-                                    placeholder="0912 345 6789"
-                                    className="w-full bg-muted border border-border rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/30"
+                                    placeholder="Account # (e.g. 0912...)"
+                                    className="w-full h-14 bg-muted/50 border border-border rounded-2xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
                                 />
                             </div>
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-[10px] uppercase font-black text-muted-foreground ml-1">Account Name</label>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Account Name</label>
                                 <input
                                     type="text"
                                     value={gcashName}
                                     onChange={(e) => setGcashName(e.target.value)}
-                                    placeholder="JUAN DELA CRUZ"
-                                    className="w-full bg-muted border border-border rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none uppercase text-foreground placeholder:text-muted-foreground/30"
+                                    placeholder="Full Name"
+                                    className="w-full h-14 bg-muted/50 border border-border rounded-2xl px-6 text-sm font-bold focus:border-primary focus:outline-none uppercase text-foreground placeholder:text-muted-foreground/20"
                                 />
                             </div>
                         </div>
@@ -556,12 +480,12 @@ export default function ProfilePage() {
                         <button
                             onClick={handleRequestPayout}
                             disabled={isSubmitting}
-                            className="w-full py-4 bg-primary text-primary-foreground font-black uppercase tracking-widest rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 neon-border"
+                            className="w-full h-16 bg-primary text-primary-foreground font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 neon-border text-sm"
                         >
-                            {isSubmitting ? 'Submitting...' : 'Submit Request'}
+                            {isSubmitting ? 'Processing...' : 'Settle Now'}
                         </button>
-                        <p className="text-[10px] text-center text-muted-foreground italic">
-                            Settlements are usually processed within 24-48 hours.
+                        <p className="text-[10px] text-center text-muted-foreground/30 font-medium px-4">
+                            Your TIBS will be converted and sent to your account of choice within 48 hours.
                         </p>
                     </div>
                 </div>
