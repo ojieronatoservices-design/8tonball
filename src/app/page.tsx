@@ -86,7 +86,7 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
       <div className="group relative bg-card rounded-3xl overflow-hidden border border-border hover:border-primary/20 transition-all duration-300">
         {/* Image Section (NOW AT TOP) */}
         <div
-          className="aspect-[16/10] overflow-hidden relative cursor-pointer"
+          className="aspect-square overflow-hidden relative cursor-pointer"
           onClick={() => setShowLightbox(true)}
         >
           {isVideo(images[currentImageIndex]) ? (
@@ -135,9 +135,9 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
         </div>
 
         {/* Content Section */}
-        <div className="p-6 flex flex-col gap-5">
+        <div className="p-4 flex flex-col gap-3">
           {/* Meta Info Bar (Horizontal & Balanced) */}
-          <div className="grid grid-cols-3 gap-0 py-2 border-y border-border bg-muted/30">
+          <div className="grid grid-cols-3 gap-0 py-1.5 border-y border-border bg-muted/30">
             <div className="flex items-center justify-center gap-2">
               <Coins size={18} className="text-primary" />
               <span className="text-sm font-black text-foreground">{event.entry_cost_tibs}</span>
@@ -155,7 +155,7 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
           </div>
 
           <div className="flex flex-col gap-1">
-            <h3 className="text-xl font-black tracking-tight">{event.title}</h3>
+            <h3 className="text-lg font-black tracking-tight">{event.title}</h3>
             {description && (
               <div className="mt-1">
                 <p className={`text-muted-foreground text-sm leading-relaxed ${!isDescriptionExpanded && isLongDescription ? 'line-clamp-2' : ''}`}>
@@ -177,7 +177,7 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
             )}
           </div>
 
-          <div className="flex gap-2 pt-2 h-[54px]"> {/* Fixed height container for buttons */}
+          <div className="flex gap-2 pt-1 h-[42px]"> {/* Reduced height container for buttons */}
             {isAdmin || userId === event.host_user_id ? (
               <div className="flex-1 h-full bg-muted text-muted-foreground border border-border rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center italic">
                 {isAdmin ? 'Admin Restricted' : 'Host Restricted'}
