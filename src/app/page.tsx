@@ -84,7 +84,7 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
 
   return (
     <>
-      <div className="group relative bg-card rounded-3xl overflow-hidden border border-border hover:border-primary/20 transition-all duration-300">
+      <div className="group relative bg-card overflow-hidden border-b border-border/40 transition-all duration-300">
         {/* Image Section (NOW AT TOP) */}
         <div
           className="aspect-square overflow-hidden relative cursor-pointer"
@@ -454,9 +454,9 @@ export default function HomePage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 pb-8">
+    <div className="flex flex-col pb-8 -mx-6">
 
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <Loader2 className="animate-spin text-primary" size={40} />
