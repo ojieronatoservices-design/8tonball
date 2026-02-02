@@ -448,23 +448,6 @@ export default function ProfilePage() {
                 )}
             </div>
 
-            {/* SETTINGS FOOTER */}
-            <div className="px-6 py-8 flex flex-col gap-3">
-                <Link
-                    href="/profile/settings"
-                    className="w-full h-14 bg-muted/40 rounded-2xl flex items-center px-6 gap-4 border border-border/50 hover:bg-muted/80 transition-all text-muted-foreground hover:text-foreground"
-                >
-                    <Settings size={20} />
-                    <span className="font-black text-[10px] uppercase tracking-[0.2em]">App Settings</span>
-                </Link>
-                <button
-                    onClick={handleLogout}
-                    className="w-full h-14 bg-red-500/5 rounded-2xl flex items-center px-6 gap-4 border border-red-500/10 hover:bg-red-500/10 transition-all text-red-500/50 hover:text-red-500"
-                >
-                    <LogOut size={20} />
-                    <span className="font-black text-[10px] uppercase tracking-[0.2em]">Log Out</span>
-                </button>
-            </div>
 
             {/* Payout Modal */}
             {showPayoutModal && (
