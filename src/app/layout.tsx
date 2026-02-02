@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Shell } from "@/components/Shell";
+import { Suspense } from "react";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -27,7 +28,9 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en" suppressHydrationWarning>
         <body className={`${inter.className} antialiased selection:bg-primary/30`}>
-          <Shell>{children}</Shell>
+          <Suspense fallback={null}>
+            <Shell>{children}</Shell>
+          </Suspense>
         </body>
       </html>
     </ClerkProvider>
