@@ -41,7 +41,7 @@ export function CountdownTimer({ endsAt, className = '', showLabels = true }: Co
             const seconds = Math.floor((diff % (1000 * 60)) / 1000)
 
             if (days > 0) {
-                setTimeLeft(`${days}d ${hours}h ${minutes}m`)
+                setTimeLeft(`${days}d ${hours}h ${minutes}m ${seconds}s`)
             } else if (hours > 0) {
                 setTimeLeft(`${hours}h ${minutes}m ${seconds}s`)
             } else if (minutes > 0) {
