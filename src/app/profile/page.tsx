@@ -186,6 +186,16 @@ export default function ProfilePage() {
         }
     }, [userId])
 
+    const [scrollY, setScrollY] = useState(0)
+
+    useEffect(() => {
+        const handleScroll = () => {
+            setScrollY(window.scrollY)
+        }
+        window.addEventListener('scroll', handleScroll, { passive: true })
+        return () => window.removeEventListener('scroll', handleScroll)
+    }, [])
+
     const handleLogout = async () => {
         await signOut()
         window.location.href = '/'
@@ -270,59 +280,81 @@ export default function ProfilePage() {
         )
     }
 
+    const isFolded = scrollY > 40
+
     return (
         <div className="flex flex-col gap-6 -mx-6">
-            {/* COMPACT HEADER */}
-            <div className="px-6 flex flex-col gap-4">
-                <div className="flex items-start gap-4">
-                    {/* Avatar */}
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 overflow-hidden shrink-0 shadow-inner">
-                        {user?.imageUrl ? (
-                            <img src={user.imageUrl} alt="Profile" className="w-full h-full object-cover" />
-                        ) : (
-                            <User size={24} className="text-primary" />
-                        )}
+            {/* STICKY FOLDING HEADER */}
+            <div className={`sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border transition-all duration-500 px-6 pt-6 pb-4 ${isFolded ? 'translate-y-0 shadow-lg' : 'translate-y-0'}`}>
+                <div className="flex flex-col gap-4">
+                    {/* Top Row: User Info & Metrics */}
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 min-w-0">
+                            {/* Avatar */}
+                            <div className={`rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 overflow-hidden shrink-0 shadow-inner transition-all duration-500 ${isFolded ? 'w-10 h-10' : 'w-14 h-14'}`}>
+                                {user?.imageUrl ? (
+                                    <img src={user.imageUrl} alt="Profile" className="w-full h-full object-cover" />
+                                ) : (
+                                    <User size={isFolded ? 20 : 28} className="text-primary" />
+                                )}
+                            </div>
+
+                            {/* Name & Email */}
+                            <div className="flex-1 min-w-0">
+                                <h2 className={`font-black tracking-tight text-foreground truncate uppercase transition-all duration-500 ${isFolded ? 'text-base' : 'text-xl'}`}>
+                                    {profile.display_name || 'Guest'}
+                                </h2>
+                                {!isFolded && (
+                                    <div className="text-[10px] font-bold text-muted-foreground/60 truncate italic mt-0.5 lowercase flex items-center gap-1.5 animate-in fade-in slide-in-from-left duration-500">
+                                        <Mail size={10} className="text-primary/40" />
+                                        {profile.email}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Metrics: Side-by-side */}
+                        <div className="flex items-center gap-2 shrink-0">
+                            <button
+                                onClick={() => setShowPayoutModal(true)}
+                                className={`flex flex-col items-center bg-muted/40 hover:bg-muted/80 rounded-2xl border border-border/50 transition-all active:scale-95 text-center ${isFolded ? 'px-3 py-1.5' : 'px-5 py-2.5'}`}
+                            >
+                                <span className="text-[8px] font-black uppercase text-primary tracking-widest leading-none mb-1">Balance</span>
+                                <div className="flex items-center gap-1 leading-none">
+                                    <span className={`${isFolded ? 'text-xs' : 'text-base'} font-black neon-text`}>{profile.tibs_balance.toLocaleString()}</span>
+                                    <span className="text-[7px] uppercase tracking-tighter text-muted-foreground font-bold">TIBS</span>
+                                </div>
+                            </button>
+                            <div className={`flex flex-col items-center bg-card/40 rounded-2xl border border-border/50 text-center ${isFolded ? 'px-3 py-1.5' : 'px-5 py-2.5'}`}>
+                                <span className="text-[8px] font-black uppercase text-muted-foreground tracking-widest leading-none mb-1 opacity-50">Spent</span>
+                                <div className="flex items-center gap-1 leading-none">
+                                    <span className={`${isFolded ? 'text-xs' : 'text-base'} font-black text-foreground`}>{totalSpent.toLocaleString()}</span>
+                                    <span className="text-[7px] uppercase tracking-tighter text-muted-foreground font-bold">TIBS</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    {/* Name & Eligibility */}
-                    <div className="flex-1 min-w-0">
-                        <h2 className="text-xl font-black tracking-tight text-foreground truncate uppercase">{profile.display_name || 'Guest'}</h2>
-
-                        {/* Host Eligibility Line - Minimalist */}
-                        <div className="mt-1.5 flex flex-col gap-0.5">
-                            <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/50">Hosting Eligibility</span>
-                            <div className="w-full max-w-[140px] h-1.5 bg-muted rounded-full overflow-hidden border border-border/50">
+                    {/* Bottom Row: Hosting Eligibility (Full Width) */}
+                    {!isFolded && (
+                        <div className="flex flex-col gap-1.5 animate-in slide-in-from-top fade-in duration-500">
+                            <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">
+                                <span>Hosting Eligibility</span>
+                                <span className="text-primary font-black italic">{totalSpent.toLocaleString()} / {threshold.toLocaleString()}</span>
+                            </div>
+                            <div className="w-full h-2 bg-muted rounded-full overflow-hidden border border-border/50 relative shadow-inner">
                                 <div
-                                    className="h-full bg-primary transition-all duration-1000 shadow-[0_0_8px_rgba(57,255,20,0.3)]"
+                                    className="h-full bg-primary transition-all duration-1000 shadow-[0_0_12px_rgba(57,255,20,0.4)] relative z-10"
                                     style={{ width: `${Math.min(progress, 100)}%` }}
                                 />
-                            </div>
-                            {isHostEligible && (
-                                <span className="text-[8px] font-black uppercase tracking-[0.2em] text-primary mt-0.5 animate-pulse">Eligible</span>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Quick Balance & Spend (Beside Name) */}
-                    <div className="flex flex-col gap-2 shrink-0">
-                        <button
-                            onClick={() => setShowPayoutModal(true)}
-                            className="flex flex-col items-end bg-muted/40 hover:bg-muted/80 px-4 py-2 rounded-2xl border border-border/50 transition-all active:scale-95 text-right"
-                        >
-                            <span className="text-[10px] font-black uppercase text-primary tracking-widest leading-none mb-1">Balance</span>
-                            <div className="flex items-center gap-1">
-                                <span className="text-sm font-black neon-text leading-none">{profile.tibs_balance.toLocaleString()}</span>
-                                <span className="text-[8px] uppercase tracking-tighter text-muted-foreground font-bold">TIBS</span>
-                            </div>
-                        </button>
-                        <div className="flex flex-col items-end px-4 py-2 rounded-2xl border border-transparent text-right">
-                            <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest leading-none mb-1 opacity-50">Total Spend</span>
-                            <div className="flex items-center gap-1">
-                                <span className="text-sm font-black text-foreground leading-none">{totalSpent.toLocaleString()}</span>
-                                <span className="text-[8px] uppercase tracking-tighter text-muted-foreground font-bold">TIBS</span>
+                                {isHostEligible && (
+                                    <div className="absolute inset-0 z-20 flex items-center justify-center">
+                                        <span className="text-[7px] font-black uppercase tracking-[0.5em] text-primary-foreground drop-shadow-md animate-pulse">ELIGIBLE FOR HOSTING</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             </div>
 
