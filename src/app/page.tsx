@@ -25,6 +25,16 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
   const [isProcessing, setIsProcessing] = useState(false)
   const [localEntryCount, setLocalEntryCount] = useState(entryCount)
   const [justJoined, setJustJoined] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Handle scroll to update index
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget
+    const index = Math.round(target.scrollLeft / target.offsetWidth)
+    if (index !== currentImageIndex) {
+      setCurrentImageIndex(index)
+    }
+  }
 
   // Sync prop changes unless we just joined (optimistic)
   useEffect(() => {
@@ -71,12 +81,18 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
 
   const nextImage = (e: React.MouseEvent) => {
     e.stopPropagation()
-    setCurrentImageIndex((prev) => (prev + 1) % images.length)
+    if (scrollRef.current) {
+      const nextIdx = (currentImageIndex + 1) % images.length
+      scrollRef.current.scrollTo({ left: nextIdx * scrollRef.current.offsetWidth, behavior: 'smooth' })
+    }
   }
 
   const prevImage = (e: React.MouseEvent) => {
     e.stopPropagation()
-    setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length)
+    if (scrollRef.current) {
+      const prevIdx = (currentImageIndex - 1 + images.length) % images.length
+      scrollRef.current.scrollTo({ left: prevIdx * scrollRef.current.offsetWidth, behavior: 'smooth' })
+    }
   }
 
   const description = event.description || ''
@@ -85,53 +101,61 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
   return (
     <>
       <div className="group relative bg-card overflow-hidden border-b border-border/40 transition-all duration-300">
-        {/* Image Section (NOW AT TOP) */}
-        <div
-          className="aspect-square overflow-hidden relative cursor-pointer"
-          onClick={() => setShowLightbox(true)}
-        >
-          {isVideo(images[currentImageIndex]) ? (
-            <video
-              src={images[currentImageIndex]}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-              autoPlay
-              muted
-              loop
-              playsInline
-            />
-          ) : (
-            <img
-              src={images[currentImageIndex]}
-              alt={event.title}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-          )}
+        {/* Image Section (NOW AT TOP) with Swipe support */}
+        <div className="relative aspect-square">
+          <div
+            ref={scrollRef}
+            onScroll={handleScroll}
+            className="flex w-full h-full overflow-x-auto snap-x snap-mandatory scrollbar-hide cursor-pointer"
+            onClick={() => setShowLightbox(true)}
+          >
+            {images.map((img: string, idx: number) => (
+              <div key={idx} className="w-full h-full flex-shrink-0 snap-center relative">
+                {isVideo(img) ? (
+                  <video
+                    src={img}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                  />
+                ) : (
+                  <img
+                    src={img}
+                    alt={event.title}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                )}
+              </div>
+            ))}
+          </div>
 
           {/* Carousel Controls */}
           {images.length > 1 && (
             <>
-              <button
-                onClick={prevImage}
-                className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-black/60 transition-all opacity-0 group-hover:opacity-100"
-              >
-                <ChevronLeft size={20} />
-              </button>
-              <button
-                onClick={nextImage}
-                className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-black/60 transition-all opacity-0 group-hover:opacity-100"
-              >
-                <ChevronRight size={20} />
-              </button>
-            </>
-          )}
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-between px-4 z-10">
+                <button
+                  onClick={prevImage}
+                  className="pointer-events-auto w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-black/60 transition-all opacity-0 group-hover:opacity-100"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <button
+                  onClick={nextImage}
+                  className="pointer-events-auto w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-black/60 transition-all opacity-0 group-hover:opacity-100"
+                >
+                  <ChevronRight size={20} />
+                </button>
+              </div>
 
-          {/* Dots */}
-          {images.length > 1 && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 px-3 py-1.5 bg-black/20 backdrop-blur-sm rounded-full">
-              {images.map((_: any, idx: number) => (
-                <div key={idx} className={`w-1.5 h-1.5 rounded-full transition-colors ${idx === currentImageIndex ? 'bg-primary' : 'bg-white/30'}`} />
-              ))}
-            </div>
+              {/* Dots */}
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 px-3 py-1.5 bg-black/20 backdrop-blur-sm rounded-full z-10">
+                {images.map((_: string, idx: number) => (
+                  <div key={idx} className={`w-1.5 h-1.5 rounded-full transition-colors ${idx === currentImageIndex ? 'bg-primary' : 'bg-white/30'}`} />
+                ))}
+              </div>
+            </>
           )}
         </div>
 
