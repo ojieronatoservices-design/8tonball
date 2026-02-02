@@ -1,10 +1,10 @@
 "use client"
 
 import React, { useEffect, useState, useRef } from 'react'
-import { Wallet, Trophy, Bell, User, LayoutDashboard, Loader2, LogOut } from 'lucide-react'
+import { Wallet, Trophy, Bell, User, LayoutDashboard, Loader2, LogOut, Search, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { useUser, SignInButton, UserButton, useClerk } from '@clerk/nextjs'
@@ -29,6 +29,27 @@ export function Shell({ children }: ShellProps) {
     const [balance, setBalance] = useState<number>(0)
     const [isAdmin, setIsAdmin] = useState(false)
     const [isHostEligible, setIsHostEligible] = useState(false)
+
+    const router = useRouter()
+    const searchParams = useSearchParams()
+    const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '')
+
+    // Update search query when URL changes
+    useEffect(() => {
+        setSearchQuery(searchParams.get('q') || '')
+    }, [searchParams])
+
+    // Sync search query to URL
+    const handleSearchChange = (val: string) => {
+        setSearchQuery(val)
+        const params = new URLSearchParams(searchParams.toString())
+        if (val) {
+            params.set('q', val)
+        } else {
+            params.delete('q')
+        }
+        router.replace(`/?${params.toString()}`, { scroll: false })
+    }
     const [isSyncing, setIsSyncing] = useState(false)
     const [showLegalModal, setShowLegalModal] = useState(false)
     const [isVisible, setIsVisible] = useState(true)
@@ -264,35 +285,65 @@ export function Shell({ children }: ShellProps) {
         <div className="min-h-screen bg-background text-foreground flex flex-col items-center">
             {/* Top Header */}
             <header className={cn(
-                "fixed top-0 w-full max-w-lg glass z-50 px-6 py-4 flex justify-between items-center transition-transform duration-300",
-                !isVisible && "-translate-y-full"
+                "fixed top-0 w-full max-w-lg glass z-50 flex flex-col transition-transform duration-300",
+                !isVisible && "-translate-y-full",
+                pathname === '/' ? "py-3" : "py-4"
             )}>
-                <Link href="/">
-                    <h1 className="text-xl font-black tracking-tighter neon-text">8TONBALL</h1>
-                </Link>
-                <div className="flex items-center gap-3">
-                    {isLoaded && user ? (
-                        <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-1.5 bg-muted px-3 py-1 rounded-full border border-border">
-                                <span className="text-sm font-bold neon-text">{balance.toLocaleString()}</span>
-                                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Tibs</span>
+                <div className="w-full px-6 flex justify-between items-center">
+                    <Link href="/">
+                        <h1 className="text-xl font-black tracking-tighter neon-text">8TONBALL</h1>
+                    </Link>
+                    <div className="flex items-center gap-3">
+                        {isLoaded && user ? (
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-1.5 bg-muted px-3 py-1 rounded-full border border-border">
+                                    <span className="text-sm font-bold neon-text">{balance.toLocaleString()}</span>
+                                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Tibs</span>
+                                </div>
+                                <UserButton afterSignOutUrl="/" />
                             </div>
-                            <UserButton afterSignOutUrl="/" />
-                        </div>
-                    ) : isLoaded ? (
-                        <SignInButton mode="modal">
-                            <button className="text-[10px] font-black uppercase tracking-widest bg-primary text-primary-foreground px-4 py-1.5 rounded-full neon-border transition-transform active:scale-95 shadow-sm">
-                                Sign In
-                            </button>
-                        </SignInButton>
-                    ) : (
-                        <Loader2 className="animate-spin text-muted-foreground" size={18} />
-                    )}
+                        ) : isLoaded ? (
+                            <SignInButton mode="modal">
+                                <button className="text-[10px] font-black uppercase tracking-widest bg-primary text-primary-foreground px-4 py-1.5 rounded-full neon-border transition-transform active:scale-95 shadow-sm">
+                                    Sign In
+                                </button>
+                            </SignInButton>
+                        ) : (
+                            <Loader2 className="animate-spin text-muted-foreground" size={18} />
+                        )}
+                    </div>
                 </div>
+
+                {/* Search Bar - only on home feed */}
+                {pathname === '/' && (
+                    <div className="w-full px-6 mt-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                        <div className="relative group">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={14} />
+                            <input
+                                type="text"
+                                placeholder="Search live events..."
+                                className="w-full bg-muted/40 border border-border hover:border-primary/20 focus:border-primary/50 rounded-xl py-2 pl-9 pr-8 text-xs font-medium focus:outline-none transition-all"
+                                value={searchQuery}
+                                onChange={(e) => handleSearchChange(e.target.value)}
+                            />
+                            {searchQuery && (
+                                <button
+                                    onClick={() => handleSearchChange('')}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                    <X size={14} />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
             </header>
 
             {/* Main Content */}
-            <main className="w-full max-w-lg pt-24 pb-32 px-6">
+            <main className={cn(
+                "w-full max-w-lg pb-32 px-6 transition-all duration-300",
+                pathname === '/' ? "pt-32" : "pt-24"
+            )}>
                 {children}
             </main>
 

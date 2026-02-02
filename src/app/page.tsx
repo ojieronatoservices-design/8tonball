@@ -1,9 +1,10 @@
 "use client"
 
 import React, { useEffect, useState, useRef } from 'react'
-import { Trophy, Clock, Users, ArrowRight, Loader2, Share2, Facebook, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Coins } from 'lucide-react'
+import { Trophy, Clock, Users, ArrowRight, Loader2, Share2, Facebook, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Coins, Search } from 'lucide-react'
 import { useAuth, useUser } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
+import { useSearchParams } from 'next/navigation'
 import { CountdownTimer } from '@/components/CountdownTimer'
 import { ImageLightbox } from '@/components/ImageLightbox'
 
@@ -245,6 +246,8 @@ export default function HomePage() {
   const { userId, isSignedIn } = useAuth()
   const { user } = useUser()
   const { getClient } = useSupabase()
+  const searchParams = useSearchParams()
+  const searchQuery = searchParams.get('q')?.toLowerCase() || ''
 
   const fetchEvents = async () => {
     const supabaseClient = await getClient()
@@ -464,8 +467,26 @@ export default function HomePage() {
             <Clock size={48} />
             <p className="font-bold">No active events yet.</p>
           </div>
-        ) : (
-          events.map((event) => (
+        ) : (() => {
+          const filteredEvents = events.filter(event =>
+            !searchQuery ||
+            event.title?.toLowerCase().includes(searchQuery) ||
+            event.description?.toLowerCase().includes(searchQuery)
+          );
+
+          if (filteredEvents.length === 0) {
+            return (
+              <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-4 bg-card rounded-3xl border border-border animate-in fade-in duration-300">
+                <Search className="text-muted-foreground/20" size={48} />
+                <div className="text-center">
+                  <p className="font-bold text-foreground">No matches found</p>
+                  <p className="text-xs mt-1">Try a different keyword</p>
+                </div>
+              </div>
+            );
+          }
+
+          return filteredEvents.map((event) => (
             <EventCard
               key={event.id}
               event={event}
@@ -475,8 +496,8 @@ export default function HomePage() {
               userId={userId}
               isAdmin={isAdmin}
             />
-          ))
-        )}
+          ));
+        })()}
       </div>
     </div>
   )
