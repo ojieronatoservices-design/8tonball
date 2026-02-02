@@ -9,9 +9,16 @@ export function useSupabase() {
         return {
             getClient: async () => {
                 try {
-                    const token = await getToken({ template: 'supabase' })
+                    // Safety timeout for getToken to prevent hangs on mobile/slow networks
+                    const tokenPromise = getToken({ template: 'supabase' })
+                    const timeoutPromise = new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('Token timeout')), 8000)
+                    )
+
+                    const token = await Promise.race([tokenPromise, timeoutPromise]) as string | null
                     if (token) return createClerkSupabaseClient(token)
                 } catch (error) {
+                    console.error('[useSupabase] getToken failed or timed out:', error)
                     // Fallback to anon client if auth fails
                 }
                 return supabase

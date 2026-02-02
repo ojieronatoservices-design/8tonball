@@ -89,6 +89,17 @@ export default function HomePage() {
     fetchEvents()
   }, [userId])
 
+  // Safety timeout for loading state (mobile hangs)
+  useEffect(() => {
+    if (isLoading) {
+      const timer = setTimeout(() => {
+        console.warn('[HomePage] Loading safety timeout triggered')
+        setIsLoading(false)
+      }, 10000)
+      return () => clearTimeout(timer)
+    }
+  }, [isLoading])
+
   // Real-time subscription for entry count updates AND raffle status changes
   const supabaseRef = useRef<any>(null)
   const userIdRef = useRef(userId)

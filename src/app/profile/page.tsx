@@ -122,6 +122,17 @@ export default function ProfilePage() {
         }
     }, [isAuthLoaded, userId])
 
+    // Safety timeout for loading state (mobile hangs)
+    useEffect(() => {
+        if (isLoading) {
+            const timer = setTimeout(() => {
+                console.warn('[ProfilePage] Loading safety timeout triggered')
+                setIsLoading(false)
+            }, 10000)
+            return () => clearTimeout(timer)
+        }
+    }, [isLoading])
+
     // Realtime subscriptions for profile updates
     const supabaseRef = useRef<any>(null)
 
@@ -661,7 +672,7 @@ export default function ProfilePage() {
                         <button
                             onClick={handleRequestPayout}
                             disabled={isSubmitting}
-                            className="w-full h-16 bg-primary text-primary-foreground font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 neon-border text-sm"
+                            className="w-full h-16 bg-primary text-black font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 neon-border text-sm"
                         >
                             {isSubmitting ? 'Processing...' : 'Settle Now'}
                         </button>
