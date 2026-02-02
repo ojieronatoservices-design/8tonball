@@ -13,9 +13,20 @@ export function CountdownTimer({ endsAt, className = '', showLabels = true }: Co
     const [isExpired, setIsExpired] = useState(false)
 
     useEffect(() => {
+        if (!endsAt) {
+            setTimeLeft('--:--')
+            return
+        }
+
         const calculateTimeLeft = () => {
             const now = new Date().getTime()
             const end = new Date(endsAt).getTime()
+
+            if (isNaN(end)) {
+                setTimeLeft('TBA')
+                return
+            }
+
             const diff = end - now
 
             if (diff <= 0) {
