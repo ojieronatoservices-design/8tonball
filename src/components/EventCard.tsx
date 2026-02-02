@@ -14,6 +14,7 @@ interface EventCardProps {
     isAdmin?: boolean
     variant?: 'feed' | 'profile-live' | 'profile-archive'
     isWinner?: boolean
+    entryNumbers?: string[]
 }
 
 export const EventCard = ({
@@ -24,7 +25,8 @@ export const EventCard = ({
     userId,
     isAdmin,
     variant = 'feed',
-    isWinner = false
+    isWinner = false,
+    entryNumbers = []
 }: EventCardProps) => {
     const [currentImageIndex, setCurrentImageIndex] = useState(0)
     const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
@@ -224,15 +226,43 @@ export const EventCard = ({
                         )}
                     </div>
 
+                    {/* Ticket Numbers - For Profile Variants */}
+                    {variant !== 'feed' && entryNumbers.length > 0 && (
+                        <div className="flex flex-col gap-2 mt-1 p-3 bg-muted/50 rounded-2xl border border-border/50">
+                            <div className="flex justify-between items-center px-1">
+                                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Your Tickets ({entryNumbers.length})</span>
+                                {variant === 'profile-archive' && isWinner && (
+                                    <span className="text-[9px] font-black uppercase text-green-500 animate-pulse tracking-widest flex items-center gap-1">
+                                        <Trophy size={10} /> Winner Included
+                                    </span>
+                                )}
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                                {entryNumbers.map((num, i) => {
+                                    // Highlight if it's the winning ticket
+                                    const isWinningTicket = variant === 'profile-archive' && num === event.winning_ticket_number;
+                                    return (
+                                        <div
+                                            key={i}
+                                            className={`px-3 py-1.5 rounded-lg text-[10px] font-black font-mono transition-all border ${isWinningTicket
+                                                ? 'bg-green-500/10 text-green-500 border-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.3)] scale-110 active-neon'
+                                                : 'bg-background text-muted-foreground border-border'
+                                                }`}
+                                        >
+                                            {isWinningTicket && <Trophy size={10} className="inline mr-1 mb-0.5" />}
+                                            {num}
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    )}
+
                     {variant !== 'profile-archive' && (
                         <div className="flex gap-2 pt-1 h-[42px]">
                             {isAdmin || userId === event.host_user_id ? (
                                 <div className="flex-1 h-full bg-muted text-muted-foreground border border-border rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center italic">
                                     {isAdmin ? 'Admin Restricted' : 'Host Restricted'}
-                                </div>
-                            ) : variant === 'profile-live' ? (
-                                <div className="flex-1 h-full bg-primary/5 text-primary border border-primary/20 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center italic">
-                                    ENTRY REGISTERED
                                 </div>
                             ) : isConfirming ? (
                                 <div className="flex-1 flex gap-2 animate-in slide-in-from-right fade-in duration-200">

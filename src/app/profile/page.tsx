@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useState, useRef } from 'react'
-import { Plus, Ticket, ShieldCheck, Clock, Trophy, Loader2, User, LogOut, Wallet, CheckSquare, X, Settings, XCircle, Mail } from 'lucide-react'
+import { Plus, Ticket, ShieldCheck, Clock, Trophy, Loader2, User, LogOut, Wallet, CheckSquare, X, Settings, XCircle, Mail, ChevronDown } from 'lucide-react'
 import { useUser, useAuth, useClerk } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
 import { CountdownTimer } from '@/components/CountdownTimer'
@@ -187,6 +187,7 @@ export default function ProfilePage() {
     }, [userId])
 
     const [scrollY, setScrollY] = useState(0)
+    const [expandedId, setExpandedId] = useState<string | null>(null)
 
     useEffect(() => {
         const handleScroll = () => {
@@ -206,13 +207,57 @@ export default function ProfilePage() {
     const progress = (totalSpent / threshold) * 100
     const isHostEligible = profile?.is_host_eligible || false
 
-    // Filter entries by status
-    const liveEntries = myEntries.filter(e => e.raffles?.status === 'open')
-    const archivedEntries = myEntries.filter(e => e.raffles?.status !== 'open')
+    // Group entries by raffle_id
+    const groupedEntries = myEntries.reduce((acc, entry) => {
+        const raffleId = entry.raffle_id
+        if (!acc[raffleId]) {
+            acc[raffleId] = {
+                event: entry.raffles,
+                entries: []
+            }
+        }
+        acc[raffleId].entries.push(entry)
+        return acc
+    }, {} as Record<string, { event: any, entries: EntryWithEvent[] }>)
+
+    const liveGroups = Object.values(groupedEntries).filter(g => g.event?.status === 'open')
+    const archivedGroups = Object.values(groupedEntries).filter(g => g.event?.status !== 'open')
 
     // Check if user won an event
-    const didWin = (entry: EntryWithEvent) => {
-        return entry.raffles?.winning_entry_id === entry.id
+    const didWin = (group: { event: any, entries: EntryWithEvent[] }) => {
+        return group.entries.some(e => e.id === group.event?.winning_entry_id)
+    }
+
+    const handleEnterEvent = async (eventId: string, cost: number): Promise<boolean> => {
+        const supabaseClient = await getClient()
+        if (!supabaseClient) return false
+
+        try {
+            const { data, error } = await supabaseClient.rpc('enter_raffle', {
+                p_raffle_id: eventId,
+                p_user_id: userId
+            })
+
+            if (error) throw error
+
+            if (data.success) {
+                // Dispatch balance update
+                window.dispatchEvent(new CustomEvent('balanceUpdate', {
+                    detail: { balance: data.new_balance }
+                }))
+
+                // Refresh profile data locally
+                fetchProfile()
+                return true
+            } else {
+                alert(data.message || 'Failed to enter event.')
+                return false
+            }
+        } catch (error: any) {
+            console.error('Error entering event:', error)
+            alert(error.message || 'Error entering event.')
+            return false
+        }
     }
 
     const handleRequestPayout = async () => {
@@ -388,41 +433,120 @@ export default function ProfilePage() {
             </div>
 
             {/* EVENT MINI FEED */}
-            <div className="flex flex-col">
+            <div className="flex flex-col gap-2 px-6">
                 {activeTab === 'live' ? (
-                    liveEntries.length === 0 ? (
+                    liveGroups.length === 0 ? (
                         <div className="py-20 text-center text-muted-foreground/20 font-black uppercase tracking-[0.2em] text-xs">
                             No Active Entries
                         </div>
                     ) : (
-                        liveEntries.map((entry) => (
-                            <EventCard
-                                key={entry.id}
-                                event={entry.raffles}
-                                entryCount={entryCounts[entry.raffle_id] || 0}
-                                onShare={handleShareFacebook}
-                                userId={userId}
-                                variant="profile-live"
-                            />
-                        ))
+                        liveGroups.map((group) => {
+                            const isExpanded = expandedId === group.event.id;
+                            return (
+                                <div key={group.event.id} className={`flex flex-col bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 ${isExpanded ? 'ring-1 ring-primary/20 shadow-lg' : 'hover:bg-muted/30'}`}>
+                                    {/* Collapsed Bar */}
+                                    <button
+                                        onClick={() => setExpandedId(isExpanded ? null : group.event.id)}
+                                        className="flex items-center justify-between p-4 text-left group"
+                                    >
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-border">
+                                                <img src={group.event.media_urls?.[0]} alt="" className="w-full h-full object-cover" />
+                                            </div>
+                                            <div className="flex flex-col min-w-0">
+                                                <h4 className="text-sm font-black truncate uppercase tracking-tight">{group.event.title}</h4>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase">x{group.entries.length} Entries</span>
+                                                    <span className="w-1 h-1 rounded-full bg-primary/30" />
+                                                    <div className="flex items-center gap-1 text-[10px] font-black text-primary uppercase animate-pulse">
+                                                        <Clock size={10} /> Live
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+                                            <ChevronDown size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                                        </div>
+                                    </button>
+
+                                    {/* Expanded Content */}
+                                    {isExpanded && (
+                                        <div className="animate-in slide-in-from-top-4 fade-in duration-300 border-t border-border/50">
+                                            <EventCard
+                                                event={group.event}
+                                                entryCount={entryCounts[group.event.id] || 0}
+                                                onEnter={handleEnterEvent}
+                                                onShare={handleShareFacebook}
+                                                userId={userId}
+                                                variant="profile-live"
+                                                entryNumbers={group.entries.map(e => e.ticket_number).filter(Boolean) as string[]}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            )
+                        })
                     )
                 ) : activeTab === 'archives' ? (
-                    archivedEntries.length === 0 ? (
+                    archivedGroups.length === 0 ? (
                         <div className="py-20 text-center text-muted-foreground/20 font-black uppercase tracking-[0.2em] text-xs">
                             No Archive History
                         </div>
                     ) : (
-                        archivedEntries.map((entry) => (
-                            <EventCard
-                                key={entry.id}
-                                event={entry.raffles}
-                                entryCount={entryCounts[entry.raffle_id] || 0}
-                                onShare={handleShareFacebook}
-                                userId={userId}
-                                variant="profile-archive"
-                                isWinner={didWin(entry)}
-                            />
-                        ))
+                        archivedGroups.map((group) => {
+                            const isExpanded = expandedId === group.event.id;
+                            const won = didWin(group);
+                            return (
+                                <div key={group.event.id} className={`flex flex-col bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 ${isExpanded ? 'ring-1 ring-primary/20 shadow-lg' : 'hover:bg-muted/30'}`}>
+                                    {/* Collapsed Bar */}
+                                    <button
+                                        onClick={() => setExpandedId(isExpanded ? null : group.event.id)}
+                                        className="flex items-center justify-between p-4 text-left group"
+                                    >
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-border grayscale-[0.5]">
+                                                <img src={group.event.media_urls?.[0]} alt="" className="w-full h-full object-cover" />
+                                            </div>
+                                            <div className="flex flex-col min-w-0">
+                                                <h4 className="text-sm font-black truncate uppercase tracking-tight text-muted-foreground/80">{group.event.title}</h4>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase">x{group.entries.length} Entries</span>
+                                                    <span className="w-1 h-1 rounded-full bg-border" />
+                                                    {won ? (
+                                                        <div className="flex items-center gap-1 text-[10px] font-black text-green-500 uppercase">
+                                                            <Trophy size={10} /> Won
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground/40 uppercase">
+                                                            <XCircle size={10} /> Missed
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+                                            <ChevronDown size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                                        </div>
+                                    </button>
+
+                                    {/* Expanded Content */}
+                                    {isExpanded && (
+                                        <div className="animate-in slide-in-from-top-4 fade-in duration-300 border-t border-border/50">
+                                            <EventCard
+                                                event={group.event}
+                                                entryCount={entryCounts[group.event.id] || 0}
+                                                onEnter={handleEnterEvent}
+                                                onShare={handleShareFacebook}
+                                                userId={userId}
+                                                variant="profile-archive"
+                                                isWinner={won}
+                                                entryNumbers={group.entries.map(e => e.ticket_number).filter(Boolean) as string[]}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            )
+                        })
                     )
                 ) : (
                     hostedEvents.length === 0 ? (
@@ -433,17 +557,59 @@ export default function ProfilePage() {
                             </Link>
                         </div>
                     ) : (
-                        hostedEvents.map((event) => (
-                            <EventCard
-                                key={event.id}
-                                event={event}
-                                entryCount={entryCounts[event.id] || 0}
-                                onShare={handleShareFacebook}
-                                userId={userId}
-                                variant={event.status === 'open' ? 'feed' : 'profile-archive'}
-                                isWinner={false} // Host doesn't win their own event in this view
-                            />
-                        ))
+                        hostedEvents.map((event) => {
+                            const isExpanded = expandedId === event.id;
+                            const isLive = event.status === 'open';
+                            return (
+                                <div key={event.id} className={`flex flex-col bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 ${isExpanded ? 'ring-1 ring-primary/20 shadow-lg' : 'hover:bg-muted/30'}`}>
+                                    {/* Collapsed Bar */}
+                                    <button
+                                        onClick={() => setExpandedId(isExpanded ? null : event.id)}
+                                        className="flex items-center justify-between p-4 text-left group"
+                                    >
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-border">
+                                                <img src={event.media_urls?.[0]} alt="" className="w-full h-full object-cover" />
+                                            </div>
+                                            <div className="flex flex-col min-w-0">
+                                                <h4 className="text-sm font-black truncate uppercase tracking-tight">{event.title}</h4>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase">{entryCounts[event.id] || 0} Entries</span>
+                                                    <span className="w-1 h-1 rounded-full bg-border" />
+                                                    {isLive ? (
+                                                        <div className="flex items-center gap-1 text-[10px] font-black text-primary uppercase animate-pulse">
+                                                            <Clock size={10} /> Live
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground/40 uppercase">
+                                                            <XCircle size={10} /> Closed
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+                                            <ChevronDown size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                                        </div>
+                                    </button>
+
+                                    {/* Expanded Content */}
+                                    {isExpanded && (
+                                        <div className="animate-in slide-in-from-top-4 fade-in duration-300 border-t border-border/50">
+                                            <EventCard
+                                                event={event}
+                                                entryCount={entryCounts[event.id] || 0}
+                                                onEnter={handleEnterEvent}
+                                                onShare={handleShareFacebook}
+                                                userId={userId}
+                                                variant={isLive ? 'feed' : 'profile-archive'}
+                                                isWinner={false}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            )
+                        })
                     )
                 )}
             </div>
