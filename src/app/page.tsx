@@ -100,7 +100,7 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
 
   return (
     <>
-      <div className="group relative bg-card overflow-hidden border-b border-border/40 transition-all duration-300">
+      <div className="group relative bg-card overflow-hidden border-b border-border transition-all duration-300">
         {/* Image Section (NOW AT TOP) with Swipe support */}
         <div className="relative aspect-square">
           <div
@@ -160,7 +160,7 @@ const EventCard = ({ event, entryCount, onEnter, onShare, userId, isAdmin }: {
         </div>
 
         {/* Content Section */}
-        <div className="p-4 flex flex-col gap-3">
+        <div className="px-4 pt-4 pb-6 flex flex-col gap-3">
           {/* Meta Info Bar (Horizontal & Balanced) */}
           <div className="grid grid-cols-3 gap-0 py-1.5 border-y border-border bg-muted/30">
             <div className="flex items-center justify-center gap-2">
