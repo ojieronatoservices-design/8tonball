@@ -106,10 +106,10 @@ export default async function EventPage({ params }: Props) {
                 {event.status === 'open' && (
                     <Link
                         href="/"
-                        className="w-full py-5 bg-primary text-primary-foreground font-black text-center uppercase tracking-[0.2em] rounded-2xl mt-4 neon-border shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2"
+                        className="w-full py-5 bg-primary text-black font-black text-center uppercase tracking-[0.2em] rounded-2xl mt-4 neon-border shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2"
                     >
                         Enter Now
-                        <div className="w-2 h-2 rounded-full bg-primary-foreground animate-pulse" />
+                        <div className="w-2 h-2 rounded-full bg-black animate-pulse" />
                     </Link>
                 )}
             </div>

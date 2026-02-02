@@ -232,12 +232,12 @@ export const EventCard = ({
                             <div className="flex justify-between items-center px-1">
                                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Your Tickets ({entryNumbers.length})</span>
                                 {variant === 'profile-archive' && isWinner && (
-                                    <span className="text-[9px] font-black uppercase text-green-500 animate-pulse tracking-widest flex items-center gap-1">
-                                        <Trophy size={10} /> Winner Included
+                                    <span className="text-[9px] font-black uppercase bg-primary text-black px-1.5 py-0.5 rounded-sm animate-pulse tracking-widest flex items-center gap-1">
+                                        <Trophy size={10} /> Winner
                                     </span>
                                 )}
                             </div>
-                            <div className="flex flex-wrap gap-1.5">
+                            <div className="flex flex-wrap gap-1.5 max-h-[84px] overflow-y-auto pr-1 custom-scrollbar">
                                 {entryNumbers.map((num, i) => {
                                     // Highlight if it's the winning ticket
                                     const isWinningTicket = variant === 'profile-archive' && num === event.winning_ticket_number;
@@ -245,7 +245,7 @@ export const EventCard = ({
                                         <div
                                             key={i}
                                             className={`px-3 py-1.5 rounded-lg text-[10px] font-black font-mono transition-all border ${isWinningTicket
-                                                ? 'bg-green-500/10 text-green-500 border-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.3)] scale-110 active-neon'
+                                                ? 'bg-primary text-black border-primary shadow-[0_0_15px_rgba(57,255,20,0.5)] scale-110'
                                                 : 'bg-background text-muted-foreground border-border'
                                                 }`}
                                         >
@@ -276,7 +276,7 @@ export const EventCard = ({
                                     <button
                                         onClick={handleConfirm}
                                         disabled={isProcessing}
-                                        className="flex-[2] h-full bg-primary text-primary-foreground rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center transition-all disabled:opacity-50 active:scale-95 neon-border shadow-md"
+                                        className="flex-[2] h-full bg-primary text-black rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center transition-all disabled:opacity-50 active:scale-95 neon-border shadow-md"
                                     >
                                         {isProcessing ? (
                                             <Loader2 className="animate-spin" size={20} />
@@ -290,7 +290,7 @@ export const EventCard = ({
                             ) : (
                                 <button
                                     onClick={handleJoinClick}
-                                    className="flex-1 h-full bg-primary text-primary-foreground rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] transition-all duration-200 active:scale-95 neon-border shadow-lg flex items-center justify-center gap-2 hover:brightness-110"
+                                    className="flex-1 h-full bg-primary text-black rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] transition-all duration-200 active:scale-95 neon-border shadow-lg flex items-center justify-center gap-2 hover:brightness-110"
                                 >
                                     Join Event
                                 </button>

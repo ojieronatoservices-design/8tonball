@@ -44,12 +44,12 @@ export default function ProfilePage() {
     const [gcashName, setGcashName] = useState('')
     const [isSubmitting, setIsSubmitting] = useState(false)
 
-    const fetchProfile = async () => {
+    const fetchProfile = async (silent = false) => {
         if (!userId) return
         const supabaseClient = await getClient()
         if (!supabaseClient) return
 
-        setIsLoading(true)
+        if (!silent) setIsLoading(true)
         try {
             // Fetch profile
             const { data: profileData, error: profileError } = await supabaseClient
@@ -110,7 +110,7 @@ export default function ProfilePage() {
         } catch (error) {
             console.error('Error fetching profile:', error)
         } finally {
-            setIsLoading(false)
+            if (!silent) setIsLoading(false)
         }
     }
 
@@ -246,8 +246,8 @@ export default function ProfilePage() {
                     detail: { balance: data.new_balance }
                 }))
 
-                // Refresh profile data locally
-                fetchProfile()
+                // Refresh profile data locally (silently)
+                fetchProfile(true)
                 return true
             } else {
                 alert(data.message || 'Failed to enter event.')
@@ -408,14 +408,14 @@ export default function ProfilePage() {
                 <div className="flex bg-muted/30 p-1 rounded-2xl border border-border/50">
                     <button
                         onClick={() => setActiveTab('live')}
-                        className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'live' ? 'bg-primary text-primary-foreground shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
+                        className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'live' ? 'bg-primary text-black shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
                     >
                         <Clock size={14} />
                         Live
                     </button>
                     <button
                         onClick={() => setActiveTab('archives')}
-                        className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'archives' ? 'bg-primary text-primary-foreground shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
+                        className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'archives' ? 'bg-primary text-black shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
                     >
                         <Trophy size={14} />
                         Archive
@@ -423,7 +423,7 @@ export default function ProfilePage() {
                     {isHostEligible && (
                         <button
                             onClick={() => setActiveTab('hosted')}
-                            className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'hosted' ? 'bg-primary text-primary-foreground shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
+                            className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'hosted' ? 'bg-primary text-black shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             <Plus size={14} strokeWidth={3} />
                             Host
@@ -458,7 +458,7 @@ export default function ProfilePage() {
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-[10px] font-bold text-muted-foreground uppercase">x{group.entries.length} Entries</span>
                                                     <span className="w-1 h-1 rounded-full bg-primary/30" />
-                                                    <div className="flex items-center gap-1 text-[10px] font-black text-primary uppercase animate-pulse">
+                                                    <div className="flex items-center gap-1 text-[10px] font-black bg-primary text-black px-2 py-0.5 rounded-md uppercase animate-pulse">
                                                         <Clock size={10} /> Live
                                                     </div>
                                                 </div>
@@ -513,7 +513,7 @@ export default function ProfilePage() {
                                                     <span className="text-[10px] font-bold text-muted-foreground uppercase">x{group.entries.length} Entries</span>
                                                     <span className="w-1 h-1 rounded-full bg-border" />
                                                     {won ? (
-                                                        <div className="flex items-center gap-1 text-[10px] font-black text-green-500 uppercase">
+                                                        <div className="flex items-center gap-1 text-[10px] font-black bg-green-500 text-black px-2 py-0.5 rounded-md uppercase">
                                                             <Trophy size={10} /> Won
                                                         </div>
                                                     ) : (

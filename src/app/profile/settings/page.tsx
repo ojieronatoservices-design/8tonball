@@ -37,7 +37,7 @@ export default function SettingsPage() {
                                 headerTitle: "hidden",
                                 headerSubtitle: "hidden",
                                 viewSectionTitle: "text-lg font-bold mb-2",
-                                formButtonPrimary: "bg-primary text-primary-foreground hover:bg-primary/80",
+                                formButtonPrimary: "bg-primary text-black hover:bg-primary/80",
                                 formButtonReset: "text-muted-foreground hover:text-foreground",
                                 breadcrumbsItem: "text-muted-foreground",
                                 breadcrumbsItemDivider: "text-muted-foreground",

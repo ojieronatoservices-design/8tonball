@@ -304,7 +304,7 @@ export function Shell({ children }: ShellProps) {
                             </div>
                         ) : isLoaded ? (
                             <SignInButton mode="modal">
-                                <button className="text-[10px] font-black uppercase tracking-widest bg-primary text-primary-foreground px-4 py-1.5 rounded-full neon-border transition-transform active:scale-95 shadow-sm">
+                                <button className="text-[10px] font-black uppercase tracking-widest bg-primary text-black px-4 py-1.5 rounded-full neon-border transition-transform active:scale-95 shadow-sm">
                                     Sign In
                                 </button>
                             </SignInButton>
