@@ -232,9 +232,14 @@ export default function AdminDashboard() {
         }
     }, [activeTab, userId])
 
-    const handleDrawWinner = async (eventId: string, eventTitle: string, eventImage: string) => {
+    const handleDrawWinner = async (eventId: string, eventTitle: string, eventImage: string, currentTibs: number, goalTibs: number) => {
         const supabaseClient = await getClient()
         if (!supabaseClient) return
+
+        if (goalTibs > 0 && currentTibs < goalTibs) {
+            alert(`⚠️ GOAL NOT MET: Current progress is ${currentTibs.toLocaleString()} / ${goalTibs.toLocaleString()} TIBS. You cannot draw a winner yet.`)
+            return
+        }
 
         if (!confirm('Are you sure you want to draw a winner now? This will also transfer the pot (minus fees) to the host.')) return
 
@@ -530,14 +535,17 @@ export default function AdminDashboard() {
                         {event.goal_tibs > 0 && (
                             <div className="flex flex-col gap-2">
                                 <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                                    <span className={goalMet ? "text-green-500" : "text-white/30"}>
-                                        Goal: {goalMet ? 'MET' : 'IN PROGRESS'}
+                                    <span className={goalMet ? "text-green-500" : "text-red-500"}>
+                                        {goalMet ? '✓ Goal Met' : '⚠️ Goal Not Met'}
                                     </span>
                                     <span className="text-white/30">{totalTibs.toLocaleString()} / {event.goal_tibs.toLocaleString()} TIBS</span>
                                 </div>
                                 <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
-                                    <div className="h-full bg-primary transition-all duration-1000" style={{ width: `${progress}%` }} />
+                                    <div className={`h-full transition-all duration-1000 ${goalMet ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.3)]' : 'bg-primary'}`} style={{ width: `${progress}%` }} />
                                 </div>
+                                {!goalMet && (
+                                    <p className="text-[9px] text-white/20 font-medium leading-tight">Must reach 100% of the goal to draw a winner. Otherwise, participants must be refunded.</p>
+                                )}
                             </div>
                         )}
 
@@ -560,7 +568,7 @@ export default function AdminDashboard() {
                                 <>
                                     {goalMet ? (
                                         <button
-                                            onClick={() => { handleDrawWinner(event.id, event.title, event.media_urls?.[0]); onClose(); }}
+                                            onClick={() => { handleDrawWinner(event.id, event.title, event.media_urls?.[0], totalTibs, event.goal_tibs); onClose(); }}
                                             className="flex-1 py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 transition-transform active:scale-95"
                                         >
                                             Draw Winner
@@ -1151,6 +1159,21 @@ export default function AdminDashboard() {
                                                                     {formatDisplayId(event.id, event.display_id)}
                                                                 </span>
                                                                 <h4 className="font-bold text-sm truncate">{event.title}</h4>
+                                                                <div className="flex items-center gap-1.5 ml-1">
+                                                                    {event.status === 'open' && (
+                                                                        (() => {
+                                                                            const t = (event.entries?.[0]?.count || 0) * event.entry_cost_tibs;
+                                                                            const g = event.goal_tibs || 0;
+                                                                            const p = g > 0 ? Math.floor((t / g) * 100) : 100;
+                                                                            const isMet = g > 0 ? t >= g : true;
+                                                                            return (
+                                                                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${isMet ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-primary/5 text-primary/60 border border-primary/10'}`}>
+                                                                                    {p}% Goal
+                                                                                </span>
+                                                                            );
+                                                                        })()
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                             {event.status !== 'open' && (
                                                                 <span className="text-[9px] font-black bg-white/5 text-white/40 px-1.5 py-0.5 rounded border border-white/5 uppercase tracking-tighter">

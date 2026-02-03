@@ -296,13 +296,13 @@ export const EventCard = React.memo(({
                             )}
 
                             {/* Mark as Claimed Button for Hosts */}
-                            {variant === 'profile-archive' && userId === event.host_user_id && event.status === 'drawn' && (
+                            {variant === 'profile-archive' && userId && userId === event.host_user_id && event.status === 'drawn' && (
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation()
                                         onClaim?.(event.id)
                                     }}
-                                    className="mt-2 w-full py-3 bg-green-500 text-black font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all shadow-lg"
+                                    className="mt-2 w-full py-3 bg-green-500 text-black font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all shadow-lg neon-border"
                                 >
                                     ✓ Mark as Claimed
                                 </button>
