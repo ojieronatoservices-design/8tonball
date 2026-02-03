@@ -65,7 +65,10 @@ export default function ProfilePage() {
                         raffle_id, 
                         created_at, 
                         ticket_number, 
-                        raffles:raffles!entries_raffle_id_fkey(*)
+                        raffles:raffles!entries_raffle_id_fkey(
+                            *,
+                            host:profiles!host_user_id(email, display_name)
+                        )
                     `)
                     .eq('user_id', userId)
                     .order('created_at', { ascending: false })
@@ -260,9 +263,10 @@ export default function ProfilePage() {
     )
 
     // Check if user won an event (Memoized)
+    // Check if user won an event (Memoized)
     const didWin = React.useCallback((group: { event: any, entries: EntryWithEvent[] }) => {
         // Robust check: user ID match OR ticket number match OR entry ID match
-        const isWinnerById = group.event?.winner_id === userId
+        const isWinnerById = group.event?.winner_user_id === userId
         const isWinnerByTicket = group.entries.some(e => e.ticket_number === group.event?.winning_ticket_number)
         const isWinnerByEntryId = group.entries.some(e => e.id === group.event?.winning_entry_id)
 
@@ -421,8 +425,9 @@ export default function ProfilePage() {
                         {/* Metrics: Side-by-side */}
                         <div className="flex items-center gap-2 shrink-0">
                             <button
-                                onClick={() => setShowPayoutModal(true)}
-                                className={`flex flex-col items-center bg-muted/40 hover:bg-muted/80 rounded-2xl border border-border/50 transition-all active:scale-95 text-center ${isFolded ? 'px-3 py-1.5' : 'px-5 py-2.5'}`}
+                                onClick={() => isHostEligible && setShowPayoutModal(true)}
+                                disabled={!isHostEligible}
+                                className={`flex flex-col items-center bg-muted/40 rounded-2xl border border-border/50 transition-all text-center ${isFolded ? 'px-3 py-1.5' : 'px-5 py-2.5'} ${isHostEligible ? 'hover:bg-muted/80 active:scale-95 cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
                             >
                                 <span className="text-[8px] font-black uppercase text-primary tracking-widest leading-none mb-1">Balance</span>
                                 <div className="flex items-center gap-1 leading-none">

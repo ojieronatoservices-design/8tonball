@@ -108,11 +108,17 @@ export default function NotificationsPage() {
                     query = query.eq('id', notif.raffle_id)
                 } else {
                     // Fallback: Parse title from message "You won [Title]!"
-                    // This is heuristic but better than always showing the latest
-                    const match = notif.message.match(/You won (.+?)!/i)
+                    // Improved regex to capture until end or specific punctuation
+                    const match = notif.message.match(/You won (.+?)(!|$)/i)
                     if (match && match[1]) {
                         // Use ILIKE for partial title match
                         query = query.ilike('title', `%${match[1]}%`)
+                    } else {
+                        // SAFETY CRITICAL: If we can't identify the raffle, DO NOT show the latest one.
+                        // This prevents the "claiming wrong prize" bug for weird notification formats.
+                        // Force a mismatch.
+                        query = query.eq('id', '00000000-0000-0000-0000-000000000000')
+                        console.warn('Could not parse raffle from notification:', notif.message)
                     }
                 }
 

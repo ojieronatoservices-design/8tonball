@@ -266,6 +266,22 @@ export const EventCard = React.memo(({
                                     )
                                 })}
                             </div>
+
+                            {/* Contact Host Button for Winners */}
+                            {variant === 'profile-archive' && isWinner && event.host && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        if (!event.host?.email) return
+                                        const subject = encodeURIComponent(`8TONBALL Winner: ${event.title}`)
+                                        const body = encodeURIComponent(`Hi ${event.host.display_name},\n\nI won your event "${event.title}"!\n\nPlease let me know how to claim my prize.\n\nThank you!`)
+                                        window.open(`mailto:${event.host.email}?subject=${subject}&body=${body}`, '_blank')
+                                    }}
+                                    className="mt-2 w-full py-3 bg-primary text-black font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all shadow-lg neon-border"
+                                >
+                                    <Share2 size={12} /> Contact Host to Claim
+                                </button>
+                            )}
                         </div>
                     )}
 
