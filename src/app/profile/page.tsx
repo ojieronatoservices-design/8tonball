@@ -51,65 +51,68 @@ export default function ProfilePage() {
 
         if (!silent) setIsLoading(true)
         try {
-            // Fetch profile
-            const { data: profileData, error: profileError } = await supabaseClient
-                .from('profiles')
-                .select('*')
-                .eq('id', userId)
-                .single()
+            // PHASE 1: Fetch profile and entries in parallel
+            const [profileResult, entriesResult] = await Promise.all([
+                supabaseClient
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', userId)
+                    .single(),
+                supabaseClient
+                    .from('entries')
+                    .select(`
+                        id, 
+                        raffle_id, 
+                        created_at, 
+                        ticket_number, 
+                        raffles:raffles!entries_raffle_id_fkey(*)
+                    `)
+                    .eq('user_id', userId)
+                    .order('created_at', { ascending: false })
+            ])
 
-            if (profileError) throw profileError
-            setProfile(profileData)
+            if (profileResult.error) throw profileResult.error
+            setProfile(profileResult.data)
 
-            // Fetch user's entries with event details
-            const { data: entriesData, error: entriesError } = await supabaseClient
-                .from('entries')
-                .select(`
-                    id, 
-                    raffle_id, 
-                    created_at, 
-                    ticket_number, 
-                    raffles:raffles!entries_raffle_id_fkey(*)
-                `)
-                .eq('user_id', userId)
-                .order('created_at', { ascending: false })
+            // End loading state early - show profile immediately
+            if (!silent) setIsLoading(false)
 
-            if (entriesError) {
-                console.error('Entries Fetch Error:', entriesError)
+            if (entriesResult.error) {
+                console.error('Entries Fetch Error:', entriesResult.error)
             }
 
-            const entries = entriesData as any[] || []
+            const entries = entriesResult.data as any[] || []
             setMyEntries(entries)
 
-            // Fetch entry counts for all relevant raffles
+            // PHASE 2: Fetch entry counts in PARALLEL (not sequential loop)
             const raffleIds = [...new Set(entries.map(e => e.raffle_id))]
             if (raffleIds.length > 0) {
-                const counts: Record<string, number> = {}
-                for (const id of raffleIds) {
-                    const { count } = await supabaseClient
+                const countPromises = raffleIds.map(id =>
+                    supabaseClient
                         .from('entries')
                         .select('*', { count: 'exact', head: true })
                         .eq('raffle_id', id)
-                    counts[id] = count || 0
-                }
+                        .then(({ count }: { count: number | null }) => ({ id, count: count || 0 }))
+                )
+                const countResults = await Promise.all(countPromises)
+                const counts: Record<string, number> = {}
+                countResults.forEach(({ id, count }) => { counts[id] = count })
                 setEntryCounts(counts)
             }
 
-            // Fetch hosted events if eligible
-            if (profileData.is_host_eligible) {
-                const { data: hostedData, error: hostedError } = await supabaseClient
+            // PHASE 3: Fetch hosted events (only if eligible, non-blocking)
+            if (profileResult.data.is_host_eligible) {
+                supabaseClient
                     .from('raffles')
                     .select('*')
                     .eq('host_user_id', userId)
                     .order('created_at', { ascending: false })
-
-                if (!hostedError) {
-                    setHostedEvents(hostedData || [])
-                }
+                    .then(({ data, error }: { data: any[] | null, error: any }) => {
+                        if (!error && data) setHostedEvents(data)
+                    })
             }
         } catch (error) {
             console.error('Error fetching profile:', error)
-        } finally {
             if (!silent) setIsLoading(false)
         }
     }
