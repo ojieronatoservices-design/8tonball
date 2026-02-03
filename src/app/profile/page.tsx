@@ -227,16 +227,21 @@ export default function ProfilePage() {
 
     useEffect(() => {
         let ticking = false
+        // Track the current limit locally to avoid checking state inside RAF
+        let currentLimit = 0
 
         const handleScroll = () => {
             if (!ticking) {
                 requestAnimationFrame(() => {
                     const current = window.scrollY
-                    // Only update if it affects the header folding (up to 150px)
-                    if (current <= 150) {
-                        setScrollY(current)
-                    } else if (scrollY !== 150) {
-                        setScrollY(150)
+                    let newScrollY = current
+
+                    // Clamp to max 150 for header calculations
+                    if (current > 150) newScrollY = 150
+
+                    if (newScrollY !== currentLimit) {
+                        currentLimit = newScrollY
+                        setScrollY(newScrollY)
                     }
                     ticking = false
                 })
@@ -245,7 +250,7 @@ export default function ProfilePage() {
         }
         window.addEventListener('scroll', handleScroll, { passive: true })
         return () => window.removeEventListener('scroll', handleScroll)
-    }, [scrollY])
+    }, [])
 
     const handleLogout = async () => {
         await signOut()

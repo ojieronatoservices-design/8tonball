@@ -16,6 +16,11 @@ export default function WalletPage() {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (file) {
+            // 200MB Limit Check
+            if (file.size > 200 * 1024 * 1024) {
+                alert('⚠️ FILE TOO LARGE: Your proof image exceeds the 200MB limit. Please take a smaller screenshot.')
+                return
+            }
             setProofFile(file)
             const reader = new FileReader()
             reader.onloadend = () => {

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { Wallet, Trophy, Bell, User, LayoutDashboard, Loader2, LogOut, Search, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
@@ -57,6 +57,8 @@ export function Shell({ children }: ShellProps) {
 
     useEffect(() => {
         let ticking = false
+        // Use a local variable to capture scroll state to avoid unnecessary state updates
+        let visible = true
 
         const handleScroll = () => {
             if (!ticking) {
@@ -66,10 +68,10 @@ export function Shell({ children }: ShellProps) {
 
                     // Only update visibility if scroll moved enough (e.g. 10px) to prevent jitter
                     if (diff > 10) {
-                        if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
-                            setIsVisible(false)
-                        } else {
-                            setIsVisible(true)
+                        const shouldBeVisible = currentScrollY < lastScrollY.current || currentScrollY <= 100
+                        if (shouldBeVisible !== visible) {
+                            visible = shouldBeVisible
+                            setIsVisible(shouldBeVisible)
                         }
                         lastScrollY.current = currentScrollY
                     }
@@ -277,7 +279,7 @@ export function Shell({ children }: ShellProps) {
 
 
     // Build nav items - Admin tab only for admins, Host tab for eligible hosts
-    const navItems = [
+    const navItems = useMemo(() => [
         { label: 'Feed', href: '/', icon: Trophy },
         { label: 'Wallet', href: '/wallet', icon: Wallet },
         // Unified Admin/Host Tab: Admins see "Admin Hub", everyone else sees "Host Dashboard"
@@ -290,7 +292,7 @@ export function Shell({ children }: ShellProps) {
             : []),
         { label: 'Activity', href: '/notifications', icon: Bell },
         { label: 'Profile', href: '/profile', icon: User },
-    ]
+    ], [user?.id, isAdmin])
 
     if (isAuthPage) {
         return <div className="min-h-screen bg-background">{children}</div>

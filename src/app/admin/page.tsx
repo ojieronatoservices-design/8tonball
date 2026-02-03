@@ -380,8 +380,16 @@ export default function AdminDashboard() {
         const files = e.target.files
         if (files && files.length > 0) {
             const newFiles = Array.from(files)
-            setEventImages((prev: File[]) => [...prev, ...newFiles])
 
+            // 200MB Limit Check
+            const LIMIT = 200 * 1024 * 1024
+            const oversized = newFiles.filter(f => f.size > LIMIT)
+            if (oversized.length > 0) {
+                alert('⚠️ FILE TOO LARGE: One or more files exceed the 200MB limit. Please compress your media before uploading.')
+                return
+            }
+
+            setEventImages((prev: File[]) => [...prev, ...newFiles])
             const newPreviews = newFiles.map(file => URL.createObjectURL(file))
             setEventPreviews((prev: string[]) => [...prev, ...newPreviews])
         }

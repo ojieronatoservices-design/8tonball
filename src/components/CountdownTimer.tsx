@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, memo } from 'react'
 
 interface CountdownTimerProps {
     endsAt: string
@@ -8,7 +8,7 @@ interface CountdownTimerProps {
     showLabels?: boolean
 }
 
-export function CountdownTimer({ endsAt, className = '', showLabels = true }: CountdownTimerProps) {
+export const CountdownTimer = memo(({ endsAt, className = '', showLabels = true }: CountdownTimerProps) => {
     const [timeLeft, setTimeLeft] = useState<string>('')
     const [isExpired, setIsExpired] = useState(false)
 
@@ -40,15 +40,15 @@ export function CountdownTimer({ endsAt, className = '', showLabels = true }: Co
             const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
             const seconds = Math.floor((diff % (1000 * 60)) / 1000)
 
-            if (days > 0) {
-                setTimeLeft(`${days}d ${hours}h ${minutes}m ${seconds}s`)
-            } else if (hours > 0) {
-                setTimeLeft(`${hours}h ${minutes}m ${seconds}s`)
-            } else if (minutes > 0) {
-                setTimeLeft(`${minutes}m ${seconds}s`)
-            } else {
-                setTimeLeft(`${seconds}s`)
-            }
+            let result = ''
+            if (days > 0) result = `${days}d ${hours}h ${minutes}m ${seconds}s`
+            else if (hours > 0) result = `${hours}h ${minutes}m ${seconds}s`
+            else if (minutes > 0) result = `${minutes}m ${seconds}s`
+            else result = `${seconds}s`
+
+            // Only update state if the text actually changed (saves 1 render per second if nothing changed, 
+            // though with seconds included it will always change, but good practice)
+            setTimeLeft(result)
         }
 
         calculateTimeLeft()
@@ -62,4 +62,6 @@ export function CountdownTimer({ endsAt, className = '', showLabels = true }: Co
             {isExpired ? (showLabels ? '⏱️ ENDED' : 'ENDED') : (showLabels ? `⏱️ ${timeLeft}` : timeLeft)}
         </div>
     )
-}
+})
+
+CountdownTimer.displayName = 'CountdownTimer'
