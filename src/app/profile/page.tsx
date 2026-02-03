@@ -252,10 +252,8 @@ export default function ProfilePage() {
         window.location.href = '/'
     }
 
-    const threshold = 8000
     const totalSpent = profile?.total_tibs_spent || 0
-    const progress = (totalSpent / threshold) * 100
-    const isHostEligible = profile?.is_host_eligible || false
+    const isHostEligible = true // Everyone is now eligible to host per user request
 
     // Group entries by raffle_id (Memoized)
     const groupedEntries = useMemo(() => {
@@ -464,9 +462,8 @@ export default function ProfilePage() {
                         {/* Metrics: Side-by-side */}
                         <div className="flex items-center gap-2 shrink-0">
                             <button
-                                onClick={() => isHostEligible && setShowPayoutModal(true)}
-                                disabled={!isHostEligible}
-                                className={`flex flex-col items-center bg-muted/40 rounded-2xl border border-border/50 transition-all text-center ${isFolded ? 'px-3 py-1.5' : 'px-5 py-2.5'} ${isHostEligible ? 'hover:bg-muted/80 active:scale-95 cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+                                onClick={() => setShowPayoutModal(true)}
+                                className={`flex flex-col items-center bg-muted/40 rounded-2xl border border-border/50 transition-all text-center ${isFolded ? 'px-3 py-1.5' : 'px-5 py-2.5'} hover:bg-muted/80 active:scale-95 cursor-pointer`}
                             >
                                 <span className="text-[8px] font-black uppercase text-primary tracking-widest leading-none mb-1">Balance</span>
                                 <div className="flex items-center gap-1 leading-none">
@@ -485,25 +482,7 @@ export default function ProfilePage() {
                     </div>
 
                     {/* Bottom Row: Hosting Eligibility (Full Width) */}
-                    {!isFolded && (
-                        <div className="flex flex-col gap-1.5 animate-in slide-in-from-top fade-in duration-500">
-                            <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">
-                                <span>Hosting Eligibility</span>
-                                <span className="text-primary font-black italic">{totalSpent.toLocaleString()} / {threshold.toLocaleString()}</span>
-                            </div>
-                            <div className="w-full h-2 bg-muted rounded-full overflow-hidden border border-border/50 relative shadow-inner">
-                                <div
-                                    className="h-full bg-primary transition-all duration-1000 shadow-[0_0_12px_rgba(57,255,20,0.4)] relative z-10"
-                                    style={{ width: `${Math.min(progress, 100)}%` }}
-                                />
-                                {isHostEligible && (
-                                    <div className="absolute inset-0 z-20 flex items-center justify-center">
-                                        <span className="text-[7px] font-black uppercase tracking-[0.5em] text-primary-foreground drop-shadow-md animate-pulse">ELIGIBLE FOR HOSTING</span>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
+                    {/* Hosting Eligibility - REMOVED per user request */}
                 </div>
             </div>
 
@@ -524,15 +503,13 @@ export default function ProfilePage() {
                         <Trophy size={14} />
                         Archive
                     </button>
-                    {isHostEligible && (
-                        <button
-                            onClick={() => setActiveTab('hosted')}
-                            className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'hosted' ? 'bg-primary text-black shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
-                        >
-                            <Plus size={14} strokeWidth={3} />
-                            Host
-                        </button>
-                    )}
+                    <button
+                        onClick={() => setActiveTab('hosted')}
+                        className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'hosted' ? 'bg-primary text-black shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                        <Plus size={14} strokeWidth={3} />
+                        Host
+                    </button>
                 </div>
             </div>
 

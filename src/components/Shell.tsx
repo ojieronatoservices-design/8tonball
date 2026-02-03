@@ -280,12 +280,14 @@ export function Shell({ children }: ShellProps) {
     const navItems = [
         { label: 'Feed', href: '/', icon: Trophy },
         { label: 'Wallet', href: '/wallet', icon: Wallet },
-        // Only show Admin for admins, or Host for eligible hosts
-        ...(isAdmin
-            ? [{ label: 'Admin', href: '/admin', icon: LayoutDashboard }]
-            : isHostEligible
-                ? [{ label: 'Host', href: '/admin', icon: LayoutDashboard }]
-                : []),
+        // Unified Admin/Host Tab: Admins see "Admin Hub", everyone else sees "Host Dashboard"
+        ...(user
+            ? [{
+                label: isAdmin ? 'Admin' : 'Host',
+                href: '/admin',
+                icon: LayoutDashboard
+            }]
+            : []),
         { label: 'Activity', href: '/notifications', icon: Bell },
         { label: 'Profile', href: '/profile', icon: User },
     ]

@@ -876,8 +876,9 @@ export default function AdminDashboard() {
         )
     }
 
-    // Block access if not admin or host eligible
-    if (!isAdmin && !isHostEligible) {
+    // Simplified access: Admins see everything, others see Host Dashboard.
+    // The previous 8,000 Tibs spending restriction has been removed as per user request.
+    if (!userId) {
         return (
             <div className="flex flex-col items-center justify-center py-32 gap-6 text-center px-8">
                 <div className="bg-red-500/20 p-4 rounded-2xl border border-red-500/30">
@@ -885,11 +886,8 @@ export default function AdminDashboard() {
                 </div>
                 <h2 className="text-2xl font-black">Access Denied</h2>
                 <p className="text-white/40 text-sm max-w-xs">
-                    You need to spend at least <span className="text-primary font-bold">8,000 Tibs</span> to become eligible to host events.
+                    Please sign in to access the dashboard.
                 </p>
-                <a href="/wallet" className="mt-4 px-6 py-3 bg-primary text-black font-black uppercase tracking-widest rounded-2xl text-sm">
-                    Go to Wallet
-                </a>
             </div>
         )
     }
