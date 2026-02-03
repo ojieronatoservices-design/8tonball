@@ -339,7 +339,6 @@ export default function AdminDashboard() {
     const [selectedEvent, setSelectedEvent] = useState<any>(null)
     const [editingEvent, setEditingEvent] = useState<any>(null)
     const [isUpdating, setIsUpdating] = useState(false)
-    const [dateFilter, setDateFilter] = useState('')
 
     const [analytics, setAnalytics] = useState<{
         totalUsers: number
@@ -444,6 +443,8 @@ export default function AdminDashboard() {
         if (!supabaseClient) return
         setIsLoadingAnalytics(true)
         try {
+            // Optimization: Use head: true for exact counts without fetching data
+            // And only select the column we need for revenue calculation
             const [
                 { count: usersCount },
                 { data: eventsData },
@@ -452,14 +453,16 @@ export default function AdminDashboard() {
                 { count: pendingCount }
             ] = await Promise.all([
                 supabaseClient.from('profiles').select('*', { count: 'exact', head: true }),
-                supabaseClient.from('raffles').select('*, entries:entries!entries_raffle_id_fkey(count)'),
+                supabaseClient.from('raffles').select('entry_cost_tibs, entries:entries!entries_raffle_id_fkey(count)'), // Only fetch cost and entry count
                 supabaseClient.from('entries').select('*', { count: 'exact', head: true }),
-                supabaseClient.from('transactions').select('requested_tibs').eq('status', 'approved'),
+                supabaseClient.from('transactions').select('requested_tibs').eq('status', 'approved'), // Still necessary to fetch values for sum if no RPC
                 supabaseClient.from('transactions').select('*', { count: 'exact', head: true }).eq('status', 'pending')
             ])
-            const totalTibsInEvents = eventsData?.reduce((acc: number, curr: any) => acc + ((curr.entries?.[0]?.count || 0) * curr.entry_cost_tibs), 0) || 0
+
+            const totalTibsInEvents = eventsData?.reduce((acc: number, curr: any) => acc + ((curr.entries?.[0]?.count || 0) * (curr.entry_cost_tibs || 0)), 0) || 0
             const totalTibsSold = transactionData?.reduce((acc: number, curr: any) => acc + (Number(curr.requested_tibs) || 0), 0) || 0
             const avgEntries = eventsData && eventsData.length > 0 ? (entriesCount || 0) / eventsData.length : 0
+
             setAnalytics({
                 totalUsers: usersCount || 0,
                 totalEvents: eventsData?.length || 0,
@@ -580,11 +583,12 @@ export default function AdminDashboard() {
         } catch (error: any) { alert(error.message || 'Error deleting event') }
     }
 
-    const EventDetailsModal = ({ event, onClose }: { event: any, onClose: () => void }) => {
+    const EventDetailsModal = memo(({ event, onClose, handleDrawWinner, handleRefund }: { event: any, onClose: () => void, handleDrawWinner: any, handleRefund: any }) => {
         const totalTibs = (event.entries?.[0]?.count || 0) * event.entry_cost_tibs
         const totalPeso = totalTibs / 8
         const goalMet = event.goal_tibs > 0 ? totalTibs >= event.goal_tibs : true
         const progress = event.goal_tibs > 0 ? Math.min((totalTibs / event.goal_tibs) * 100, 100) : 100
+
         return (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
                 <div className="bg-card w-full max-w-lg rounded-3xl border border-white/10 overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
@@ -598,7 +602,7 @@ export default function AdminDashboard() {
                     <div className="p-8 flex flex-col gap-6">
                         <div className="flex justify-between items-start">
                             <div className="flex-1">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-primary mb-1 block">{formatDisplayId(event.id, event.display_id)} • {event.status.toUpperCase()}</span>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-primary mb-1 block">#{event.display_id || event.id.slice(0, 4)} • {event.status.toUpperCase()}</span>
                                 <h3 className="text-2xl font-black tracking-tight">{event.title}</h3>
                             </div>
                             <div className="bg-primary/10 text-primary px-3 py-1 rounded-full border border-primary/20 text-xs font-black">{event.entry_cost_tibs} TIBS</div>
@@ -642,11 +646,21 @@ export default function AdminDashboard() {
                 </div>
             </div>
         )
-    }
+    })
+    EventDetailsModal.displayName = 'EventDetailsModal'
 
-    const EditEventModal = ({ event, onClose }: { event: any, onClose: () => void }) => {
-        const [editTitle, setEditTitle] = useState(event.title); const [editDesc, setEditDesc] = useState(event.description || ''); const [editCost, setEditCost] = useState(event.entry_cost_tibs.toString()); const [editGoal, setEditGoal] = useState((event.goal_tibs || 0).toString()); const [editDrawTime, setEditDrawTime] = useState(new Date(event.ends_at).toISOString().slice(0, 16)); const [editMediaUrls, setEditMediaUrls] = useState<string[]>(event.media_urls || []); const [newFiles, setNewFiles] = useState<File[]>([]); const [newPreviews, setNewPreviews] = useState<string[]>([])
+    const EditEventModal = memo(({ event, onClose, handleUpdateEvent, isUpdating }: { event: any, onClose: () => void, handleUpdateEvent: any, isUpdating: boolean }) => {
+        const [editTitle, setEditTitle] = useState(event.title)
+        const [editDesc, setEditDesc] = useState(event.description || '')
+        const [editCost, setEditCost] = useState(event.entry_cost_tibs.toString())
+        const [editGoal, setEditGoal] = useState((event.goal_tibs || 0).toString())
+        const [editDrawTime, setEditDrawTime] = useState(new Date(event.ends_at).toISOString().slice(0, 16))
+        const [editMediaUrls, setEditMediaUrls] = useState<string[]>(event.media_urls || [])
+        const [newFiles, setNewFiles] = useState<File[]>([])
+        const [newPreviews, setNewPreviews] = useState<string[]>([])
+
         useEffect(() => { return () => { newPreviews.forEach(url => URL.revokeObjectURL(url)) } }, [newPreviews])
+
         return (
             <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
                 <div className="bg-card w-full max-w-lg rounded-3xl border border-white/10 overflow-auto max-h-[90vh] shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col">
@@ -690,7 +704,91 @@ export default function AdminDashboard() {
                 </div>
             </div>
         )
-    }
+    })
+    EditEventModal.displayName = 'EditEventModal'
+
+    const ExistingEventsSection = memo(({
+        activeTab,
+        existingEvents,
+        userId,
+        isAdmin,
+        isLoadingEvents,
+        fetchEvents,
+        onSelectEvent,
+        onEditEvent,
+        onDeleteEvent
+    }: {
+        activeTab: string,
+        existingEvents: any[],
+        userId: string | null | undefined,
+        isAdmin: boolean,
+        isLoadingEvents: boolean,
+        fetchEvents: () => void,
+        onSelectEvent: (e: any) => void,
+        onEditEvent: (e: any) => void,
+        onDeleteEvent: (id: string) => void
+    }) => {
+        const [dateFilter, setDateFilter] = useState('')
+        const deferredDateFilter = React.useDeferredValue(dateFilter)
+
+        // Memoize the filtered list to avoid re-calculating on every unrelated render
+        const filteredEvents = React.useMemo(() => {
+            return existingEvents.filter(e => {
+                const matchesTab = activeTab === 'events' ? e.status === 'open' : (e.status === 'drawn' || e.status === 'closed');
+                const matchesDate = deferredDateFilter ? e.created_at.startsWith(deferredDateFilter) : true;
+                const matchesUser = isAdmin ? true : e.host_user_id === userId;
+                return matchesTab && matchesDate && matchesUser;
+            });
+        }, [existingEvents, activeTab, deferredDateFilter, isAdmin, userId]);
+
+        return (
+            <div className="flex flex-col gap-6">
+                <div className="flex justify-between items-center">
+                    <h2 className="text-xl font-black uppercase tracking-widest">{activeTab === 'events' ? 'Active Events' : 'Archived Events'}</h2>
+                    <div className="flex items-center gap-4">
+                        <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}
+                            className="bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-[10px] font-black uppercase text-white/40 focus:border-primary outline-none [color-scheme:dark]" />
+                        <button onClick={fetchEvents} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+                            <Loader2 size={18} className={isLoadingEvents ? "animate-spin" : ""} />
+                        </button>
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredEvents.map((event) => (
+                        <div key={event.id} className="bg-card rounded-[32px] border border-white/5 overflow-hidden group hover:border-primary/30 transition-all duration-500 flex flex-col">
+                            <div className="relative aspect-[4/3] cursor-pointer" onClick={() => onSelectEvent(event)}>
+                                {event.media_urls?.[0] ? (
+                                    isVideo(event.media_urls[0]) ? <video src={event.media_urls[0]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                                        : <img src={event.media_urls[0]} alt={event.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                                ) : <div className="w-full h-full bg-white/5 flex items-center justify-center text-white/5"><ImageIcon size={48} /></div>}
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
+                                <div className="absolute top-4 left-4 flex gap-2">
+                                    <div className="px-3 py-1 bg-black/50 backdrop-blur-md rounded-full border border-white/10 text-[10px] font-black uppercase text-primary">
+                                        #{event.display_id || event.id.slice(0, 4)}
+                                    </div>
+                                </div>
+                                <div className="absolute bottom-4 left-4 right-4 text-white">
+                                    <h3 className="text-lg font-black leading-tight line-clamp-1">{event.title}</h3>
+                                </div>
+                            </div>
+                            <div className="p-6 flex flex-col gap-4">
+                                <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-white/30">
+                                    <div className="flex items-center gap-1.5"><Users size={12} /> {event.entries?.[0]?.count || 0} Entries</div>
+                                    <div className="flex items-center gap-1.5"><Coins size={12} className="text-primary" /> {event.entry_cost_tibs} Tibs</div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => onSelectEvent(event)} className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Details</button>
+                                    <button onClick={() => onEditEvent(event)} className="p-3 bg-white/5 hover:bg-primary/20 hover:text-primary rounded-xl transition-all"><Edit size={16} /></button>
+                                    <button onClick={() => onDeleteEvent(event.id)} className="p-3 bg-white/5 hover:bg-red-500/20 hover:text-red-500 rounded-xl transition-all"><Trash2 size={16} /></button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        )
+    })
+    ExistingEventsSection.displayName = 'ExistingEventsSection'
 
     if (isCheckingPermissions) return (
         <div className="min-h-screen flex items-center justify-center bg-background">
@@ -761,48 +859,17 @@ export default function AdminDashboard() {
                         {activeTab === 'events' && (
                             <CreateEventForm isAdmin={isAdmin} isHostEligible={isHostEligible} onLaunch={fetchEventsMemo} getClient={getClient} userId={userId} existingEventsCount={existingEvents?.length || 0} />
                         )}
-                        <div className="flex flex-col gap-6">
-                            <div className="flex justify-between items-center">
-                                <h2 className="text-xl font-black uppercase tracking-widest">{activeTab === 'events' ? 'Active Events' : 'Archived Events'}</h2>
-                                <div className="flex items-center gap-4">
-                                    <input type="date" onChange={(e) => setDateFilter(e.target.value)} className="bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-[10px] font-black uppercase text-white/40 focus:border-primary outline-none [color-scheme:dark]" />
-                                    <button onClick={fetchEvents} className="p-2 hover:bg-white/5 rounded-full transition-colors"><Loader2 size={18} className={isLoadingEvents ? "animate-spin" : ""} /></button>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {existingEvents.filter(e => {
-                                    const matchesTab = activeTab === 'events' ? e.status === 'open' : (e.status === 'drawn' || e.status === 'closed');
-                                    const matchesDate = dateFilter ? e.created_at.startsWith(dateFilter) : true;
-                                    const matchesUser = isAdmin ? true : e.host_user_id === userId;
-                                    return matchesTab && matchesDate && matchesUser;
-                                }).map((event) => (
-                                    <div key={event.id} className="bg-card rounded-[32px] border border-white/5 overflow-hidden group hover:border-primary/30 transition-all duration-500 flex flex-col">
-                                        <div className="relative aspect-[4/3] cursor-pointer" onClick={() => setSelectedEvent(event)}>
-                                            {event.media_urls?.[0] ? (
-                                                isVideo(event.media_urls[0]) ? <video src={event.media_urls[0]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                                                    : <img src={event.media_urls[0]} alt={event.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                                            ) : <div className="w-full h-full bg-white/5 flex items-center justify-center text-white/5"><ImageIcon size={48} /></div>}
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
-                                            <div className="absolute top-4 left-4 flex gap-2">
-                                                <div className="px-3 py-1 bg-black/50 backdrop-blur-md rounded-full border border-white/10 text-[10px] font-black uppercase text-primary">{formatDisplayId(event.id, event.display_id)}</div>
-                                            </div>
-                                            <div className="absolute bottom-4 left-4 right-4"><h3 className="text-lg font-black leading-tight text-white line-clamp-1">{event.title}</h3></div>
-                                        </div>
-                                        <div className="p-6 flex flex-col gap-4">
-                                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-white/30">
-                                                <div className="flex items-center gap-1.5"><Users size={12} /> {event.entries?.[0]?.count || 0} Entries</div>
-                                                <div className="flex items-center gap-1.5"><Coins size={12} className="text-primary" /> {event.entry_cost_tibs} Tibs</div>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <button onClick={() => setSelectedEvent(event)} className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Details</button>
-                                                <button onClick={() => setEditingEvent(event)} className="p-3 bg-white/5 hover:bg-primary/20 hover:text-primary rounded-xl transition-all"><Edit size={16} /></button>
-                                                <button onClick={() => handleDeleteEvent(event.id)} className="p-3 bg-white/5 hover:bg-red-500/20 hover:text-red-500 rounded-xl transition-all"><Trash2 size={16} /></button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                        <ExistingEventsSection
+                            activeTab={activeTab}
+                            existingEvents={existingEvents}
+                            userId={userId}
+                            isAdmin={isAdmin}
+                            isLoadingEvents={isLoadingEvents}
+                            fetchEvents={fetchEventsMemo}
+                            onSelectEvent={setSelectedEvent}
+                            onEditEvent={setEditingEvent}
+                            onDeleteEvent={handleDeleteEvent}
+                        />
                     </div>
                 ) : activeTab === 'payments' ? (
                     <PaymentsList payments={payments} handleApprove={handleApproveMemo} handleReject={handleRejectMemo} isLoadingPayments={isLoadingPayments} fetchPayments={fetchPaymentsMemo} />
@@ -811,8 +878,8 @@ export default function AdminDashboard() {
                 ) : null}
             </div>
 
-            {selectedEvent && <EventDetailsModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />}
-            {editingEvent && <EditEventModal event={editingEvent} onClose={() => setEditingEvent(null)} />}
+            {selectedEvent && <EventDetailsModal event={selectedEvent} onClose={() => setSelectedEvent(null)} handleDrawWinner={handleDrawWinner} handleRefund={handleRefund} />}
+            {editingEvent && <EditEventModal event={editingEvent} onClose={() => setEditingEvent(null)} handleUpdateEvent={handleUpdateEvent} isUpdating={isUpdating} />}
         </div>
     )
 }
