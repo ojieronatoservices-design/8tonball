@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useState, useRef } from 'react'
+import Image from 'next/image'
 import { Trophy, Clock, Users, Loader2, Share2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Coins, XCircle } from 'lucide-react'
 import { CountdownTimer } from '@/components/CountdownTimer'
 import { ImageLightbox } from '@/components/ImageLightbox'
@@ -129,18 +130,22 @@ export const EventCard = React.memo(({
                                         <video
                                             src={img}
                                             className="w-full h-full object-cover"
-                                            autoPlay
-                                            muted
-                                            loop
+                                            controls
                                             playsInline
+                                            preload="metadata"
                                         />
                                     </div>
                                 ) : (
-                                    <img
-                                        src={img}
-                                        alt={event.title}
-                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                    />
+                                    <div className="relative w-full h-full">
+                                        <Image
+                                            src={img}
+                                            alt={event.title}
+                                            fill
+                                            className="object-cover transition-transform duration-500 group-hover:scale-105"
+                                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                            priority={idx === 0}
+                                        />
+                                    </div>
                                 )}
                             </div>
                         ))}
