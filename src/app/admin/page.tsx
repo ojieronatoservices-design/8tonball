@@ -1,30 +1,329 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, memo, useCallback } from 'react'
 import { Plus, Check, X, LayoutDashboard, Loader2, CheckCircle2, Trophy, ShieldAlert, BarChart3, Users, Ticket, Coins, Image as ImageIcon, Edit, Trash2 } from 'lucide-react'
 import { useUser, useAuth } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
+
+// --- Performance Optimized Sub-components ---
+
+const isVideo = (url: string) => {
+    const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.m4v']
+    return videoExtensions.some(ext => url.toLowerCase().includes(ext)) || url.startsWith('data:video/')
+}
+
+const CreateEventForm = memo(({
+    isAdmin,
+    isHostEligible,
+    onLaunch,
+    getClient,
+    userId,
+    existingEventsCount
+}: {
+    isAdmin: boolean,
+    isHostEligible: boolean,
+    onLaunch: () => void,
+    getClient: () => Promise<any>,
+    userId: string | null | undefined,
+    existingEventsCount: number
+}) => {
+    const [title, setTitle] = useState('')
+    const [description, setDescription] = useState('')
+    const [cost, setCost] = useState('')
+    const [goal, setGoal] = useState('')
+    const [drawTime, setDrawTime] = useState('')
+    const [eventImages, setEventImages] = useState<File[]>([])
+    const [eventPreviews, setEventPreviews] = useState<string[]>([])
+    const [isLaunching, setIsLaunching] = useState(false)
+
+    // Cleanup Object URLs on unmount
+    useEffect(() => {
+        return () => {
+            eventPreviews.forEach(url => URL.revokeObjectURL(url))
+        }
+    }, [eventPreviews])
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files
+        if (files && files.length > 0) {
+            const newFiles = Array.from(files)
+            const LIMIT = 200 * 1024 * 1024
+            const oversized = newFiles.filter(f => f.size > LIMIT)
+            if (oversized.length > 0) {
+                alert('⚠️ FILE TOO LARGE: One or more files exceed the 200MB limit.')
+                return
+            }
+            setEventImages(prev => [...prev, ...newFiles])
+            const newPreviews = newFiles.map(file => URL.createObjectURL(file))
+            setEventPreviews(prev => [...prev, ...newPreviews])
+        }
+    }
+
+    const removeImage = (index: number) => {
+        setEventImages(prev => prev.filter((_, i) => i !== index))
+        setEventPreviews(prev => {
+            const url = prev[index]
+            if (url) URL.revokeObjectURL(url)
+            return prev.filter((_, i) => i !== index)
+        })
+    }
+
+    const handleLaunchEvent = async () => {
+        if (isLaunching) return
+        if (!title || !cost || !drawTime) {
+            alert('Please fill in all required fields (Title, Cost, Draw Time)')
+            return
+        }
+
+        const supabaseClient = await getClient()
+        if (!supabaseClient || !userId) {
+            alert('You must be logged in to launch an event.')
+            return
+        }
+
+        setIsLaunching(true)
+        try {
+            const mediaUrls: string[] = []
+            if (eventImages.length > 0) {
+                for (const image of eventImages) {
+                    const fileExt = image.name.split('.').pop()
+                    const fileName = `${userId}-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+                    const filePath = `raffles/${fileName}`
+                    const { error: uploadError } = await supabaseClient.storage.from('media').upload(filePath, image)
+                    if (uploadError) throw uploadError
+                    const { data: { publicUrl } } = supabaseClient.storage.from('media').getPublicUrl(filePath)
+                    mediaUrls.push(publicUrl)
+                }
+            }
+
+            const date = new Date()
+            const monthLetter = date.toLocaleString('default', { month: 'short' })[0].toUpperCase()
+            const yearShort = date.getFullYear().toString().slice(-2)
+            const displayId = `#${monthLetter}${yearShort}.${existingEventsCount + 1}`
+
+            const { error: insertError } = await supabaseClient.from('raffles').insert([{
+                title,
+                description,
+                entry_cost_tibs: parseInt(cost),
+                ends_at: new Date(drawTime).toISOString(),
+                media_urls: mediaUrls,
+                host_user_id: userId,
+                status: 'open',
+                goal_tibs: parseInt(goal) || 0,
+                display_id: displayId
+            }])
+
+            if (insertError) throw insertError
+            alert('Event launched successfully!')
+            setTitle(''); setDescription(''); setCost(''); setGoal(''); setDrawTime('')
+            eventPreviews.forEach(url => URL.revokeObjectURL(url))
+            setEventImages([]); setEventPreviews([])
+            onLaunch()
+        } catch (error: any) {
+            alert(error.message || 'Error launching event.')
+        } finally {
+            setIsLaunching(false)
+        }
+    }
+
+    return (
+        <div className="bg-card p-8 rounded-3xl border border-dashed border-primary/30 flex flex-col gap-6">
+            <h3 className="text-lg font-bold flex items-center gap-2">
+                <Plus className="text-primary" size={20} /> New Event
+            </h3>
+            <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5" >
+                    <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Prize Title</label>
+                    <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. iPhone 15 Pro"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Description</label>
+                    <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Prize details..."
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none min-h-[100px]" />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Draw Time</label>
+                    <input type="datetime-local" value={drawTime} onChange={(e) => setDrawTime(e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none [color-scheme:dark]" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Cost (Tibs)</label>
+                        <input type="number" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="100"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Goal (Tibs)</label>
+                        <input type="number" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="5000"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+                    </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Media (Multiple allowed)</label>
+                    <div className="grid grid-cols-4 gap-2">
+                        {eventPreviews.map((preview: string, index: number) => (
+                            <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-white/10 group">
+                                {isVideo(preview) ? <video src={preview} className="w-full h-full object-cover" /> : <img src={preview} alt="Preview" className="w-full h-full object-cover" />}
+                                <button onClick={() => removeImage(index)} className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <X size={14} className="text-white" />
+                                </button>
+                            </div>
+                        ))}
+                        <label className="aspect-square bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-white/20 hover:text-white/40 cursor-pointer transition-colors group">
+                            <input type="file" className="hidden" accept="image/*,video/*" multiple onChange={handleFileChange} />
+                            <ImageIcon size={24} className="group-hover:scale-110 transition-transform" />
+                        </label>
+                    </div>
+                </div>
+                <button
+                    onClick={handleLaunchEvent}
+                    disabled={isLaunching || (!isAdmin && !isHostEligible)}
+                    className="w-full py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 mt-2 transition-transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    {isLaunching && <Loader2 size={18} className="animate-spin" />}
+                    {isLaunching ? 'Launching...' : (!isAdmin && !isHostEligible) ? 'Eligibility Required' : 'Launch'}
+                </button>
+                {!isAdmin && !isHostEligible && (
+                    <p className="text-[10px] text-red-500 font-black uppercase tracking-widest text-center">
+                        ⚠️ Spending goal of 8,000 Tibs required to host.
+                    </p>
+                )}
+            </div>
+        </div>
+    )
+})
+
+CreateEventForm.displayName = 'CreateEventForm'
+
+const AnalyticsOverview = memo(({ analytics }: { analytics: any }) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-in slide-in-from-bottom-4 duration-500">
+        <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-8 bg-primary/5 rounded-full -mr-4 -mt-4 group-hover:bg-primary/10 transition-colors" />
+            <div className="flex items-center gap-2 text-white/40">
+                <Coins size={18} />
+                <span className="text-xs font-bold uppercase tracking-widest">Total Revenue</span>
+            </div>
+            <div className="text-3xl font-black text-primary">₱{analytics.totalRevenuePHP.toLocaleString()}</div>
+            <p className="text-[10px] text-white/20 uppercase font-black tracking-widest">{analytics.totalTibsSpentInEvents.toLocaleString()} Tibs flow</p>
+        </div>
+        <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2">
+            <div className="flex items-center gap-2 text-white/40">
+                <ShieldAlert size={18} />
+                <span className="text-xs font-bold uppercase tracking-widest">Pending</span>
+            </div>
+            <div className="text-xl font-black">{analytics.pendingPayments} <span className="text-sm font-bold text-white/40">Receipts</span></div>
+            <p className="text-[10px] text-white/20 uppercase font-black tracking-widest">Awaiting Approval</p>
+        </div>
+        <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2">
+            <div className="flex items-center gap-2 text-white/40">
+                <Users size={18} />
+                <span className="text-xs font-bold uppercase tracking-widest">Engagement</span>
+            </div>
+            <div className="text-xl font-black">{analytics.totalEntries.toLocaleString()} <span className="text-sm font-bold text-white/40">Entries</span></div>
+            <p className="text-[10px] text-white/20 uppercase font-black tracking-widest">{analytics.avgEntriesPerEvent} per event</p>
+        </div>
+        <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2">
+            <div className="flex items-center gap-2 text-white/40">
+                <Trophy size={18} />
+                <span className="text-xs font-bold uppercase tracking-widest">Market Size</span>
+            </div>
+            <div className="text-xl font-black">{analytics.totalUsers} <span className="text-sm font-bold text-white/40">Members</span></div>
+            <div className="text-xl font-black text-primary">{analytics.totalEvents} <span className="text-sm font-bold text-white/40 italic">Live/Past Events</span></div>
+        </div>
+    </div>
+))
+AnalyticsOverview.displayName = 'AnalyticsOverview'
+
+const PaymentsList = memo(({ payments, handleApprove, handleReject, isLoadingPayments, fetchPayments }: { payments: any[], handleApprove: (id: string) => void, handleReject: (id: string) => void, isLoadingPayments: boolean, fetchPayments: () => void }) => (
+    <div className="flex flex-col gap-6">
+        <div className="flex justify-between items-center">
+            <h2 className="text-xl font-black uppercase tracking-widest">Pending Payments</h2>
+            <button onClick={fetchPayments} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+                <Loader2 size={18} className={isLoadingPayments ? "animate-spin" : ""} />
+            </button>
+        </div>
+        <div className="flex flex-col gap-4">
+            {payments.length === 0 ? (
+                <div className="text-center py-20 bg-card rounded-3xl border border-white/5">
+                    <CheckCircle2 className="mx-auto text-white/10 mb-4" size={48} />
+                    <p className="text-white/40 font-black uppercase tracking-widest text-xs">All caught up!</p>
+                </div>
+            ) : (
+                payments.map((payment) => (
+                    <div key={payment.id} className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col md:flex-row gap-6 items-center">
+                        <div className="w-20 h-20 bg-white/5 rounded-2xl overflow-hidden flex-shrink-0 cursor-pointer" onClick={() => window.open(payment.receipt_url, '_blank')}>
+                            <img src={payment.receipt_url} alt="Receipt" className="w-full h-full object-cover" />
+                        </div>
+                        <div className="flex-1 text-center md:text-left">
+                            <div className="font-black text-lg">{payment.profiles?.display_name || 'Anonymous'}</div>
+                            <div className="text-white/40 text-xs mb-2">{payment.profiles?.email}</div>
+                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full border border-primary/20">
+                                <Coins size={14} className="text-primary" />
+                                <span className="text-primary font-black text-xs">{payment.requested_tibs} Tibs</span>
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <button onClick={() => handleApprove(payment.id)} className="px-6 py-3 bg-primary text-black font-black uppercase tracking-widest rounded-xl text-xs">Approve</button>
+                            <button onClick={() => handleReject(payment.id)} className="px-6 py-3 bg-red-500/10 text-red-500 border border-red-500/20 font-black uppercase tracking-widest rounded-xl text-xs">Reject</button>
+                        </div>
+                    </div>
+                ))
+            )}
+        </div>
+    </div>
+))
+PaymentsList.displayName = 'PaymentsList'
+
+const PayoutsList = memo(({ payouts, handleApprovePayout, isLoadingPayouts, fetchPayoutRequests }: { payouts: any[], handleApprovePayout: (id: string) => void, isLoadingPayouts: boolean, fetchPayoutRequests: () => void }) => (
+    <div className="flex flex-col gap-6">
+        <div className="flex justify-between items-center">
+            <h2 className="text-xl font-black uppercase tracking-widest">Payout Requests</h2>
+            <button onClick={fetchPayoutRequests} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+                <Loader2 size={18} className={isLoadingPayouts ? "animate-spin" : ""} />
+            </button>
+        </div>
+        <div className="flex flex-col gap-4">
+            {payouts.length === 0 ? (
+                <div className="text-center py-20 bg-card rounded-3xl border border-white/5">
+                    <CheckCircle2 className="mx-auto text-white/10 mb-4" size={48} />
+                    <p className="text-white/40 font-black uppercase tracking-widest text-xs">No pending payouts.</p>
+                </div>
+            ) : (
+                payouts.map((payout) => (
+                    <div key={payout.id} className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col md:flex-row gap-6 items-center">
+                        <div className="flex-1 text-center md:text-left">
+                            <div className="font-black text-lg">{payout.profiles?.display_name || 'Anonymous'}</div>
+                            <div className="text-white/40 text-xs mb-4">{payout.profiles?.email}</div>
+                            <div className="flex flex-col gap-2">
+                                <div className="text-[10px] uppercase font-black text-white/20 tracking-widest">GCash Details</div>
+                                <div className="font-black text-primary text-sm">{payout.gcash_number}</div>
+                                <div className="text-xs text-white/60">{payout.gcash_name}</div>
+                            </div>
+                        </div>
+                        <div className="flex flex-col items-center md:items-end gap-2">
+                            <div className="text-2xl font-black italic">₱{(payout.amount_tibs / 8).toLocaleString()}</div>
+                            <div className="text-[10px] text-white/20 font-black uppercase tracking-widest mb-2">{payout.amount_tibs.toLocaleString()} Tibs</div>
+                            <button onClick={() => handleApprovePayout(payout.id)} className="px-8 py-3 bg-primary text-black font-black uppercase tracking-widest rounded-xl text-xs">Mark as Settled</button>
+                        </div>
+                    </div>
+                ))
+            )}
+        </div>
+    </div>
+))
+PayoutsList.displayName = 'PayoutsList'
 
 export default function AdminDashboard() {
     const { user } = useUser()
     const { userId } = useAuth()
     const { getClient } = useSupabase()
     const [activeTab, setActiveTab] = useState<'events' | 'archives' | 'payments' | 'payouts' | 'analytics'>('events')
-    const [eventImages, setEventImages] = useState<File[]>([])
-    const [eventPreviews, setEventPreviews] = useState<string[]>([])
-    const [isLaunching, setIsLaunching] = useState(false)
 
     // Permission State
     const [isAdmin, setIsAdmin] = useState(false)
     const [isHostEligible, setIsHostEligible] = useState(false)
     const [isCheckingPermissions, setIsCheckingPermissions] = useState(true)
-
-    // Form State
-    const [title, setTitle] = useState('')
-    const [description, setDescription] = useState('')
-    const [cost, setCost] = useState('')
-    const [goal, setGoal] = useState('')
-    const [drawTime, setDrawTime] = useState('')
 
     // Payments State
     const [payments, setPayments] = useState<any[]>([])
@@ -53,89 +352,96 @@ export default function AdminDashboard() {
     } | null>(null)
     const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false)
 
+    // Memoize handlers for child components
+    const handleApproveMemo = useCallback(async (id: string) => {
+        const supabaseClient = await getClient()
+        if (!supabaseClient) return
+        try {
+            const { error } = await supabaseClient.rpc('approve_transaction', { p_transaction_id: id, p_admin_id: userId })
+            if (error) throw error
+            alert('Payment approved and Tibs credited!')
+            fetchPayments()
+        } catch (error: any) { alert(error.message || 'Error approving payment') }
+    }, [userId, getClient])
+
+    const handleRejectMemo = useCallback(async (id: string) => {
+        const supabaseClient = await getClient()
+        if (!supabaseClient) return
+        try {
+            const { error } = await supabaseClient.from('transactions').update({ status: 'rejected' }).eq('id', id)
+            if (error) throw error
+            alert('Payment rejected.')
+            fetchPayments()
+        } catch (error: any) { alert(error.message || 'Error rejecting payment') }
+    }, [getClient])
+
+    const handleApprovePayoutMemo = useCallback(async (id: string) => {
+        const supabaseClient = await getClient()
+        if (!supabaseClient) return
+        if (!confirm('Are you sure you have sent the GCash payment?')) return
+        try {
+            const { data: request } = await supabaseClient.from('payout_requests').select('user_id, amount_tibs').eq('id', id).single()
+            if (!request) return
+            const { data: profile } = await supabaseClient.from('profiles').select('tibs_balance').eq('id', request.user_id).single()
+            if (!profile || profile.tibs_balance < request.amount_tibs) {
+                alert('User has insufficient balance to fulfill this payout.')
+                return
+            }
+            await supabaseClient.from('profiles').update({ tibs_balance: profile.tibs_balance - request.amount_tibs }).eq('id', request.user_id)
+            await supabaseClient.from('payout_requests').update({ status: 'completed', processed_at: new Date().toISOString(), processed_by: userId }).eq('id', id)
+            alert('Payout settled successfully!')
+            fetchPayoutRequests()
+        } catch (error: any) { alert(error.message || 'Error settling payout') }
+    }, [userId, getClient])
+
+    const fetchEventsMemo = useCallback(() => fetchEvents(), [userId])
+    const fetchPaymentsMemo = useCallback(() => fetchPayments(), [userId])
+    const fetchPayoutRequestsMemo = useCallback(() => fetchPayoutRequests(), [userId])
+
     const formatDisplayId = (id: string, displayId: string | null) => {
         if (displayId) {
             if (displayId.startsWith('#OLD.')) {
-                // Shorten UUID from #OLD.uuid-format to #O-uuidShort
                 const parts = displayId.split('.')
-                if (parts.length > 1) {
-                    return `#O-${parts[1].slice(0, 4)}`
-                }
+                if (parts.length > 1) return `#O-${parts[1].slice(0, 4)}`
             }
             return displayId
         }
         return `#${id.slice(0, 4)}`
     }
 
-    const isVideo = (url: string) => {
-        const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.m4v']
-        return videoExtensions.some(ext => url.toLowerCase().includes(ext)) || url.startsWith('data:video/')
-    }
-
     // Check permissions on load
     useEffect(() => {
         const checkPermissions = async () => {
-            if (!userId) {
-                setIsCheckingPermissions(false)
-                return
-            }
-
+            if (!userId) { setIsCheckingPermissions(false); return }
             const supabaseClient = await getClient()
-            if (!supabaseClient) {
-                setIsCheckingPermissions(false)
-                return
-            }
-
+            if (!supabaseClient) { setIsCheckingPermissions(false); return }
             try {
-                const { data: profile, error } = await supabaseClient
-                    .from('profiles')
-                    .select('is_admin, is_host_eligible')
-                    .eq('id', userId)
-                    .single()
-
-                if (profile) {
-                    setIsAdmin(profile.is_admin || false)
-                    setIsHostEligible(profile.is_host_eligible || false)
-                }
-            } catch (err) {
-                console.error('Error checking permissions:', err)
-            } finally {
-                setIsCheckingPermissions(false)
-            }
+                const { data: profile } = await supabaseClient.from('profiles').select('is_admin, is_host_eligible').eq('id', userId).single()
+                if (profile) { setIsAdmin(profile.is_admin || false); setIsHostEligible(profile.is_host_eligible || false) }
+            } catch (err) { console.error('Error checking permissions:', err) }
+            finally { setIsCheckingPermissions(false) }
         }
-
         checkPermissions()
-    }, [userId])
+    }, [userId, getClient])
 
     const fetchEvents = async () => {
         const supabaseClient = await getClient()
         if (!supabaseClient) return
-
         setIsLoadingEvents(true)
         try {
             const { data, error } = await supabaseClient
                 .from('raffles')
-                .select(`
-                    *,
-                    entries:entries!entries_raffle_id_fkey(count),
-                    winner:profiles!winner_user_id(display_name, email),
-                    winning_entry:entries!raffles_winning_entry_id_fkey(ticket_number)
-                `)
+                .select(`*, entries:entries!entries_raffle_id_fkey(count), winner:profiles!winner_user_id(display_name, email), winning_entry:entries!raffles_winning_entry_id_fkey(ticket_number)`)
                 .order('created_at', { ascending: false })
-
             if (error) throw error
             setExistingEvents(data || [])
-        } catch (error) {
-            console.error('Error fetching events:', error)
-        } finally {
-            setIsLoadingEvents(false)
-        }
+        } catch (error) { console.error('Error fetching events:', error) }
+        finally { setIsLoadingEvents(false) }
     }
 
     const fetchAnalytics = async () => {
         const supabaseClient = await getClient()
         if (!supabaseClient) return
-
         setIsLoadingAnalytics(true)
         try {
             const [
@@ -151,341 +457,127 @@ export default function AdminDashboard() {
                 supabaseClient.from('transactions').select('requested_tibs').eq('status', 'approved'),
                 supabaseClient.from('transactions').select('*', { count: 'exact', head: true }).eq('status', 'pending')
             ])
-
-            // Calculate Tibs Spent in Events
-            const totalTibsInEvents = eventsData?.reduce((acc: number, curr: any) => {
-                const count = curr.entries?.[0]?.count || 0
-                return acc + (count * curr.entry_cost_tibs)
-            }, 0) || 0
-
+            const totalTibsInEvents = eventsData?.reduce((acc: number, curr: any) => acc + ((curr.entries?.[0]?.count || 0) * curr.entry_cost_tibs), 0) || 0
             const totalTibsSold = transactionData?.reduce((acc: number, curr: any) => acc + (Number(curr.requested_tibs) || 0), 0) || 0
-            const totalRevenue = totalTibsSold / 8
             const avgEntries = eventsData && eventsData.length > 0 ? (entriesCount || 0) / eventsData.length : 0
-
             setAnalytics({
                 totalUsers: usersCount || 0,
                 totalEvents: eventsData?.length || 0,
                 totalEntries: entriesCount || 0,
                 totalTibsSpentInEvents: totalTibsInEvents,
-                totalRevenuePHP: totalRevenue,
+                totalRevenuePHP: totalTibsSold / 8,
                 avgEntriesPerEvent: Math.round(avgEntries * 10) / 10,
                 pendingPayments: pendingCount || 0
             })
-        } catch (error) {
-            console.error('Error fetching analytics:', error)
-        } finally {
-            setIsLoadingAnalytics(false)
-        }
+        } catch (error) { console.error('Error fetching analytics:', error) }
+        finally { setIsLoadingAnalytics(false) }
     }
 
     const fetchPayments = async () => {
         const supabaseClient = await getClient()
         if (!supabaseClient) return
-
         setIsLoadingPayments(true)
         try {
-            const { data, error } = await supabaseClient
-                .from('transactions')
-                .select('*, profiles(email, display_name)')
-                .eq('status', 'pending')
-                .order('created_at', { ascending: false })
-
+            const { data, error } = await supabaseClient.from('transactions').select('*, profiles(email, display_name)').eq('status', 'pending').order('created_at', { ascending: false })
             if (error) throw error
             setPayments(data || [])
-        } catch (error) {
-            console.error('Error fetching payments:', error)
-        } finally {
-            setIsLoadingPayments(false)
-        }
+        } catch (error) { console.error('Error fetching payments:', error) }
+        finally { setIsLoadingPayments(false) }
     }
 
     const fetchPayoutRequests = async () => {
         const supabaseClient = await getClient()
         if (!supabaseClient) return
-
         setIsLoadingPayouts(true)
         try {
-            const { data, error } = await supabaseClient
-                .from('payout_requests')
-                .select('*, profiles(email, display_name)')
-                .eq('status', 'pending')
-                .order('created_at', { ascending: false })
-
+            const { data, error } = await supabaseClient.from('payout_requests').select('*, profiles(email, display_name)').eq('status', 'pending').order('created_at', { ascending: false })
             if (error) throw error
             setPayouts(data || [])
-        } catch (error) {
-            console.error('Error fetching payouts:', error)
-        } finally {
-            setIsLoadingPayouts(false)
-        }
+        } catch (error) { console.error('Error fetching payouts:', error) }
+        finally { setIsLoadingPayouts(false) }
     }
 
     useEffect(() => {
-        if (activeTab === 'payouts') {
-            fetchPayoutRequests()
-        } else if (activeTab === 'payments') {
-            fetchPayments()
-        } else if (activeTab === 'events' || activeTab === 'archives') {
-            fetchEvents()
-        } else if (activeTab === 'analytics') {
-            fetchAnalytics()
-        }
+        if (activeTab === 'payouts') fetchPayoutRequests()
+        else if (activeTab === 'payments') fetchPayments()
+        else if (activeTab === 'events' || activeTab === 'archives') fetchEvents()
+        else if (activeTab === 'analytics') fetchAnalytics()
     }, [activeTab, userId])
 
     const handleDrawWinner = async (eventId: string, eventTitle: string, eventImage: string, currentTibs: number, goalTibs: number) => {
         const supabaseClient = await getClient()
         if (!supabaseClient) return
-
         if (goalTibs > 0 && currentTibs < goalTibs) {
-            alert(`⚠️ GOAL NOT MET: Current progress is ${currentTibs.toLocaleString()} / ${goalTibs.toLocaleString()} TIBS. You cannot draw a winner yet.`)
+            alert(`⚠️ GOAL NOT MET: Current progress is ${currentTibs.toLocaleString()} / ${goalTibs.toLocaleString()} TIBS.`)
             return
         }
-
-        if (!confirm('Are you sure you want to draw a winner now? This will also transfer the pot (minus fees) to the host.')) return
-
+        if (!confirm('Are you sure you want to draw a winner now?')) return
         try {
-            // CRITICAL: Using draw_winner_and_payout - the ONLY working function in the database
-            const { data, error } = await supabaseClient.rpc('draw_winner_and_payout', {
-                p_raffle_id: eventId,
-                p_admin_id: userId
-            })
-
+            const { data, error } = await supabaseClient.rpc('draw_winner_and_payout', { p_raffle_id: eventId, p_admin_id: userId })
             if (error) throw error
             if (!data.success) throw new Error(data.message)
-
-            // Get winner profile for email
-            const { data: winnerProfile } = await supabaseClient
-                .from('profiles')
-                .select('email, display_name')
-                .eq('id', data.winner_id)
-                .single()
-
-            // Send winner email
+            const { data: winnerProfile } = await supabaseClient.from('profiles').select('email, display_name').eq('id', data.winner_id).single()
             if (winnerProfile?.email) {
                 await fetch('/api/send-winner-email', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        to: winnerProfile.email,
-                        winnerName: winnerProfile.display_name,
-                        eventTitle: eventTitle,
-                        eventImage: eventImage
-                    })
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ to: winnerProfile.email, winnerName: winnerProfile.display_name, eventTitle: eventTitle, eventImage: eventImage })
                 })
             }
-
             alert(`Winner drawn! Ticket: ${data.ticket_number || 'Confirmed'}`)
-
-            // Sync UI instantly
-            if (selectedEvent && selectedEvent.id === eventId) {
-                setSelectedEvent((prev: any) => prev ? {
-                    ...prev,
-                    status: 'drawn',
-                    winner: winnerProfile,
-                    winning_entry: { ticket_number: data.ticket_number },
-                    drawn_at: new Date().toISOString()
-                } : null)
-            }
-
             fetchEvents()
-        } catch (error: any) {
-            console.error('Error drawing winner:', error)
-            alert(error.message || 'Error drawing winner.')
-        }
+        } catch (error: any) { alert(error.message || 'Error drawing winner.') }
     }
 
-    const handleApprove = async (id: string) => {
+    const handleRefund = async (eventId: string) => {
         const supabaseClient = await getClient()
         if (!supabaseClient) return
-
         try {
-            const { data, error } = await supabaseClient.rpc('approve_transaction', {
-                p_transaction_id: id,
-                p_admin_id: userId
-            })
-
+            const { error } = await supabaseClient.rpc('refund_raffle', { p_raffle_id: eventId, p_admin_id: userId })
             if (error) throw error
-
-            alert('Payment approved and Tibs credited!')
-            fetchPayments()
-        } catch (error: any) {
-            alert(error.message || 'Error approving payment')
-        }
+            alert('Raffle refunded and closed.')
+            fetchEvents()
+        } catch (error: any) { alert(error.message || 'Error refunding raffle') }
     }
 
-    const handleReject = async (id: string) => {
+    const handleUpdateEvent = async (eventId: string, updatedData: any, newImages: File[]) => {
         const supabaseClient = await getClient()
         if (!supabaseClient) return
-
+        setIsUpdating(true)
         try {
-            const { error } = await supabaseClient
-                .from('transactions')
-                .update({ status: 'rejected' })
-                .eq('id', id)
-
-            if (error) throw error
-
-            alert('Payment rejected.')
-            fetchPayments()
-        } catch (error: any) {
-            alert(error.message || 'Error rejecting payment')
-        }
-    }
-
-    const handleApprovePayout = async (id: string) => {
-        const supabaseClient = await getClient()
-        if (!supabaseClient) return
-
-        if (!confirm('Are you sure you have sent the GCash payment? This will finalize the settlement.')) return
-
-        try {
-            const { data: request } = await supabaseClient
-                .from('payout_requests')
-                .select('user_id, amount_tibs')
-                .eq('id', id)
-                .single()
-
-            if (!request) return
-
-            const { data: profile } = await supabaseClient
-                .from('profiles')
-                .select('tibs_balance')
-                .eq('id', request.user_id)
-                .single()
-
-            if (!profile || profile.tibs_balance < request.amount_tibs) {
-                alert('User has insufficient balance to fulfill this payout.')
-                return
-            }
-
-            // Deduct balance and update request
-            await supabaseClient.from('profiles').update({
-                tibs_balance: profile.tibs_balance - request.amount_tibs
-            }).eq('id', request.user_id)
-
-            await supabaseClient.from('payout_requests').update({
-                status: 'completed',
-                processed_at: new Date().toISOString(),
-                processed_by: userId
-            }).eq('id', id)
-
-            alert('Payout settled successfully!')
-            fetchPayoutRequests()
-        } catch (error: any) {
-            alert(error.message || 'Error settling payout')
-        }
-    }
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = e.target.files
-        if (files && files.length > 0) {
-            const newFiles = Array.from(files)
-
-            // 200MB Limit Check
-            const LIMIT = 200 * 1024 * 1024
-            const oversized = newFiles.filter(f => f.size > LIMIT)
-            if (oversized.length > 0) {
-                alert('⚠️ FILE TOO LARGE: One or more files exceed the 200MB limit. Please compress your media before uploading.')
-                return
-            }
-
-            setEventImages((prev: File[]) => [...prev, ...newFiles])
-            const newPreviews = newFiles.map(file => URL.createObjectURL(file))
-            setEventPreviews((prev: string[]) => [...prev, ...newPreviews])
-        }
-    }
-
-    const removeImage = (index: number) => {
-        setEventImages((prev: File[]) => prev.filter((_: File, i: number) => i !== index))
-        setEventPreviews((prev: string[]) => prev.filter((_: string, i: number) => i !== index))
-    }
-
-    const handleLaunchEvent = async () => {
-        // Prevent duplicate submissions
-        if (isLaunching) return
-
-        if (!title || !cost || !drawTime) {
-            alert('Please fill in all required fields (Title, Cost, Draw Time)')
-            return
-        }
-
-        const supabaseClient = await getClient()
-        if (!supabaseClient || !userId) {
-            alert('You must be logged in to launch an event.')
-            return
-        }
-
-        setIsLaunching(true)
-        try {
-            const mediaUrls: string[] = []
-
-            // 1. Upload Images to Supabase Storage
-            if (eventImages.length > 0) {
-                for (const image of eventImages) {
+            let mediaUrls = [...(updatedData.existingMediaUrls || [])]
+            if (newImages.length > 0) {
+                for (const image of newImages) {
                     const fileExt = image.name.split('.').pop()
                     const fileName = `${userId}-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
                     const filePath = `raffles/${fileName}`
-
-                    const { error: uploadError } = await supabaseClient.storage
-                        .from('media')
-                        .upload(filePath, image)
-
+                    const { error: uploadError } = await supabaseClient.storage.from('media').upload(filePath, image)
                     if (uploadError) throw uploadError
-
-                    const { data: { publicUrl } } = supabaseClient.storage
-                        .from('media')
-                        .getPublicUrl(filePath)
-
+                    const { data: { publicUrl } } = supabaseClient.storage.from('media').getPublicUrl(filePath)
                     mediaUrls.push(publicUrl)
                 }
             }
+            const { error: updateError } = await supabaseClient.from('raffles').update({
+                title: updatedData.title, description: updatedData.description, media_urls: mediaUrls,
+                entry_cost_tibs: parseInt(updatedData.cost), ends_at: new Date(updatedData.drawTime).toISOString(),
+                goal_tibs: parseInt(updatedData.goal) || 0
+            }).eq('id', eventId)
+            if (updateError) throw updateError
+            alert('Event updated successfully!'); setEditingEvent(null); fetchEvents()
+        } catch (error: any) { alert(error.message || 'Error updating event.') }
+        finally { setIsUpdating(false) }
+    }
 
-            // 2. Generate Display ID
-            const date = new Date()
-            const monthLetter = date.toLocaleString('default', { month: 'short' })[0].toUpperCase()
-            const yearShort = date.getFullYear().toString().slice(-2)
-            const eventCount = (existingEvents?.length || 0) + 1
-            const displayId = `#${monthLetter}${yearShort}.${eventCount}`
-
-            // 3. Insert Event into Database
-            const insertPayload: any = {
-                title,
-                description,
-                entry_cost_tibs: parseInt(cost),
-                ends_at: new Date(drawTime).toISOString(),
-                media_urls: mediaUrls,
-                host_user_id: userId,
-                status: 'open'
-            }
-
-            // Only add these columns if they exist (or use try/catch)
-            // But better to just include them and handle the potential error gracefully
-            insertPayload.goal_tibs = parseInt(goal) || 0
-            insertPayload.display_id = displayId
-
-            const { error: insertError } = await supabaseClient
-                .from('raffles')
-                .insert([insertPayload])
-
-            if (insertError) throw insertError
-
-            alert('Event launched successfully!')
-            // Reset form
-            setTitle('')
-            setDescription('')
-            setCost('')
-            setGoal('')
-            setDrawTime('')
-            setEventImages([])
-            setEventPreviews([])
-            fetchEvents()
-
-        } catch (error: any) {
-            console.error('Error launching event:', error)
-            alert(error.message || 'Error launching event.')
-        } finally {
-            setIsLaunching(false)
-        }
+    const handleDeleteEvent = async (eventId: string) => {
+        const supabaseClient = await getClient()
+        if (!supabaseClient) return
+        if (!confirm('Are you sure you want to delete this event?')) return
+        try {
+            await supabaseClient.from('entries').delete().eq('raffle_id', eventId)
+            const { error } = await supabaseClient.from('raffles').delete().eq('id', eventId)
+            if (error) throw error
+            alert('Event deleted successfully.'); fetchEvents()
+            if (selectedEvent?.id === eventId) setSelectedEvent(null)
+        } catch (error: any) { alert(error.message || 'Error deleting event') }
     }
 
     const EventDetailsModal = ({ event, onClose }: { event: any, onClose: () => void }) => {
@@ -493,40 +585,24 @@ export default function AdminDashboard() {
         const totalPeso = totalTibs / 8
         const goalMet = event.goal_tibs > 0 ? totalTibs >= event.goal_tibs : true
         const progress = event.goal_tibs > 0 ? Math.min((totalTibs / event.goal_tibs) * 100, 100) : 100
-
         return (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
                 <div className="bg-card w-full max-w-lg rounded-3xl border border-white/10 overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
                     <div className="relative aspect-video w-full bg-white/5">
                         {event.media_urls?.[0] ? (
-                            isVideo(event.media_urls[0]) ? (
-                                <video src={event.media_urls[0]} className="w-full h-full object-cover" controls autoPlay muted loop />
-                            ) : (
-                                <img src={event.media_urls[0]} alt={event.title} className="w-full h-full object-cover" />
-                            )
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center text-white/10">
-                                <ImageIcon size={48} />
-                            </div>
-                        )}
-                        <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-black/50 backdrop-blur-md rounded-full text-white/70 hover:text-white transition-colors">
-                            <X size={20} />
-                        </button>
+                            isVideo(event.media_urls[0]) ? <video src={event.media_urls[0]} className="w-full h-full object-cover" controls autoPlay muted loop />
+                                : <img src={event.media_urls[0]} alt={event.title} className="w-full h-full object-cover" />
+                        ) : <div className="w-full h-full flex items-center justify-center text-white/10"><ImageIcon size={48} /></div>}
+                        <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-black/50 backdrop-blur-md rounded-full text-white/70 hover:text-white transition-colors"><X size={20} /></button>
                     </div>
-
                     <div className="p-8 flex flex-col gap-6">
                         <div className="flex justify-between items-start">
                             <div className="flex-1">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-primary mb-1 block">
-                                    {formatDisplayId(event.id, event.display_id)} • {event.status.toUpperCase()}
-                                </span>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-primary mb-1 block">{formatDisplayId(event.id, event.display_id)} • {event.status.toUpperCase()}</span>
                                 <h3 className="text-2xl font-black tracking-tight">{event.title}</h3>
                             </div>
-                            <div className="bg-primary/10 text-primary px-3 py-1 rounded-full border border-primary/20 text-xs font-black">
-                                {event.entry_cost_tibs} TIBS
-                            </div>
+                            <div className="bg-primary/10 text-primary px-3 py-1 rounded-full border border-primary/20 text-xs font-black">{event.entry_cost_tibs} TIBS</div>
                         </div>
-
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
                                 <p className="text-[10px] uppercase font-black text-white/30 mb-1">Total Made</p>
@@ -539,61 +615,28 @@ export default function AdminDashboard() {
                                 <p className="text-[10px] text-white/20">Entries</p>
                             </div>
                         </div>
-
                         {event.goal_tibs > 0 && (
                             <div className="flex flex-col gap-2">
                                 <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                                    <span className={goalMet ? "text-green-500" : "text-red-500"}>
-                                        {goalMet ? '✓ Goal Met' : '⚠️ Goal Not Met'}
-                                    </span>
+                                    <span className={goalMet ? "text-green-500" : "text-red-500"}>{goalMet ? '✓ Goal Met' : '⚠️ Goal Not Met'}</span>
                                     <span className="text-white/30">{totalTibs.toLocaleString()} / {event.goal_tibs.toLocaleString()} TIBS</span>
                                 </div>
                                 <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
                                     <div className={`h-full transition-all duration-1000 ${goalMet ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.3)]' : 'bg-primary'}`} style={{ width: `${progress}%` }} />
                                 </div>
-                                {!goalMet && (
-                                    <p className="text-[9px] text-white/20 font-medium leading-tight">Must reach 100% of the goal to draw a winner. Otherwise, participants must be refunded.</p>
-                                )}
                             </div>
                         )}
-
-                        {event.status === 'drawn' && (
-                            <div className="p-4 bg-green-500/5 border border-green-500/20 rounded-2xl flex flex-col gap-1">
-                                <span className="text-[10px] font-black text-green-500/60 uppercase tracking-widest">🏆 Winner Drawn</span>
-                                <div className="flex flex-col gap-0.5 mt-1">
-                                    <div className="font-bold text-sm text-white">{event.winner?.display_name || 'Unknown Winner'}</div>
-                                    <div className="text-[10px] text-white/40">{event.winner?.email || 'No email available'}</div>
-                                    {event.winning_entry?.ticket_number && (
-                                        <div className="text-[10px] text-primary font-black uppercase tracking-widest mt-1">Ticket # {event.winning_entry.ticket_number}</div>
-                                    )}
-                                </div>
-                                <div className="text-[10px] text-white/40 mt-2 italic">Drawn at {new Date(event.drawn_at).toLocaleString()}</div>
-                            </div>
-                        )}
-
                         <div className="flex gap-3">
                             {event.status === 'open' && (
                                 <>
                                     {goalMet ? (
-                                        <button
-                                            onClick={() => { handleDrawWinner(event.id, event.title, event.media_urls?.[0], totalTibs, event.goal_tibs); onClose(); }}
-                                            className="flex-1 py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 transition-transform active:scale-95"
-                                        >
-                                            Draw Winner
-                                        </button>
+                                        <button onClick={() => { handleDrawWinner(event.id, event.title, event.media_urls?.[0], totalTibs, event.goal_tibs); onClose(); }} className="flex-1 py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 transition-transform active:scale-95">Draw Winner</button>
                                     ) : (
-                                        <button
-                                            onClick={() => { if (confirm('Goal not met. Refund all participants and close event?')) { handleRefund(event.id); onClose(); } }}
-                                            className="flex-1 py-4 bg-red-500/10 text-red-500 border border-red-500/20 font-black uppercase tracking-widest rounded-2xl transition-transform active:scale-95"
-                                        >
-                                            Refund & Close
-                                        </button>
+                                        <button onClick={() => { if (confirm('Goal not met. Refund all participants and close event?')) { handleRefund(event.id); onClose(); } }} className="flex-1 py-4 bg-red-500/10 text-red-500 border border-red-500/20 font-black uppercase tracking-widest rounded-2xl transition-transform active:scale-95">Refund & Close</button>
                                     )}
                                 </>
                             )}
-                            <button onClick={onClose} className="px-8 py-4 bg-white/5 hover:bg-white/10 text-white/60 font-black uppercase tracking-widest rounded-2xl transition-all">
-                                Close
-                            </button>
+                            <button onClick={onClose} className="px-8 py-4 bg-white/5 hover:bg-white/10 text-white/60 font-black uppercase tracking-widest rounded-2xl transition-all">Close</button>
                         </div>
                     </div>
                 </div>
@@ -601,763 +644,175 @@ export default function AdminDashboard() {
         )
     }
 
-    const handleUpdateEvent = async (eventId: string, updatedData: any, newImages: File[]) => {
-        const supabaseClient = await getClient()
-        if (!supabaseClient) return
-
-        setIsUpdating(true)
-        try {
-            let mediaUrls = [...(updatedData.existingMediaUrls || [])]
-
-            // 1. Upload new images if any
-            if (newImages.length > 0) {
-                for (const image of newImages) {
-                    const fileExt = image.name.split('.').pop()
-                    const fileName = `${userId}-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
-                    const filePath = `raffles/${fileName}`
-
-                    const { error: uploadError } = await supabaseClient.storage
-                        .from('media')
-                        .upload(filePath, image)
-
-                    if (uploadError) throw uploadError
-
-                    const { data: { publicUrl } } = supabaseClient.storage
-                        .from('media')
-                        .getPublicUrl(filePath)
-
-                    mediaUrls.push(publicUrl)
-                }
-            }
-
-            // 2. Update raffle record
-            const { error: updateError } = await supabaseClient
-                .from('raffles')
-                .update({
-                    title: updatedData.title,
-                    description: updatedData.description,
-                    media_urls: mediaUrls,
-                    entry_cost_tibs: parseInt(updatedData.cost),
-                    ends_at: new Date(updatedData.drawTime).toISOString(),
-                    goal_tibs: parseInt(updatedData.goal) || 0
-                })
-                .eq('id', eventId)
-
-            if (updateError) throw updateError
-
-            alert('Event updated successfully!')
-            setEditingEvent(null)
-            fetchEvents()
-        } catch (error: any) {
-            console.error('Error updating event:', error)
-            alert(error.message || 'Error updating event.')
-        } finally {
-            setIsUpdating(false)
-        }
-    }
-
-    const handleDeleteEvent = async (eventId: string) => {
-        const supabaseClient = await getClient()
-        if (!supabaseClient) return
-
-        if (!confirm('Are you sure you want to delete this event? This will also delete all entries associated with it.')) return
-
-        try {
-            await supabaseClient.from('entries').delete().eq('raffle_id', eventId)
-            const { error } = await supabaseClient.from('raffles').delete().eq('id', eventId)
-
-            if (error) throw error
-
-            alert('Event deleted successfully.')
-            fetchEvents()
-            if (selectedEvent?.id === eventId) setSelectedEvent(null)
-        } catch (error: any) {
-            alert(error.message || 'Error deleting event')
-        }
-    }
-
     const EditEventModal = ({ event, onClose }: { event: any, onClose: () => void }) => {
-        const [editTitle, setEditTitle] = useState(event.title)
-        const [editDesc, setEditDesc] = useState(event.description || '')
-        const [editCost, setEditCost] = useState(event.entry_cost_tibs.toString())
-        const [editGoal, setEditGoal] = useState((event.goal_tibs || 0).toString())
-        const [editDrawTime, setEditDrawTime] = useState(new Date(event.ends_at).toISOString().slice(0, 16))
-        const [editMediaUrls, setEditMediaUrls] = useState<string[]>(event.media_urls || [])
-        const [newFiles, setNewFiles] = useState<File[]>([])
-        const [newPreviews, setNewPreviews] = useState<string[]>([])
-
-        const handleNewFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-            const files = e.target.files
-            if (files && files.length > 0) {
-                const addedFiles = Array.from(files)
-                setNewFiles(prev => [...prev, ...addedFiles])
-                const addedPreviews = addedFiles.map(file => URL.createObjectURL(file))
-                setNewPreviews(prev => [...prev, ...addedPreviews])
-            }
-        }
-
-        const removeExistingMedia = (index: number) => {
-            setEditMediaUrls(prev => prev.filter((_, i) => i !== index))
-        }
-
-        const removeNewMedia = (index: number) => {
-            setNewFiles(prev => prev.filter((_, i) => i !== index))
-            setNewPreviews(prev => prev.filter((_, i) => i !== index))
-        }
-
+        const [editTitle, setEditTitle] = useState(event.title); const [editDesc, setEditDesc] = useState(event.description || ''); const [editCost, setEditCost] = useState(event.entry_cost_tibs.toString()); const [editGoal, setEditGoal] = useState((event.goal_tibs || 0).toString()); const [editDrawTime, setEditDrawTime] = useState(new Date(event.ends_at).toISOString().slice(0, 16)); const [editMediaUrls, setEditMediaUrls] = useState<string[]>(event.media_urls || []); const [newFiles, setNewFiles] = useState<File[]>([]); const [newPreviews, setNewPreviews] = useState<string[]>([])
+        useEffect(() => { return () => { newPreviews.forEach(url => URL.revokeObjectURL(url)) } }, [newPreviews])
         return (
             <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
                 <div className="bg-card w-full max-w-lg rounded-3xl border border-white/10 overflow-auto max-h-[90vh] shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col">
                     <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
                         <h3 className="text-xl font-black tracking-tight">Edit Event</h3>
-                        <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors">
-                            <X size={20} />
-                        </button>
+                        <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors"><X size={20} /></button>
                     </div>
-
                     <div className="p-8 flex flex-col gap-6">
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Title</label>
-                            <input
-                                type="text"
-                                value={editTitle}
-                                onChange={(e) => setEditTitle(e.target.value)}
-                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none"
-                            />
-                        </div>
-
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Description</label>
-                            <textarea
-                                value={editDesc}
-                                onChange={(e) => setEditDesc(e.target.value)}
-                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none min-h-[100px]"
-                            />
-                        </div>
-
+                        <div className="flex flex-col gap-1.5"><label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Title</label><input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" /></div>
+                        <div className="flex flex-col gap-1.5"><label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Description</label><textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none min-h-[100px]" /></div>
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Cost (Tibs)</label>
-                                <input
-                                    type="number"
-                                    value={editCost}
-                                    onChange={(e) => setEditCost(e.target.value)}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Goal (Tibs)</label>
-                                <input
-                                    type="number"
-                                    value={editGoal}
-                                    onChange={(e) => setEditGoal(e.target.value)}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none"
-                                />
-                            </div>
+                            <div className="flex flex-col gap-1.5"><label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Cost (Tibs)</label><input type="number" value={editCost} onChange={(e) => setEditCost(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" /></div>
+                            <div className="flex flex-col gap-1.5"><label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Goal (Tibs)</label><input type="number" value={editGoal} onChange={(e) => setEditGoal(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" /></div>
                         </div>
-
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Draw Time</label>
-                            <input
-                                type="datetime-local"
-                                value={editDrawTime}
-                                onChange={(e) => setEditDrawTime(e.target.value)}
-                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none [color-scheme:dark]"
-                            />
-                        </div>
-
+                        <div className="flex flex-col gap-1.5"><label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Draw Time</label><input type="datetime-local" value={editDrawTime} onChange={(e) => setEditDrawTime(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none [color-scheme:dark]" /></div>
                         <div className="flex flex-col gap-1.5">
                             <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Media Management</label>
                             <div className="grid grid-cols-4 gap-2">
-                                {/* Existing Media */}
                                 {editMediaUrls.map((url, idx) => (
                                     <div key={`old-${idx}`} className="relative aspect-square rounded-xl overflow-hidden border border-white/10 group">
-                                        {isVideo(url) ? (
-                                            <video src={url} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <img src={url} className="w-full h-full object-cover" />
-                                        )}
-                                        <button
-                                            onClick={() => removeExistingMedia(idx)}
-                                            className="absolute inset-0 bg-red-500/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                            <Trash2 size={16} className="text-white" />
-                                        </button>
+                                        {isVideo(url) ? <video src={url} className="w-full h-full object-cover" /> : <img src={url} className="w-full h-full object-cover" />}
+                                        <button onClick={() => setEditMediaUrls(prev => prev.filter((_, i) => i !== idx))} className="absolute inset-0 bg-red-500/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16} className="text-white" /></button>
                                     </div>
                                 ))}
-                                {/* New Media Previews */}
                                 {newPreviews.map((preview, idx) => (
                                     <div key={`new-${idx}`} className="relative aspect-square rounded-xl overflow-hidden border border-primary/20 group">
-                                        {isVideo(preview) ? (
-                                            <video src={preview} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <img src={preview} className="w-full h-full object-cover" />
-                                        )}
-                                        <button
-                                            onClick={() => removeNewMedia(idx)}
-                                            className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                            <X size={16} className="text-white" />
-                                        </button>
-                                        <div className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
+                                        {isVideo(preview) ? <video src={preview} className="w-full h-full object-cover" /> : <img src={preview} className="w-full h-full object-cover" />}
+                                        <button onClick={() => { setNewFiles(prev => prev.filter((_, i) => i !== idx)); setNewPreviews(prev => { const url = prev[idx]; if (url) URL.revokeObjectURL(url); return prev.filter((_, i) => i !== idx) }) }} className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><X size={16} className="text-white" /></button>
                                     </div>
                                 ))}
-                                {/* Add More Button */}
-                                <label className="aspect-square bg-white/5 border border-white/10 border-dashed rounded-xl flex items-center justify-center text-white/20 hover:text-white/40 cursor-pointer transition-colors group">
-                                    <input type="file" className="hidden" accept="image/*,video/*" multiple onChange={handleNewFileChange} />
-                                    <Plus size={18} />
-                                </label>
+                                <label className="aspect-square bg-white/5 border border-dashed border-white/20 rounded-xl flex items-center justify-center text-white/20 hover:text-white/40 cursor-pointer transition-colors"><input type="file" className="hidden" accept="image/*,video/*" multiple onChange={(e) => { const files = Array.from(e.target.files || []); setNewFiles(prev => [...prev, ...files]); const previews = files.map(f => URL.createObjectURL(f)); setNewPreviews(prev => [...prev, ...previews]) }} /><Plus size={24} /></label>
                             </div>
                         </div>
-
-                        <button
-                            onClick={() => handleUpdateEvent(event.id, {
-                                title: editTitle,
-                                description: editDesc,
-                                cost: editCost,
-                                goal: editGoal,
-                                drawTime: editDrawTime,
-                                existingMediaUrls: editMediaUrls
-                            }, newFiles)}
-                            disabled={isUpdating}
-                            className="w-full py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 mt-2 transition-transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
-                        >
-                            {isUpdating && <Loader2 size={18} className="animate-spin" />}
-                            {isUpdating ? 'Updating...' : 'Save Changes'}
-                        </button>
+                        <div className="flex gap-3 pt-4">
+                            <button onClick={() => handleUpdateEvent(event.id, { title: editTitle, description: editDesc, cost: editCost, goal: editGoal, drawTime: editDrawTime, existingMediaUrls: editMediaUrls }, newFiles)} disabled={isUpdating} className="flex-1 py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 transition-transform active:scale-95 disabled:opacity-50">
+                                {isUpdating ? 'Updating...' : 'Save Changes'}
+                            </button>
+                            <button onClick={onClose} className="px-8 py-4 bg-white/5 hover:bg-white/10 text-white/60 font-black uppercase tracking-widest rounded-2xl transition-all">Cancel</button>
+                        </div>
                     </div>
                 </div>
             </div>
         )
     }
 
-    const handleRefund = async (eventId: string) => {
-        const supabaseClient = await getClient()
-        if (!supabaseClient) return
-
-        try {
-            // 1. Get all entries
-            const { data: entries, error: fetchError } = await supabaseClient
-                .from('entries')
-                .select('user_id, raffles!raffle_id(entry_cost_tibs)')
-                .eq('raffle_id', eventId)
-
-            if (fetchError) throw fetchError
-
-            // 2. Process refunds (In a real app, this should be an RPC to ensure atomicity)
-            // But for now we'll do it manually since it's a small app
-            for (const entry of entries || []) {
-                const cost = (entry.raffles as any).entry_cost_tibs
-                const { data: profile } = await supabaseClient
-                    .from('profiles')
-                    .select('tibs_balance')
-                    .eq('id', entry.user_id)
-                    .single()
-
-                if (profile) {
-                    await supabaseClient
-                        .from('profiles')
-                        .update({ tibs_balance: profile.tibs_balance + cost })
-                        .eq('id', entry.user_id)
-                }
-            }
-
-            // 3. Close raffle as 'closed' (not drawn)
-            await supabaseClient
-                .from('raffles')
-                .update({ status: 'closed' })
-                .eq('id', eventId)
-
-            alert('Event closed and Tibs refunded successfully.')
-            fetchEvents()
-        } catch (error: any) {
-            console.error('Refund error:', error)
-            alert('Error processing refunds: ' + error.message)
-        }
-    }
-    if (isCheckingPermissions) {
-        return (
-            <div className="flex flex-col items-center justify-center py-32 gap-4">
-                <Loader2 className="animate-spin text-primary" size={32} />
-                <p className="text-white/40 text-sm">Checking permissions...</p>
+    if (isCheckingPermissions) return (
+        <div className="min-h-screen flex items-center justify-center bg-background">
+            <div className="flex flex-col items-center gap-4">
+                <Loader2 size={40} className="text-primary animate-spin" />
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-white/20">Checking Permissions...</p>
             </div>
-        )
-    }
+        </div>
+    )
 
-    // Simplified access: Admins see everything, others see Host Dashboard.
-    if (!userId) {
-        return (
-            <div className="flex flex-col items-center justify-center py-32 gap-6 text-center px-8">
-                <div className="bg-red-500/20 p-4 rounded-2xl border border-red-500/30">
-                    <ShieldAlert className="text-red-500" size={48} />
+    if (!isAdmin && !isHostEligible) return (
+        <div className="min-h-screen flex items-center justify-center p-6 bg-background">
+            <div className="bg-card w-full max-w-md p-10 rounded-[40px] border border-white/5 text-center flex flex-col gap-6 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+                <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto border border-primary/20">
+                    <ShieldAlert size={40} className="text-primary" />
                 </div>
-                <h2 className="text-2xl font-black">Access Denied</h2>
-                <p className="text-white/40 text-sm max-w-xs">
-                    Please sign in to access the dashboard.
-                </p>
-            </div>
-        )
-    }
-
-    // Block access ONLY if not admin AND not host eligible
-    // Admins should NEVER see this screen.
-    if (!isAdmin && !isHostEligible) {
-        return (
-            <div className="flex flex-col items-center justify-center py-32 gap-6 text-center px-8">
-                <div className="bg-red-500/20 p-4 rounded-2xl border border-red-500/30">
-                    <ShieldAlert className="text-red-500" size={48} />
+                <div className="flex flex-col gap-2">
+                    <h2 className="text-3xl font-black tracking-tight">Access Denied</h2>
+                    <p className="text-white/40 text-sm leading-relaxed">You do not have permission to access the administration panel.</p>
                 </div>
-                <h2 className="text-2xl font-black">Access Denied</h2>
-                <p className="text-white/40 text-sm max-w-xs">
-                    You need to spend at least <span className="text-primary font-bold">8,000 Tibs</span> to become eligible to host events.
-                </p>
-                <a href="/wallet" className="mt-4 px-6 py-3 bg-primary text-black font-black uppercase tracking-widest rounded-2xl text-sm">
-                    Go to Wallet
-                </a>
+                <div className="flex flex-col gap-3">
+                    <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Requirements</p>
+                        <p className="text-xs text-white/60">Spending goal of 8,000 Tibs required to host events.</p>
+                    </div>
+                    <button onClick={() => window.location.href = '/'} className="w-full py-4 bg-white/5 hover:bg-white/10 text-white font-black uppercase tracking-widest rounded-2xl transition-all border border-white/10">Back to Home</button>
+                </div>
             </div>
-        )
-    }
+        </div>
+    )
 
     return (
-        <div className="flex flex-col gap-8 pb-20">
-            <div className="flex items-center justify-between">
-                <div className="flex flex-col gap-1">
-                    <h2 className="text-2xl font-black tracking-tight">
-                        {isAdmin ? 'Admin Hub' : 'Host Dashboard'}
-                    </h2>
-                    <p className="text-white/40 text-sm">
-                        {isAdmin ? 'Control center for 8TONBALL.' : 'Launch and manage your events.'}
-                    </p>
-                </div>
-                <div className="bg-primary/20 p-2 rounded-xl border border-primary/30">
-                    <LayoutDashboard className="text-primary" size={24} />
-                </div>
-            </div>
-
-            {/* Admin Tabs */}
-            <div className="flex bg-card p-1.5 rounded-2xl border border-white/5">
-                <button
-                    onClick={() => setActiveTab('events')}
-                    className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'events' ? 'bg-primary text-black' : 'text-white/40 hover:text-white/60'}`}
-                >
-                    Active
-                </button>
-                <button
-                    onClick={() => setActiveTab('archives')}
-                    className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'archives' ? 'bg-primary text-black' : 'text-white/40 hover:text-white/60'}`}
-                >
-                    Archive
-                </button>
-                {isAdmin && (
-                    <>
-                        <button
-                            onClick={() => setActiveTab('payments')}
-                            className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'payments' ? 'bg-primary text-black' : 'text-white/40 hover:text-white/60'}`}
-                        >
-                            Payments
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('payouts')}
-                            className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'payouts' ? 'bg-primary text-black' : 'text-white/40 hover:text-white/60'}`}
-                        >
-                            Payouts
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('analytics')}
-                            className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'analytics' ? 'bg-primary text-black' : 'text-white/40 hover:text-white/60'}`}
-                        >
-                            Stats
-                        </button>
-                    </>
-                )}
-            </div>
-
-            {
-                activeTab === 'analytics' ? (
-                    <div className="flex flex-col gap-6">
-                        {isLoadingAnalytics ? (
-                            <div className="flex items-center justify-center py-20">
-                                <Loader2 className="animate-spin text-primary" size={32} />
+        <div className="min-h-screen bg-background pb-32">
+            <div className="max-w-6xl mx-auto px-6 pt-12">
+                {/* Header */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-primary/10 rounded-2xl border border-primary/20">
+                            <LayoutDashboard className="text-primary" size={28} />
+                        </div>
+                        <div>
+                            <h1 className="text-4xl font-black tracking-tighter uppercase italic">8TONBALL <span className="text-primary not-italic">OS</span></h1>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Terminal Control</span>
+                                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                             </div>
-                        ) : analytics ? (
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2">
-                                    <div className="flex items-center gap-2 text-primary">
-                                        <Coins size={18} />
-                                        <span className="text-xs font-bold uppercase tracking-widest">Gross Revenue</span>
-                                    </div>
-                                    <div className="text-3xl font-black text-primary">₱{analytics.totalRevenuePHP.toLocaleString()}</div>
-                                    <p className="text-[10px] text-white/20 uppercase font-black tracking-widest">Total from Tibs Sales</p>
-                                </div>
-                                <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2">
-                                    <div className="flex items-center gap-2 text-white/40">
-                                        <Ticket size={18} />
-                                        <span className="text-xs font-bold uppercase tracking-widest">Event Volume</span>
-                                    </div>
-                                    <div className="text-3xl font-black">{analytics.totalTibsSpentInEvents.toLocaleString()}</div>
-                                    <p className="text-[10px] text-white/20 uppercase font-black tracking-widest">Tibs spent in events</p>
-                                </div>
-                                <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2">
-                                    <div className="flex items-center gap-2 text-white/40">
-                                        <Users size={18} />
-                                        <span className="text-xs font-bold uppercase tracking-widest">Engagement</span>
-                                    </div>
-                                    <div className="text-xl font-black">{analytics.totalEntries.toLocaleString()} <span className="text-sm font-bold text-white/40">Entries</span></div>
-                                    <p className="text-[10px] text-white/20 uppercase font-black tracking-widest">{analytics.avgEntriesPerEvent} per event</p>
-                                </div>
-                                <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2">
-                                    <div className="flex items-center gap-2 text-white/40">
-                                        <Trophy size={18} />
-                                        <span className="text-xs font-bold uppercase tracking-widest">Market Size</span>
-                                    </div>
-                                    <div className="text-xl font-black">{analytics.totalUsers} <span className="text-sm font-bold text-white/40">Members</span></div>
-                                    <div className="text-xl font-black text-primary">{analytics.totalEvents} <span className="text-sm font-bold text-white/40 italic">Live/Past Events</span></div>
-                                </div>
-                            </div>
-                        ) : null}
+                        </div>
+                    </div>
+                    <div className="flex bg-card p-1.5 rounded-2xl border border-white/5">
+                        {(['events', 'archives', 'payments', 'payouts', 'analytics'] as const).map((tab) => (
+                            <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-primary text-black shadow-lg shadow-primary/20' : 'text-white/40 hover:text-white hover:bg-white/5'}`}>{tab}</button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Content */}
+                {activeTab === 'analytics' ? (
+                    <div className="flex flex-col gap-10">
+                        <div className="flex justify-between items-center">
+                            <h2 className="text-xl font-black uppercase tracking-widest">Platform Analytics</h2>
+                            <button onClick={fetchAnalytics} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-primary transition-colors"><Loader2 size={14} className={isLoadingAnalytics ? "animate-spin" : ""} /> Refresh Data</button>
+                        </div>
+                        {analytics ? <AnalyticsOverview analytics={analytics} /> : null}
                     </div>
                 ) : (activeTab === 'events' || activeTab === 'archives') ? (
                     <div className="flex flex-col gap-10">
-                        {/* Create Event Card - ONLY SHOW ON "ACTIVE" TAB */}
                         {activeTab === 'events' && (
-                            <div className="bg-card p-8 rounded-3xl border border-dashed border-primary/30 flex flex-col gap-6">
-                                <h3 className="text-lg font-bold flex items-center gap-2">
-                                    <Plus className="text-primary" size={20} />
-                                    New Event
-                                </h3>
-                                <div className="flex flex-col gap-4">
-                                    <div className="flex flex-col gap-1.5" >
-                                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Prize Title</label>
-                                        <input
-                                            type="text"
-                                            value={title}
-                                            onChange={(e) => setTitle(e.target.value)}
-                                            placeholder="e.g. iPhone 15 Pro"
-                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none"
-                                        />
-                                    </div>
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Description</label>
-                                        <textarea
-                                            value={description}
-                                            onChange={(e) => setDescription(e.target.value)}
-                                            placeholder="Prize details..."
-                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none min-h-[100px]"
-                                        />
-                                    </div>
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Draw Time</label>
-                                        <input
-                                            type="datetime-local"
-                                            value={drawTime}
-                                            onChange={(e) => setDrawTime(e.target.value)}
-                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none [color-scheme:dark]"
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Cost (Tibs)</label>
-                                            <input
-                                                type="number"
-                                                value={cost}
-                                                onChange={(e) => setCost(e.target.value)}
-                                                placeholder="100"
-                                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none"
-                                            />
+                            <CreateEventForm isAdmin={isAdmin} isHostEligible={isHostEligible} onLaunch={fetchEventsMemo} getClient={getClient} userId={userId} existingEventsCount={existingEvents?.length || 0} />
+                        )}
+                        <div className="flex flex-col gap-6">
+                            <div className="flex justify-between items-center">
+                                <h2 className="text-xl font-black uppercase tracking-widest">{activeTab === 'events' ? 'Active Events' : 'Archived Events'}</h2>
+                                <div className="flex items-center gap-4">
+                                    <input type="date" onChange={(e) => setDateFilter(e.target.value)} className="bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-[10px] font-black uppercase text-white/40 focus:border-primary outline-none [color-scheme:dark]" />
+                                    <button onClick={fetchEvents} className="p-2 hover:bg-white/5 rounded-full transition-colors"><Loader2 size={18} className={isLoadingEvents ? "animate-spin" : ""} /></button>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {existingEvents.filter(e => {
+                                    const matchesTab = activeTab === 'events' ? e.status === 'open' : (e.status === 'drawn' || e.status === 'closed');
+                                    const matchesDate = dateFilter ? e.created_at.startsWith(dateFilter) : true;
+                                    const matchesUser = isAdmin ? true : e.host_user_id === userId;
+                                    return matchesTab && matchesDate && matchesUser;
+                                }).map((event) => (
+                                    <div key={event.id} className="bg-card rounded-[32px] border border-white/5 overflow-hidden group hover:border-primary/30 transition-all duration-500 flex flex-col">
+                                        <div className="relative aspect-[4/3] cursor-pointer" onClick={() => setSelectedEvent(event)}>
+                                            {event.media_urls?.[0] ? (
+                                                isVideo(event.media_urls[0]) ? <video src={event.media_urls[0]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                                                    : <img src={event.media_urls[0]} alt={event.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                                            ) : <div className="w-full h-full bg-white/5 flex items-center justify-center text-white/5"><ImageIcon size={48} /></div>}
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
+                                            <div className="absolute top-4 left-4 flex gap-2">
+                                                <div className="px-3 py-1 bg-black/50 backdrop-blur-md rounded-full border border-white/10 text-[10px] font-black uppercase text-primary">{formatDisplayId(event.id, event.display_id)}</div>
+                                            </div>
+                                            <div className="absolute bottom-4 left-4 right-4"><h3 className="text-lg font-black leading-tight text-white line-clamp-1">{event.title}</h3></div>
                                         </div>
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Goal (Tibs)</label>
-                                            <input
-                                                type="number"
-                                                value={goal}
-                                                onChange={(e) => setGoal(e.target.value)}
-                                                placeholder="5000"
-                                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none"
-                                            />
-                                        </div>
-
-                                        <div className="flex flex-col gap-1.5 col-span-2">
-                                            <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Media (Multiple allowed)</label>
-                                            <div className="grid grid-cols-4 gap-2">
-                                                {eventPreviews.map((preview: string, index: number) => (
-                                                    <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-white/10 group">
-                                                        {isVideo(preview) ? (
-                                                            <video src={preview} className="w-full h-full object-cover" />
-                                                        ) : (
-                                                            <img src={preview} alt="Preview" className="w-full h-full object-cover" />
-                                                        )}
-                                                        <button
-                                                            onClick={() => {
-                                                                setEventImages(prev => prev.filter((_, i) => i !== index))
-                                                                setEventPreviews(prev => prev.filter((_, i) => i !== index))
-                                                            }}
-                                                            className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                                                        >
-                                                            <X size={14} className="text-white" />
-                                                        </button>
-                                                    </div>
-                                                ))}
-
-                                                <label className="aspect-square bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-white/20 hover:text-white/40 cursor-pointer transition-colors group">
-                                                    <input type="file" className="hidden" accept="image/*,video/*" multiple onChange={(e) => {
-                                                        const files = Array.from(e.target.files || [])
-                                                        setEventImages(prev => [...prev, ...files])
-                                                        const previews = files.map(f => URL.createObjectURL(f))
-                                                        setEventPreviews(prev => [...prev, ...previews])
-                                                    }} />
-                                                    <Plus size={18} className="group-hover:text-primary transition-colors" />
-                                                </label>
+                                        <div className="p-6 flex flex-col gap-4">
+                                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-white/30">
+                                                <div className="flex items-center gap-1.5"><Users size={12} /> {event.entries?.[0]?.count || 0} Entries</div>
+                                                <div className="flex items-center gap-1.5"><Coins size={12} className="text-primary" /> {event.entry_cost_tibs} Tibs</div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button onClick={() => setSelectedEvent(event)} className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Details</button>
+                                                <button onClick={() => setEditingEvent(event)} className="p-3 bg-white/5 hover:bg-primary/20 hover:text-primary rounded-xl transition-all"><Edit size={16} /></button>
+                                                <button onClick={() => handleDeleteEvent(event.id)} className="p-3 bg-white/5 hover:bg-red-500/20 hover:text-red-500 rounded-xl transition-all"><Trash2 size={16} /></button>
                                             </div>
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={handleLaunchEvent}
-                                        disabled={isLaunching || (!isAdmin && !isHostEligible)}
-                                        className="w-full py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 mt-2 transition-transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        {isLaunching && <Loader2 size={18} className="animate-spin" />}
-                                        {isLaunching ? 'Launching...' : (!isAdmin && !isHostEligible) ? 'Eligibility Required' : 'Launch'}
-                                    </button>
-                                    {!isAdmin && !isHostEligible && (
-                                        <p className="text-[10px] text-red-500 font-black uppercase tracking-widest text-center">
-                                            ⚠️ Spending goal of 8,000 Tibs required to host.
-                                        </p>
-                                    )}
-                                </div>
+                                ))}
                             </div>
-                        )}
-
-                        {/* Events List Wrapper */}
-                        <div className="flex flex-col gap-4">
-                            <div className="flex items-center justify-between px-2">
-                                <h3 className="text-lg font-bold">
-                                    {activeTab === 'archives' ? 'Event Archives' : 'Manage Active Events'}
-                                </h3>
-                                <div className="flex items-center gap-3">
-                                    <input
-                                        type="date"
-                                        value={dateFilter}
-                                        onChange={(e) => setDateFilter(e.target.value)}
-                                        className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white/60 focus:outline-none focus:border-primary [color-scheme:dark]"
-                                    />
-                                </div>
-                            </div>
-
-                            {isLoadingEvents ? (
-                                <div className="flex items-center justify-center py-20">
-                                    <Loader2 className="animate-spin text-primary" size={24} />
-                                </div>
-                            ) : (
-                                <div className="flex flex-col gap-4">
-                                    {existingEvents
-                                        .filter((e: any) => {
-                                            const isMyEvent = isAdmin || e.host_user_id === userId;
-                                            if (!isMyEvent) return false;
-
-                                            // Filter by status based on tab
-                                            if (activeTab === 'archives') return e.status !== 'open';
-                                            return e.status === 'open';
-                                        })
-                                        .filter((e: any) => !dateFilter || e.created_at.startsWith(dateFilter))
-                                        .length === 0 ? (
-                                        <p className="text-white/20 text-center py-10 text-sm font-bold uppercase tracking-widest">
-                                            {activeTab === 'archives' ? 'No archived events found.' : 'No active events.'}
-                                        </p>
-                                    ) : (
-                                        existingEvents
-                                            .filter((e: any) => {
-                                                const isMyEvent = isAdmin || e.host_user_id === userId;
-                                                if (!isMyEvent) return false;
-                                                if (activeTab === 'archives') return e.status !== 'open';
-                                                return e.status === 'open';
-                                            })
-                                            .filter((e: any) => !dateFilter || e.created_at.startsWith(dateFilter))
-                                            .map((event: any) => (
-                                                <div
-                                                    key={event.id}
-                                                    onClick={() => setSelectedEvent(event)}
-                                                    className="bg-card p-5 rounded-3xl border border-white/5 flex items-center gap-4 cursor-pointer hover:bg-white/5 transition-colors group"
-                                                >
-                                                    <div className="w-16 h-16 bg-white/5 rounded-2xl overflow-hidden shrink-0 border border-white/10 group-hover:border-primary/30 transition-colors">
-                                                        <img src={event.media_urls?.[0] || 'https://via.placeholder.com/150'} alt="event" className="w-full h-full object-cover" />
-                                                    </div>
-                                                    <div className="flex-1 overflow-hidden">
-                                                        <div className="flex items-center justify-between mb-1">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-[9px] font-black bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                                                                    {formatDisplayId(event.id, event.display_id)}
-                                                                </span>
-                                                                <h4 className="font-bold text-sm truncate">{event.title}</h4>
-                                                                <div className="flex items-center gap-1.5 ml-1">
-                                                                    {event.status === 'open' && (
-                                                                        (() => {
-                                                                            const t = (event.entries?.[0]?.count || 0) * event.entry_cost_tibs;
-                                                                            const g = event.goal_tibs || 0;
-                                                                            const p = g > 0 ? Math.floor((t / g) * 100) : 100;
-                                                                            const isMet = g > 0 ? t >= g : true;
-                                                                            return (
-                                                                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${isMet ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-primary/5 text-primary/60 border border-primary/10'}`}>
-                                                                                    {p}% Goal
-                                                                                </span>
-                                                                            );
-                                                                        })()
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                            {event.status !== 'open' && (
-                                                                <span className="text-[9px] font-black bg-white/5 text-white/40 px-1.5 py-0.5 rounded border border-white/5 uppercase tracking-tighter">
-                                                                    {event.status}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex items-center gap-3">
-                                                            <p className="text-white/40 text-[10px] font-black uppercase tracking-widest">
-                                                                {event.entries?.[0]?.count || 0} Entries
-                                                            </p>
-                                                            <span className="text-white/10">•</span>
-                                                            {event.status === 'drawn' ? (
-                                                                <div className="flex items-center gap-1.5">
-                                                                    <div className="w-4 h-4 rounded-full bg-green-500/20 flex items-center justify-center">
-                                                                        <Trophy size={10} className="text-green-500" />
-                                                                    </div>
-                                                                    <p className="text-green-500/60 text-[10px] font-bold truncate max-w-[120px]">
-                                                                        {event.winner?.display_name || 'Winner Drawn'}
-                                                                        {event.winning_entry?.ticket_number && (
-                                                                            <span className="ml-1.5 px-1 bg-green-500/10 rounded group-hover:bg-green-500/20 transition-colors">
-                                                                                #{event.winning_entry.ticket_number}
-                                                                            </span>
-                                                                        )}
-                                                                    </p>
-                                                                </div>
-                                                            ) : (
-                                                                <p className="text-white/40 text-[10px] font-black uppercase tracking-widest">
-                                                                    {new Date(event.created_at).toLocaleDateString()}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex gap-2 shrink-0">
-                                                        {event.status === 'open' && (
-                                                            <button
-                                                                onClick={(e) => { e.stopPropagation(); setEditingEvent(event); }}
-                                                                className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-white/40 hover:text-primary transition-all"
-                                                            >
-                                                                <Edit size={16} />
-                                                            </button>
-                                                        )}
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event.id); }}
-                                                            className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-white/40 hover:text-red-500 transition-all"
-                                                        >
-                                                            <Trash2 size={16} />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))
-                                    )}
-                                </div>
-                            )}
                         </div>
-
-                        {selectedEvent && <EventDetailsModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />}
-                        {editingEvent && <EditEventModal event={editingEvent} onClose={() => setEditingEvent(null)} />}
                     </div>
+                ) : activeTab === 'payments' ? (
+                    <PaymentsList payments={payments} handleApprove={handleApproveMemo} handleReject={handleRejectMemo} isLoadingPayments={isLoadingPayments} fetchPayments={fetchPaymentsMemo} />
                 ) : activeTab === 'payouts' ? (
-                    <div className="flex flex-col gap-4">
-                        {isLoadingPayouts ? (
-                            <div className="flex items-center justify-center py-20">
-                                <Loader2 className="animate-spin text-primary" size={32} />
-                            </div>
-                        ) : payouts.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-20 text-white/20 gap-4 bg-card rounded-3xl border border-white/5">
-                                <CheckCircle2 size={48} />
-                                <p className="font-bold">No pending payouts!</p>
-                            </div>
-                        ) : (
-                            payouts.map((pmt: any) => (
-                                <div key={pmt.id} className="bg-card p-5 rounded-3xl border border-white/5 flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary border border-primary/20">
-                                        <Ticket size={24} />
-                                    </div>
-                                    <div className="flex-1 overflow-hidden">
-                                        <h4 className="font-bold text-sm truncate">{pmt.profiles?.display_name || 'Guest User'}</h4>
-                                        <div className="flex items-center gap-2">
-                                            <p className="text-white text-xs font-black">₱{(pmt.amount_tibs / 8).toLocaleString()}</p>
-                                            <span className="text-white/20 text-[10px]">•</span>
-                                            <p className="text-primary text-[10px] font-black uppercase tracking-widest">{pmt.amount_tibs.toLocaleString()} Tibs</p>
-                                        </div>
-                                        <div className="mt-1 flex flex-col gap-0.5">
-                                            <p className="text-[10px] text-white/40 font-black uppercase tracking-[0.1em]">{pmt.gcash_name}</p>
-                                            <p className="text-[10px] text-primary font-bold">{pmt.gcash_number}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={() => handleApprovePayout(pmt.id)}
-                                            className="px-4 py-3 bg-green-500 text-black text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-green-400 transition-all flex items-center gap-2"
-                                        >
-                                            <Check size={14} /> Settle
-                                        </button>
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                ) : (
-                    <div className="flex flex-col gap-4">
-                        {isLoadingPayments ? (
-                            <div className="flex items-center justify-center py-20">
-                                <Loader2 className="animate-spin text-primary" size={32} />
-                            </div>
-                        ) : payments.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-20 text-white/20 gap-4 bg-card rounded-3xl border border-white/5">
-                                <CheckCircle2 size={48} />
-                                <p className="font-bold">Queue is clear!</p>
-                            </div>
-                        ) : (
-                            payments.map((pmt: any) => (
-                                <div key={pmt.id} className="bg-card p-5 rounded-3xl border border-white/5 flex items-center gap-4">
-                                    <div className="w-16 h-16 bg-white/5 rounded-2xl overflow-hidden shrink-0 border border-white/10 group relative cursor-zoom-in">
-                                        <img src={pmt.proof_image_url} alt="proof" className="w-full h-full object-cover" />
-                                        <a href={pmt.proof_image_url} target="_blank" className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-[8px] font-black uppercase tracking-tighter">View Full</a>
-                                    </div>
-                                    <div className="flex-1 overflow-hidden">
-                                        <h4 className="font-bold text-sm truncate">{pmt.profiles?.display_name || pmt.profiles?.email || 'Unknown User'}</h4>
-                                        <p className="text-primary text-xs font-black">{pmt.requested_tibs} Tibs</p>
-                                        <span className="text-[10px] text-white/20 font-black uppercase tracking-widest">
-                                            {new Date(pmt.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={() => handleReject(pmt.id)}
-                                            className="w-10 h-10 bg-red-500/10 text-red-500 rounded-xl flex items-center justify-center border border-red-500/20 hover:bg-red-500 hover:text-white transition-all"
-                                        >
-                                            <X size={18} />
-                                        </button>
-                                        <button
-                                            onClick={() => handleApprove(pmt.id)}
-                                            className="w-10 h-10 bg-green-500/10 text-green-500 rounded-xl flex items-center justify-center border border-green-500/20 hover:bg-green-500 hover:text-white transition-all"
-                                        >
-                                            <Check size={18} />
-                                        </button>
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                )
-            }
+                    <PayoutsList payouts={payouts} handleApprovePayout={handleApprovePayoutMemo} isLoadingPayouts={isLoadingPayouts} fetchPayoutRequests={fetchPayoutRequestsMemo} />
+                ) : null}
+            </div>
 
-            {/* Event Details Modal */}
-            {
-                selectedEvent && (
-                    <EventDetailsModal
-                        event={selectedEvent}
-                        onClose={() => setSelectedEvent(null)}
-                    />
-                )
-            }
-        </div >
+            {selectedEvent && <EventDetailsModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />}
+            {editingEvent && <EditEventModal event={editingEvent} onClose={() => setEditingEvent(null)} />}
+        </div>
     )
 }
