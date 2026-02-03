@@ -344,6 +344,25 @@ export default function ProfilePage() {
     }
 
     if (!profile) {
+        // If user is logged in but profile didn't load, show retry option
+        if (userId) {
+            return (
+                <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
+                    <User size={48} className="text-muted-foreground/20" />
+                    <p className="text-muted-foreground">Loading your profile...</p>
+                    <button
+                        onClick={() => {
+                            setIsLoading(true)
+                            fetchProfile()
+                        }}
+                        className="px-6 py-2 bg-primary text-primary-foreground font-black uppercase tracking-widest rounded-xl text-xs neon-border shadow-md"
+                    >
+                        Retry
+                    </button>
+                </div>
+            )
+        }
+        // User is actually not logged in
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
                 <User size={48} className="text-muted-foreground/20" />
