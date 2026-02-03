@@ -37,10 +37,18 @@ body {
 }
 
 .glass {
-  background: rgba(10, 10, 11, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  /* Mobile: High opacity, no blur (saves GPU) */
+  background: rgba(10, 10, 11, 0.98);
   border: 1px solid var(--border);
+}
+
+@media (min-width: 768px) {
+  .glass {
+    /* Desktop: Lower opacity + blur */
+    background: rgba(10, 10, 11, 0.8);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
 }
 
 .premium-gradient {

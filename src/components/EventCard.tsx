@@ -39,13 +39,15 @@ export const EventCard = React.memo(({
     const [justJoined, setJustJoined] = useState(false)
     const scrollRef = useRef<HTMLDivElement>(null)
 
-    // Handle scroll to update index
+    // Throttled scroll handler
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
         const target = e.currentTarget
-        const index = Math.round(target.scrollLeft / target.offsetWidth)
-        if (index !== currentImageIndex) {
-            setCurrentImageIndex(index)
-        }
+        requestAnimationFrame(() => {
+            const index = Math.round(target.scrollLeft / target.offsetWidth)
+            if (index !== currentImageIndex) {
+                setCurrentImageIndex(index)
+            }
+        })
     }
 
     // Sync prop changes unless we just joined (optimistic)
@@ -121,14 +123,18 @@ export const EventCard = React.memo(({
                         {images.map((img: string, idx: number) => (
                             <div key={idx} className="w-full h-full flex-shrink-0 snap-center relative">
                                 {isVideo(img) ? (
-                                    <video
-                                        src={img}
+                                    <div
                                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                        autoPlay
-                                        muted
-                                        loop
-                                        playsInline
-                                    />
+                                    >
+                                        <video
+                                            src={img}
+                                            className="w-full h-full object-cover"
+                                            autoPlay
+                                            muted
+                                            loop
+                                            playsInline
+                                        />
+                                    </div>
                                 ) : (
                                     <img
                                         src={img}
@@ -140,25 +146,25 @@ export const EventCard = React.memo(({
                         ))}
                     </div>
 
-                    {/* Carousel Controls */}
+                    {/* Carousel Controls - Removed backdrop-blur for performance */}
                     {images.length > 1 && (
                         <>
-                            <div className="absolute inset-0 pointer-events-none flex items-center justify-between px-4 z-10">
+                            <div className="absolute inset-0 pointer-events-none flex items-center justify-between px-4 z-10 transition-opacity duration-300 opacity-0 group-hover:opacity-100">
                                 <button
                                     onClick={prevImage}
-                                    className="pointer-events-auto w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-black/60 transition-all opacity-0 group-hover:opacity-100"
+                                    className="pointer-events-auto w-10 h-10 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-black/80 transition-colors"
                                 >
                                     <ChevronLeft size={20} />
                                 </button>
                                 <button
                                     onClick={nextImage}
-                                    className="pointer-events-auto w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-black/60 transition-all opacity-0 group-hover:opacity-100"
+                                    className="pointer-events-auto w-10 h-10 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-black/80 transition-colors"
                                 >
                                     <ChevronRight size={20} />
                                 </button>
                             </div>
 
-                            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 px-3 py-1.5 bg-black/20 backdrop-blur-sm rounded-full z-10">
+                            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 px-3 py-1.5 bg-black/40 rounded-full z-10">
                                 {images.map((_: string, idx: number) => (
                                     <div key={idx} className={`w-1.5 h-1.5 rounded-full transition-colors ${idx === currentImageIndex ? 'bg-primary' : 'bg-white/30'}`} />
                                 ))}

@@ -298,7 +298,7 @@ export function Shell({ children }: ShellProps) {
         <div className="min-h-screen bg-background text-foreground flex flex-col items-center">
             {/* Top Header */}
             <header className={cn(
-                "fixed top-0 w-full max-w-lg glass z-50 flex flex-col transition-transform duration-300",
+                "fixed top-0 w-full max-w-lg glass z-50 flex flex-col transition-transform duration-300 will-change-transform",
                 !isVisible && "-translate-y-full",
                 pathname === '/' ? "py-3" : "py-4"
             )}>
