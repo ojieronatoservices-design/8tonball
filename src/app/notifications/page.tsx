@@ -386,13 +386,29 @@ export default function NotificationsPage() {
                                 </div>
                             </>
                         ) : (
-                            /* Generic notification view */
-                            <div className="p-8">
-                                <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mx-auto mb-4">
+                            /* Generic or Fallback view */
+                            <div className="p-8 flex flex-col items-center">
+                                <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-4">
                                     {getIcon(selectedNotif.type)}
                                 </div>
-                                <p className="text-center text-white/80 leading-relaxed">{selectedNotif.message}</p>
-                                <p className="text-center text-white/30 text-xs mt-3">{getRelativeTime(selectedNotif.created_at)}</p>
+                                <p className="text-center text-white/80 leading-relaxed mb-6">{selectedNotif.message}</p>
+
+                                {/* Fallback for unlinked Wins */}
+                                {selectedNotif.type === 'win' && (
+                                    <div className="w-full bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 mb-4 text-center">
+                                        <p className="text-sm text-yellow-200 mb-3">
+                                            We couldn't load the specific event details. Please check your Archives to find your win and contact the host.
+                                        </p>
+                                        <button
+                                            onClick={() => window.location.href = '/profile?tab=archives'}
+                                            className="w-full py-3 bg-yellow-500 text-black font-black uppercase tracking-widest text-xs rounded-lg hover:brightness-110 active:scale-95 transition-all"
+                                        >
+                                            Go to Archives
+                                        </button>
+                                    </div>
+                                )}
+
+                                <p className="text-center text-white/30 text-xs">{getRelativeTime(selectedNotif.created_at)}</p>
                             </div>
                         )}
                     </div>

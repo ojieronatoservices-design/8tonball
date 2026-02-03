@@ -26,16 +26,24 @@ type EntryWithEvent = {
 
 import { EventCard } from '@/components/EventCard'
 
+// Global cache for instant tab switching
+let globalProfileCache: any = null
+let globalEntriesCache: any[] | null = null
+let globalCountsCache: any = null
+let globalHostedCache: any = null
+
 export default function ProfilePage() {
     const { user, isLoaded: isUserLoaded } = useUser()
     const { userId, isLoaded: isAuthLoaded } = useAuth()
     const { signOut } = useClerk()
+
+    // Initialize with cached data if available
+    const [isLoading, setIsLoading] = useState(!globalProfileCache)
+    const [profile, setProfile] = useState<any>(globalProfileCache)
+    const [myEntries, setMyEntries] = useState<EntryWithEvent[]>(globalEntriesCache || [])
+    const [hostedEvents, setHostedEvents] = useState<any[]>(globalHostedCache || [])
+    const [entryCounts, setEntryCounts] = useState<Record<string, number>>(globalCountsCache || {})
     const { getClient } = useSupabase()
-    const [profile, setProfile] = useState<any>(null)
-    const [isLoading, setIsLoading] = useState(true)
-    const [myEntries, setMyEntries] = useState<EntryWithEvent[]>([])
-    const [hostedEvents, setHostedEvents] = useState<any[]>([])
-    const [entryCounts, setEntryCounts] = useState<Record<string, number>>({})
     const [activeTab, setActiveTab] = useState<'live' | 'archives' | 'hosted'>('live')
 
     // Payout State
@@ -46,10 +54,13 @@ export default function ProfilePage() {
 
     const fetchProfile = async (silent = false) => {
         if (!userId) return
+
+        // If we have cache, don't show loading spinner, but still fetch in background to update
+        if (!globalProfileCache && !silent) setIsLoading(true)
+
         const supabaseClient = await getClient()
         if (!supabaseClient) return
 
-        if (!silent) setIsLoading(true)
         try {
             // PHASE 1: Fetch profile and entries in parallel
             const [profileResult, entriesResult] = await Promise.all([
@@ -75,6 +86,9 @@ export default function ProfilePage() {
             ])
 
             if (profileResult.error) throw profileResult.error
+
+            // Update cache and state
+            globalProfileCache = profileResult.data
             setProfile(profileResult.data)
 
             // End loading state early - show profile immediately
@@ -85,6 +99,7 @@ export default function ProfilePage() {
             }
 
             const entries = entriesResult.data as any[] || []
+            globalEntriesCache = entries
             setMyEntries(entries)
 
             // PHASE 2: Fetch entry counts in PARALLEL (not sequential loop)
@@ -100,6 +115,7 @@ export default function ProfilePage() {
                 const countResults = await Promise.all(countPromises)
                 const counts: Record<string, number> = {}
                 countResults.forEach(({ id, count }) => { counts[id] = count })
+                globalCountsCache = counts
                 setEntryCounts(counts)
             }
 
@@ -111,7 +127,10 @@ export default function ProfilePage() {
                     .eq('host_user_id', userId)
                     .order('created_at', { ascending: false })
                     .then(({ data, error }: { data: any[] | null, error: any }) => {
-                        if (!error && data) setHostedEvents(data)
+                        if (!error && data) {
+                            globalHostedCache = data
+                            setHostedEvents(data)
+                        }
                     })
             }
         } catch (error) {
