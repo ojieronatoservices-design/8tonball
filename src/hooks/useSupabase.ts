@@ -18,33 +18,48 @@ export function useSupabase() {
                     return cachedClient.current
                 }
 
-                try {
-                    // Reduced timeout for faster mobile experience (3s instead of 8s)
-                    const tokenPromise = getToken({ template: 'supabase' })
-                    const timeoutPromise = new Promise((_, reject) =>
-                        setTimeout(() => reject(new Error('Token timeout')), 3000)
-                    )
+                // Retry logic for flaky mobile networks
+                let attempts = 0
+                const maxAttempts = 2
 
-                    const token = await Promise.race([tokenPromise, timeoutPromise]) as string | null
+                while (attempts < maxAttempts) {
+                    try {
+                        attempts++
+                        // Relaxed timeout for mobile (6s)
+                        const tokenPromise = getToken({ template: 'supabase' })
+                        const timeoutPromise = new Promise((_, reject) =>
+                            setTimeout(() => reject(new Error('Token timeout')), 6000)
+                        )
 
-                    // Return cached client if token hasn't changed
-                    if (token === lastToken.current && cachedClient.current) {
-                        lastFetchTime.current = now
-                        return cachedClient.current
-                    }
+                        const token = await Promise.race([tokenPromise, timeoutPromise]) as string | null
 
-                    if (token) {
-                        lastToken.current = token
-                        lastFetchTime.current = now
-                        cachedClient.current = createClerkSupabaseClient(token)
-                        return cachedClient.current
+                        // Return cached client if token hasn't changed
+                        if (token === lastToken.current && cachedClient.current) {
+                            lastFetchTime.current = now
+                            return cachedClient.current
+                        }
+
+                        if (token) {
+                            lastToken.current = token
+                            lastFetchTime.current = now
+                            cachedClient.current = createClerkSupabaseClient(token)
+                            return cachedClient.current
+                        }
+                    } catch (error) {
+                        console.error(`[useSupabase] Attempt ${attempts} failed:`, error)
+                        // If this was the last attempt, break and fallback
+                        if (attempts === maxAttempts) break
+
+                        // Wait a bit before retrying
+                        await new Promise(r => setTimeout(r, 1000))
                     }
-                } catch (error) {
-                    console.error('[useSupabase] getToken failed or timed out:', error)
-                    // Return cached client if available, even if token refresh failed
-                    if (cachedClient.current) {
-                        return cachedClient.current
-                    }
+                }
+
+                console.warn('[useSupabase] All attempts failed, using fallback')
+
+                // Return cached client if available, even if refresh failed
+                if (cachedClient.current) {
+                    return cachedClient.current
                 }
 
                 // Fallback to anon client

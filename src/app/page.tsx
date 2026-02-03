@@ -28,47 +28,56 @@ export default function HomePage() {
 
     setIsLoading(true)
     try {
-      // Fetch open raffles
-      const { data: eventsData, error: eventsError } = await supabaseClient
-        .from('raffles')
-        .select('*')
-        .eq('status', 'open')
-        .order('created_at', { ascending: false })
-
-      if (eventsError) throw eventsError
-
-      // Fetch user's existing entries for filtering
-      if (userId) {
-        const { data: entries } = await supabaseClient
+      // PHASE 1: Fetch Events, User Entries, and Admin Status in PARALLEL
+      const [eventsResult, entriesResult, profileResult] = await Promise.all([
+        supabaseClient
+          .from('raffles')
+          .select('*')
+          .eq('status', 'open')
+          .order('created_at', { ascending: false }),
+        userId ? supabaseClient
           .from('entries')
           .select('raffle_id')
-          .eq('user_id', userId)
-
-        const entryIds = new Set<string>(entries?.map((e: { raffle_id: string }) => e.raffle_id) || [])
-        setUserEntryIds(entryIds)
-      }
-
-      setEvents(eventsData || [])
-
-      // Fetch admin status
-      if (userId) {
-        const { data: profile } = await supabaseClient
+          .eq('user_id', userId) : Promise.resolve({ data: [] }),
+        userId ? supabaseClient
           .from('profiles')
           .select('is_admin')
           .eq('id', userId)
-          .single()
-        setIsAdmin(profile?.is_admin || false)
+          .single() : Promise.resolve({ data: null })
+      ])
+
+      if (eventsResult.error) throw eventsResult.error
+
+      // Process User Entries
+      if (entriesResult.data) {
+        const entryIds = new Set<string>(entriesResult.data.map((e: { raffle_id: string }) => e.raffle_id))
+        setUserEntryIds(entryIds)
       }
 
-      if (eventsData && eventsData.length > 0) {
-        const counts: Record<string, number> = {}
-        for (const event of eventsData) {
-          const { count } = await supabaseClient
+      // Process Admin Status
+      const profile = profileResult.data as { is_admin?: boolean } | null
+      setIsAdmin(profile?.is_admin || false)
+
+      // Set Events Immediately
+      const eventsData = eventsResult.data || []
+      setEvents(eventsData)
+
+      // Stop loading spinner immediately so user sees content
+      setIsLoading(false)
+
+      // PHASE 2: Fetch Entry Counts in PARALLEL (Background)
+      if (eventsData.length > 0) {
+        const countPromises = eventsData.map((event: any) =>
+          supabaseClient
             .from('entries')
             .select('*', { count: 'exact', head: true })
             .eq('raffle_id', event.id)
-          counts[event.id] = count || 0
-        }
+            .then(({ count }: { count: number | null }) => ({ id: event.id, count: count || 0 }))
+        )
+
+        const countResults = await Promise.all(countPromises)
+        const counts: Record<string, number> = {}
+        countResults.forEach(({ id, count }) => { counts[id] = count })
 
         setEntryCounts(prev => {
           const newCounts = { ...prev }
@@ -80,7 +89,6 @@ export default function HomePage() {
       }
     } catch (error) {
       console.error('Error fetching events:', error)
-    } finally {
       setIsLoading(false)
     }
   }
