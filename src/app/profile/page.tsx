@@ -261,8 +261,13 @@ export default function ProfilePage() {
 
     // Check if user won an event (Memoized)
     const didWin = React.useCallback((group: { event: any, entries: EntryWithEvent[] }) => {
-        return group.entries.some(e => e.id === group.event?.winning_entry_id)
-    }, [])
+        // Robust check: user ID match OR ticket number match OR entry ID match
+        const isWinnerById = group.event?.winner_id === userId
+        const isWinnerByTicket = group.entries.some(e => e.ticket_number === group.event?.winning_ticket_number)
+        const isWinnerByEntryId = group.entries.some(e => e.id === group.event?.winning_entry_id)
+
+        return isWinnerById || isWinnerByTicket || isWinnerByEntryId
+    }, [userId])
 
     const handleEnterEvent = async (eventId: string, cost: number): Promise<boolean> => {
         const supabaseClient = await getClient()

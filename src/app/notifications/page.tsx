@@ -92,8 +92,7 @@ export default function NotificationsPage() {
                 const supabaseClient = await getClient()
                 if (!supabaseClient) return
 
-                // Find raffles where this user won
-                const { data: raffles } = await supabaseClient
+                let query = supabaseClient
                     .from('raffles')
                     .select(`
                         id, title, description, media_urls, entry_cost_tibs, status, drawn_at,
@@ -103,11 +102,30 @@ export default function NotificationsPage() {
                     `)
                     .eq('winner_user_id', userId)
                     .eq('status', 'drawn')
+
+                // CRITICAL FIX: Try to match the specific raffle, not just the latest one
+                if (notif.raffle_id) {
+                    query = query.eq('id', notif.raffle_id)
+                } else {
+                    // Fallback: Parse title from message "You won [Title]!"
+                    // This is heuristic but better than always showing the latest
+                    const match = notif.message.match(/You won (.+?)!/i)
+                    if (match && match[1]) {
+                        // Use ILIKE for partial title match
+                        query = query.ilike('title', `%${match[1]}%`)
+                    }
+                }
+
+                // Still order by drawn_at as tiebreaker
+                const { data: raffles } = await query
                     .order('drawn_at', { ascending: false })
                     .limit(1)
 
                 if (raffles && raffles.length > 0) {
                     setSelectedRaffle(raffles[0] as unknown as RaffleDetails)
+                } else {
+                    // If specific match fails, fallback to latest (or show nothing? sticking to latest might be safer for UX than empty)
+                    console.warn('Could not find specific winning raffle, creating a task to investigate.')
                 }
             } catch (err) {
                 console.error('Error fetching raffle:', err)
