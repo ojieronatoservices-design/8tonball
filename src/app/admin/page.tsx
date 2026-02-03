@@ -877,7 +877,6 @@ export default function AdminDashboard() {
     }
 
     // Simplified access: Admins see everything, others see Host Dashboard.
-    // The previous 8,000 Tibs spending restriction has been removed as per user request.
     if (!userId) {
         return (
             <div className="flex flex-col items-center justify-center py-32 gap-6 text-center px-8">
@@ -888,6 +887,25 @@ export default function AdminDashboard() {
                 <p className="text-white/40 text-sm max-w-xs">
                     Please sign in to access the dashboard.
                 </p>
+            </div>
+        )
+    }
+
+    // Block access ONLY if not admin AND not host eligible
+    // Admins should NEVER see this screen.
+    if (!isAdmin && !isHostEligible) {
+        return (
+            <div className="flex flex-col items-center justify-center py-32 gap-6 text-center px-8">
+                <div className="bg-red-500/20 p-4 rounded-2xl border border-red-500/30">
+                    <ShieldAlert className="text-red-500" size={48} />
+                </div>
+                <h2 className="text-2xl font-black">Access Denied</h2>
+                <p className="text-white/40 text-sm max-w-xs">
+                    You need to spend at least <span className="text-primary font-bold">8,000 Tibs</span> to become eligible to host events.
+                </p>
+                <a href="/wallet" className="mt-4 px-6 py-3 bg-primary text-black font-black uppercase tracking-widest rounded-2xl text-sm">
+                    Go to Wallet
+                </a>
             </div>
         )
     }
@@ -1086,12 +1104,17 @@ export default function AdminDashboard() {
                                     </div>
                                     <button
                                         onClick={handleLaunchEvent}
-                                        disabled={isLaunching}
+                                        disabled={isLaunching || (!isAdmin && !isHostEligible)}
                                         className="w-full py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 mt-2 transition-transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         {isLaunching && <Loader2 size={18} className="animate-spin" />}
-                                        {isLaunching ? 'Launching...' : 'Launch'}
+                                        {isLaunching ? 'Launching...' : (!isAdmin && !isHostEligible) ? 'Eligibility Required' : 'Launch'}
                                     </button>
+                                    {!isAdmin && !isHostEligible && (
+                                        <p className="text-[10px] text-red-500 font-black uppercase tracking-widest text-center">
+                                            ⚠️ Spending goal of 8,000 Tibs required to host.
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         )}
