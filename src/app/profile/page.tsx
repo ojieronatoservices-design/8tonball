@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { Plus, Ticket, ShieldCheck, Clock, Trophy, Loader2, User, LogOut, Wallet, CheckSquare, X, Settings, XCircle, Mail, ChevronDown } from 'lucide-react'
 import { useUser, useAuth, useClerk } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
@@ -201,12 +201,26 @@ export default function ProfilePage() {
     const [expandedId, setExpandedId] = useState<string | null>(null)
 
     useEffect(() => {
+        let ticking = false
+
         const handleScroll = () => {
-            setScrollY(window.scrollY)
+            if (!ticking) {
+                requestAnimationFrame(() => {
+                    const current = window.scrollY
+                    // Only update if it affects the header folding (up to 150px)
+                    if (current <= 150) {
+                        setScrollY(current)
+                    } else if (scrollY !== 150) {
+                        setScrollY(150)
+                    }
+                    ticking = false
+                })
+                ticking = true
+            }
         }
         window.addEventListener('scroll', handleScroll, { passive: true })
         return () => window.removeEventListener('scroll', handleScroll)
-    }, [])
+    }, [scrollY])
 
     const handleLogout = async () => {
         await signOut()
@@ -218,26 +232,34 @@ export default function ProfilePage() {
     const progress = (totalSpent / threshold) * 100
     const isHostEligible = profile?.is_host_eligible || false
 
-    // Group entries by raffle_id
-    const groupedEntries = myEntries.reduce((acc, entry) => {
-        const raffleId = entry.raffle_id
-        if (!acc[raffleId]) {
-            acc[raffleId] = {
-                event: entry.raffles,
-                entries: []
+    // Group entries by raffle_id (Memoized)
+    const groupedEntries = useMemo(() => {
+        return myEntries.reduce((acc, entry) => {
+            const raffleId = entry.raffle_id
+            if (!acc[raffleId]) {
+                acc[raffleId] = {
+                    event: entry.raffles,
+                    entries: []
+                }
             }
-        }
-        acc[raffleId].entries.push(entry)
-        return acc
-    }, {} as Record<string, { event: any, entries: EntryWithEvent[] }>)
+            acc[raffleId].entries.push(entry)
+            return acc
+        }, {} as Record<string, { event: any, entries: EntryWithEvent[] }>)
+    }, [myEntries])
 
-    const liveGroups = Object.values(groupedEntries).filter(g => g.event?.status === 'open')
-    const archivedGroups = Object.values(groupedEntries).filter(g => g.event?.status !== 'open')
+    const liveGroups = useMemo(() =>
+        Object.values(groupedEntries).filter(g => g.event?.status === 'open'),
+        [groupedEntries]
+    )
+    const archivedGroups = useMemo(() =>
+        Object.values(groupedEntries).filter(g => g.event?.status !== 'open'),
+        [groupedEntries]
+    )
 
-    // Check if user won an event
-    const didWin = (group: { event: any, entries: EntryWithEvent[] }) => {
+    // Check if user won an event (Memoized)
+    const didWin = React.useCallback((group: { event: any, entries: EntryWithEvent[] }) => {
         return group.entries.some(e => e.id === group.event?.winning_entry_id)
-    }
+    }, [])
 
     const handleEnterEvent = async (eventId: string, cost: number): Promise<boolean> => {
         const supabaseClient = await getClient()

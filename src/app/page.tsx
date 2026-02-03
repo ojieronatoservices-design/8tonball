@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { Trophy, Clock, Users, ArrowRight, Loader2, Share2, Facebook, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Coins, Search } from 'lucide-react'
 import { useAuth, useUser } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
@@ -44,7 +44,7 @@ export default function HomePage() {
           .select('raffle_id')
           .eq('user_id', userId)
 
-        const entryIds = new Set(entries?.map(e => e.raffle_id) || [])
+        const entryIds = new Set<string>(entries?.map((e: { raffle_id: string }) => e.raffle_id) || [])
         setUserEntryIds(entryIds)
       }
 
@@ -194,7 +194,7 @@ export default function HomePage() {
   }, []) // Empty deps - setup once, cleanup on unmount
 
   // Updated handleEnterEvent to return success status for UI update
-  const handleEnterEvent = async (eventId: string, cost: number): Promise<boolean> => {
+  const handleEnterEvent = React.useCallback(async (eventId: string, cost: number): Promise<boolean> => {
     if (!isSignedIn) {
       alert('Please log in to enter events.')
       return false
@@ -237,13 +237,25 @@ export default function HomePage() {
       alert(error.message || 'Error entering event.')
       return false
     }
-  }
+  }, [isSignedIn, userId, getClient])
 
-  const handleShareFacebook = (event: any) => {
+  const handleShareFacebook = React.useCallback((event: any) => {
     const url = window.location.origin + '/event/' + event.id
     const shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(`Check out this event: ${event.title} on 8TONBALL!`)}`
     window.open(shareUrl, '_blank', 'width=600,height=400')
-  }
+  }, [])
+
+  const filteredEvents = useMemo(() => {
+    return events.filter(event => {
+      const matchesSearch = !searchQuery ||
+        event.title?.toLowerCase().includes(searchQuery) ||
+        event.description?.toLowerCase().includes(searchQuery);
+
+      const alreadyJoined = userEntryIds.has(event.id);
+
+      return matchesSearch && !alreadyJoined;
+    });
+  }, [events, searchQuery, userEntryIds]);
 
   return (
     <div className="flex flex-col pb-8 -mx-6">
@@ -259,30 +271,16 @@ export default function HomePage() {
             <Clock size={48} />
             <p className="font-bold">No active events yet.</p>
           </div>
-        ) : (() => {
-          const filteredEvents = events.filter(event => {
-            const matchesSearch = !searchQuery ||
-              event.title?.toLowerCase().includes(searchQuery) ||
-              event.description?.toLowerCase().includes(searchQuery);
-
-            const alreadyJoined = userEntryIds.has(event.id);
-
-            return matchesSearch && !alreadyJoined;
-          });
-
-          if (filteredEvents.length === 0) {
-            return (
-              <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-4 bg-card rounded-3xl border border-border animate-in fade-in duration-300">
-                <Search className="text-muted-foreground/20" size={48} />
-                <div className="text-center">
-                  <p className="font-bold text-foreground">No matches found</p>
-                  <p className="text-xs mt-1">Try a different keyword</p>
-                </div>
-              </div>
-            );
-          }
-
-          return filteredEvents.map((event) => (
+        ) : filteredEvents.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-4 bg-card rounded-3xl border border-border animate-in fade-in duration-300">
+            <Search className="text-muted-foreground/20" size={48} />
+            <div className="text-center">
+              <p className="font-bold text-foreground">No matches found</p>
+              <p className="text-xs mt-1">Try a different keyword</p>
+            </div>
+          </div>
+        ) : (
+          filteredEvents.map((event) => (
             <EventCard
               key={event.id}
               event={event}
@@ -292,8 +290,8 @@ export default function HomePage() {
               userId={userId}
               isAdmin={isAdmin}
             />
-          ));
-        })()}
+          ))
+        )}
       </div>
     </div>
   )

@@ -56,14 +56,27 @@ export function Shell({ children }: ShellProps) {
     const lastScrollY = useRef(0)
 
     useEffect(() => {
+        let ticking = false
+
         const handleScroll = () => {
-            const currentScrollY = window.scrollY
-            if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
-                setIsVisible(false)
-            } else {
-                setIsVisible(true)
+            if (!ticking) {
+                requestAnimationFrame(() => {
+                    const currentScrollY = window.scrollY
+                    const diff = Math.abs(currentScrollY - lastScrollY.current)
+
+                    // Only update visibility if scroll moved enough (e.g. 10px) to prevent jitter
+                    if (diff > 10) {
+                        if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
+                            setIsVisible(false)
+                        } else {
+                            setIsVisible(true)
+                        }
+                        lastScrollY.current = currentScrollY
+                    }
+                    ticking = false
+                })
+                ticking = true
             }
-            lastScrollY.current = currentScrollY
         }
 
         window.addEventListener('scroll', handleScroll, { passive: true })

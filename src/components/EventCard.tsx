@@ -17,7 +17,7 @@ interface EventCardProps {
     entryNumbers?: string[]
 }
 
-export const EventCard = ({
+export const EventCard = React.memo(({
     event,
     entryCount,
     onEnter,
@@ -316,4 +316,6 @@ export const EventCard = ({
             )}
         </>
     )
-}
+})
+
+EventCard.displayName = 'EventCard'
