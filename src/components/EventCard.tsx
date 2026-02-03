@@ -16,6 +16,7 @@ interface EventCardProps {
     variant?: 'feed' | 'profile-live' | 'profile-archive'
     isWinner?: boolean
     entryNumbers?: string[]
+    onClaim?: (id: string) => Promise<void>
 }
 
 export const EventCard = React.memo(({
@@ -27,7 +28,8 @@ export const EventCard = React.memo(({
     isAdmin,
     variant = 'feed',
     isWinner = false,
-    entryNumbers = []
+    entryNumbers = [],
+    onClaim
 }: EventCardProps) => {
     const [currentImageIndex, setCurrentImageIndex] = useState(0)
     const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
@@ -193,7 +195,11 @@ export const EventCard = React.memo(({
                         <div className="flex items-center justify-center gap-2">
                             {variant === 'profile-archive' ? (
                                 <div className="flex items-center gap-2">
-                                    {isWinner ? (
+                                    {event.status === 'claimed' ? (
+                                        <div className="flex items-center gap-1.5 text-primary font-black text-[10px] uppercase tracking-wider">
+                                            ✓ CLAIMED
+                                        </div>
+                                    ) : isWinner ? (
                                         <div className="flex items-center gap-1.5 text-green-500 font-black text-xs uppercase tracking-tight">
                                             <Trophy size={14} /> WON
                                         </div>
@@ -243,9 +249,15 @@ export const EventCard = React.memo(({
                             <div className="flex justify-between items-center px-1">
                                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Your Tickets ({entryNumbers.length})</span>
                                 {variant === 'profile-archive' && isWinner && (
-                                    <span className="text-[9px] font-black uppercase bg-primary text-black px-1.5 py-0.5 rounded-sm animate-pulse tracking-widest flex items-center gap-1">
-                                        <Trophy size={10} /> Winner
-                                    </span>
+                                    event.status === 'claimed' ? (
+                                        <span className="text-[9px] font-black uppercase bg-green-500/20 text-green-500 border border-green-500/30 px-1.5 py-0.5 rounded-sm tracking-widest flex items-center gap-1">
+                                            Claimed
+                                        </span>
+                                    ) : (
+                                        <span className="text-[9px] font-black uppercase bg-primary text-black px-1.5 py-0.5 rounded-sm animate-pulse tracking-widest flex items-center gap-1">
+                                            <Trophy size={10} /> Winner
+                                        </span>
+                                    )
                                 )}
                             </div>
                             <div className="flex flex-wrap gap-1.5 max-h-[84px] overflow-y-auto pr-1 custom-scrollbar">
@@ -268,7 +280,7 @@ export const EventCard = React.memo(({
                             </div>
 
                             {/* Contact Host Button for Winners */}
-                            {variant === 'profile-archive' && isWinner && event.host && (
+                            {variant === 'profile-archive' && isWinner && event.status !== 'claimed' && event.host && (
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation()
@@ -280,6 +292,19 @@ export const EventCard = React.memo(({
                                     className="mt-2 w-full py-3 bg-primary text-black font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all shadow-lg neon-border"
                                 >
                                     <Share2 size={12} /> Contact Host to Claim
+                                </button>
+                            )}
+
+                            {/* Mark as Claimed Button for Hosts */}
+                            {variant === 'profile-archive' && userId === event.host_user_id && event.status === 'drawn' && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        onClaim?.(event.id)
+                                    }}
+                                    className="mt-2 w-full py-3 bg-green-500 text-black font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all shadow-lg"
+                                >
+                                    ✓ Mark as Claimed
                                 </button>
                             )}
                         </div>

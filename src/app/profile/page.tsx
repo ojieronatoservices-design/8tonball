@@ -324,6 +324,26 @@ export default function ProfilePage() {
         }
     }
 
+    const handleClaim = async (raffleId: string) => {
+        const supabaseClient = await getClient()
+        if (!supabaseClient) return
+
+        try {
+            const { error } = await supabaseClient
+                .from('raffles')
+                .update({ status: 'claimed' })
+                .eq('id', raffleId)
+
+            if (error) throw error
+
+            // Refresh data silently
+            fetchProfile(true)
+        } catch (error) {
+            console.error('Error claiming prize:', error)
+            alert('Error marking as claimed. Please try again.')
+        }
+    }
+
     const handleRequestPayout = async () => {
         if (!gcashNumber || !gcashName) {
             alert('Please fill in all GCash details.')
@@ -563,6 +583,7 @@ export default function ProfilePage() {
                                                 onShare={handleShareFacebook}
                                                 userId={userId}
                                                 variant="profile-live"
+                                                onClaim={handleClaim}
                                                 entryNumbers={group.entries.map(e => e.ticket_number).filter(Boolean) as string[]}
                                             />
                                         </div>
@@ -624,6 +645,7 @@ export default function ProfilePage() {
                                                 userId={userId}
                                                 variant="profile-archive"
                                                 isWinner={won}
+                                                onClaim={handleClaim}
                                                 entryNumbers={group.entries.map(e => e.ticket_number).filter(Boolean) as string[]}
                                             />
                                         </div>
@@ -688,6 +710,7 @@ export default function ProfilePage() {
                                                 userId={userId}
                                                 variant={isLive ? 'feed' : 'profile-archive'}
                                                 isWinner={false}
+                                                onClaim={handleClaim}
                                             />
                                         </div>
                                     )}
