@@ -627,7 +627,31 @@ export default function AdminDashboard() {
                                 <p className="text-[10px] text-white/20">Entries</p>
                             </div>
                         </div>
-                        {event.goal_tibs > 0 && (
+
+                        {event.status === 'drawn' && event.winner && (
+                            <div className="bg-primary/5 p-4 rounded-2xl border border-primary/20 flex flex-col gap-2">
+                                <div className="flex items-center gap-2 text-primary">
+                                    <Trophy size={18} />
+                                    <span className="text-xs font-black uppercase tracking-widest">Official Winner</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        <div className="text-lg font-black">{event.winner.display_name}</div>
+                                        <div className="text-[10px] text-white/40 uppercase font-black tracking-widest">{event.winner.email}</div>
+                                    </div>
+                                    <div className="bg-primary text-black px-3 py-1 rounded-xl text-xs font-black italic">
+                                        #{event.winning_entry?.ticket_number || '---'}
+                                    </div>
+                                </div>
+                                {!goalMet && (
+                                    <div className="text-[9px] text-red-500 font-black uppercase tracking-widest bg-red-500/10 p-2 rounded-lg text-center border border-red-500/10">
+                                        ⚠️ WARNING: This raffle was drawn without meeting the goal.
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {event.goal_tibs > 0 && event.status === 'open' && (
                             <div className="flex flex-col gap-2">
                                 <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
                                     <span className={goalMet ? "text-green-500" : "text-red-500"}>{goalMet ? '✓ Goal Met' : '⚠️ Goal Not Met'}</span>
@@ -770,7 +794,12 @@ export default function AdminDashboard() {
                             {event.status === 'drawn' && event.winner && (
                                 <>
                                     <span>•</span>
-                                    <span className="text-primary font-black">WINNER: {event.winner.display_name} (#{event.winning_entry?.ticket_number})</span>
+                                    <span className="text-primary font-black flex items-center gap-1">
+                                        <Trophy size={10} /> {event.winner.display_name} (#{event.winning_entry?.ticket_number})
+                                    </span>
+                                    {!goalMet && (
+                                        <span className="text-[8px] bg-red-500/20 text-red-500 px-1 rounded border border-red-500/20 ml-1">UNMET GOAL</span>
+                                    )}
                                 </>
                             )}
                         </div>
