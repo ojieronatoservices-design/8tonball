@@ -62,6 +62,8 @@ const CreateEventModal = memo(({
             const newPreviews = newFiles.map(file => URL.createObjectURL(file))
             setEventPreviews(prev => [...prev, ...newPreviews])
         }
+        // Reset the input value so the same file can be selected again if needed
+        e.target.value = ''
     }
 
     const removeImage = (index: number) => {
@@ -742,7 +744,16 @@ export default function AdminDashboard() {
                                         <button onClick={() => { setNewFiles(prev => prev.filter((_, i) => i !== idx)); setNewPreviews(prev => { const url = prev[idx]; if (url) URL.revokeObjectURL(url); return prev.filter((_, i) => i !== idx) }) }} className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><X size={16} className="text-white" /></button>
                                     </div>
                                 ))}
-                                <label className="aspect-square bg-white/5 border border-dashed border-white/20 rounded-xl flex items-center justify-center text-white/20 hover:text-white/40 cursor-pointer transition-colors"><input type="file" className="hidden" accept="image/*,video/*" multiple onChange={(e) => { const files = Array.from(e.target.files || []); setNewFiles(prev => [...prev, ...files]); const previews = files.map(f => URL.createObjectURL(f)); setNewPreviews(prev => [...prev, ...previews]) }} /><Plus size={24} /></label>
+                                <label className="aspect-square bg-white/5 border border-dashed border-white/20 rounded-xl flex items-center justify-center text-white/20 hover:text-white/40 cursor-pointer transition-colors"><input type="file" className="hidden" accept="image/*,video/*" multiple onChange={(e) => {
+                                    const files = e.target.files
+                                    if (files && files.length > 0) {
+                                        const fileList = Array.from(files)
+                                        setNewFiles(prev => [...prev, ...fileList])
+                                        const previews = fileList.map(f => URL.createObjectURL(f))
+                                        setNewPreviews(prev => [...prev, ...previews])
+                                    }
+                                    e.target.value = ''
+                                }} /><Plus size={24} /></label>
                             </div>
                         </div>
                         <div className="flex gap-3 pt-4">
