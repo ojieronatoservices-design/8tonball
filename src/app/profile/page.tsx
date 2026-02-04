@@ -259,32 +259,7 @@ export default function ProfilePage() {
         window.location.href = '/'
     }
 
-    // Mark unread wins as read when viewing Archive tab
-    useEffect(() => {
-        if (activeTab === 'archives' && userId) {
-            const markAsRead = async () => {
-                const supabaseClient = await getClient()
-                if (!supabaseClient) return
 
-                const unreadWins = archivedGroups
-                    .filter(g => didWin(g) && !g.event.is_read)
-                    .map(g => g.event.id)
-
-                if (unreadWins.length > 0) {
-                    const { error } = await supabaseClient
-                        .from('raffles')
-                        .update({ is_read: true })
-                        .in('id', unreadWins)
-
-                    if (!error) {
-                        // Refresh data silently to clear badges
-                        fetchProfile(true)
-                    }
-                }
-            }
-            markAsRead()
-        }
-    }, [activeTab, userId, archivedGroups])
 
     const threshold = 8000
     const totalSpent = profile?.total_tibs_spent || 0
@@ -326,6 +301,33 @@ export default function ProfilePage() {
 
         return isWinnerById || isWinnerByTicket || isWinnerByEntryId
     }, [userId])
+
+    // Mark unread wins as read when viewing Archive tab
+    useEffect(() => {
+        if (activeTab === 'archives' && userId) {
+            const markAsRead = async () => {
+                const supabaseClient = await getClient()
+                if (!supabaseClient) return
+
+                const unreadWins = archivedGroups
+                    .filter(g => didWin(g) && !g.event.is_read)
+                    .map(g => g.event.id)
+
+                if (unreadWins.length > 0) {
+                    const { error } = await supabaseClient
+                        .from('raffles')
+                        .update({ is_read: true })
+                        .in('id', unreadWins)
+
+                    if (!error) {
+                        // Refresh data silently to clear badges
+                        fetchProfile(true)
+                    }
+                }
+            }
+            markAsRead()
+        }
+    }, [activeTab, userId, archivedGroups, didWin])
 
     const handleEnterEvent = async (eventId: string, cost: number): Promise<boolean> => {
         const supabaseClient = await getClient()
