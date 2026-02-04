@@ -221,8 +221,16 @@ const AnalyticsOverview = memo(({ analytics }: { analytics: any }) => (
                 <ShieldAlert size={18} />
                 <span className="text-xs font-bold uppercase tracking-widest">Pending</span>
             </div>
-            <div className="text-xl font-black">{analytics.pendingPayments} <span className="text-sm font-bold text-white/40">Receipts</span></div>
-            <p className="text-[10px] text-white/20 uppercase font-black tracking-widest">Awaiting Approval</p>
+            <div className="text-xl font-black">{analytics.pendingPayments} <span className="text-sm font-bold text-white/40">Purchases</span></div>
+            <p className="text-[10px] text-white/20 uppercase font-black tracking-widest">Awaiting Verification</p>
+        </div>
+        <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2">
+            <div className="flex items-center gap-2 text-white/40">
+                <Coins size={18} />
+                <span className="text-xs font-bold uppercase tracking-widest">Payouts</span>
+            </div>
+            <div className="text-xl font-black">{analytics.pendingPayoutRequests} <span className="text-sm font-bold text-white/40">Requests</span></div>
+            <p className="text-[10px] text-white/20 uppercase font-black tracking-widest">Awaiting Payout</p>
         </div>
         <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2">
             <div className="flex items-center gap-2 text-white/40">
@@ -359,6 +367,7 @@ export default function AdminDashboard() {
         totalRevenuePHP: number
         avgEntriesPerEvent: number
         pendingPayments: number
+        pendingPayoutRequests: number
     } | null>(null)
     const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false)
 
@@ -465,13 +474,15 @@ export default function AdminDashboard() {
                 { data: eventsData },
                 { count: entriesCount },
                 { data: transactionData },
-                { count: pendingCount }
+                { count: pendingCount },
+                { count: pendingPayoutsCount }
             ] = await Promise.all([
                 supabaseClient.from('profiles').select('*', { count: 'exact', head: true }),
-                supabaseClient.from('raffles').select('entry_cost_tibs, entries:entries!entries_raffle_id_fkey(count)'), // Only fetch cost and entry count
+                supabaseClient.from('raffles').select('entry_cost_tibs, entries:entries!entries_raffle_id_fkey(count)'),
                 supabaseClient.from('entries').select('*', { count: 'exact', head: true }),
-                supabaseClient.from('transactions').select('requested_tibs').eq('status', 'approved'), // Still necessary to fetch values for sum if no RPC
-                supabaseClient.from('transactions').select('*', { count: 'exact', head: true }).eq('status', 'pending')
+                supabaseClient.from('transactions').select('requested_tibs').eq('status', 'approved'),
+                supabaseClient.from('transactions').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+                supabaseClient.from('payout_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending')
             ])
 
             const totalTibsInEvents = eventsData?.reduce((acc: number, curr: any) => acc + ((curr.entries?.[0]?.count || 0) * (curr.entry_cost_tibs || 0)), 0) || 0
@@ -485,7 +496,8 @@ export default function AdminDashboard() {
                 totalTibsSpentInEvents: totalTibsInEvents,
                 totalRevenuePHP: totalTibsSold / 8,
                 avgEntriesPerEvent: Math.round(avgEntries * 10) / 10,
-                pendingPayments: pendingCount || 0
+                pendingPayments: pendingCount || 0,
+                pendingPayoutRequests: pendingPayoutsCount || 0
             })
         } catch (error) { console.error('Error fetching analytics:', error) }
         finally { setIsLoadingAnalytics(false) }
