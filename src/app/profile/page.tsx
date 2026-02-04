@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useState, useRef, useMemo } from 'react'
-import { Plus, Ticket, ShieldCheck, Clock, Trophy, Loader2, User, LogOut, Wallet, CheckSquare, X, Settings, XCircle, Mail, ChevronDown, Bell } from 'lucide-react'
+import { Plus, Ticket, ShieldCheck, Clock, Trophy, Loader2, User, LogOut, Wallet, CheckSquare, X, Settings, XCircle, Mail, ChevronDown, Bell, Coins } from 'lucide-react'
 import { useUser, useAuth, useClerk } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
 import { CountdownTimer } from '@/components/CountdownTimer'
@@ -259,6 +259,33 @@ export default function ProfilePage() {
         window.location.href = '/'
     }
 
+    // Mark unread wins as read when viewing Archive tab
+    useEffect(() => {
+        if (activeTab === 'archives' && userId) {
+            const markAsRead = async () => {
+                const supabaseClient = await getClient()
+                if (!supabaseClient) return
+
+                const unreadWins = archivedGroups
+                    .filter(g => didWin(g) && !g.event.is_read)
+                    .map(g => g.event.id)
+
+                if (unreadWins.length > 0) {
+                    const { error } = await supabaseClient
+                        .from('raffles')
+                        .update({ is_read: true })
+                        .in('id', unreadWins)
+
+                    if (!error) {
+                        // Refresh data silently to clear badges
+                        fetchProfile(true)
+                    }
+                }
+            }
+            markAsRead()
+        }
+    }, [activeTab, userId, archivedGroups])
+
     const threshold = 8000
     const totalSpent = profile?.total_tibs_spent || 0
     const progress = (totalSpent / threshold) * 100
@@ -511,6 +538,11 @@ export default function ProfilePage() {
                                     </div>
                                 )}
                             </div>
+                            <p className="text-[10px] text-muted-foreground/60 font-medium leading-relaxed mt-1">
+                                {isHostEligible
+                                    ? "Verified Host: You can now launch and manage events."
+                                    : `You have already spent ${totalSpent.toLocaleString()} tibs! ${Math.max(0, threshold - totalSpent).toLocaleString()} more to go to be able to host! Keep trying your luck!`}
+                            </p>
                         </div>
                     )}
                     {isAdmin && !isFolded && (
@@ -562,7 +594,7 @@ export default function ProfilePage() {
                         liveGroups.map((group) => {
                             const isExpanded = expandedId === group.event.id;
                             return (
-                                <div key={group.event.id} className="w-full max-w-3xl mx-auto px-6">
+                                <div key={group.event.id} className="w-full">
                                     <div className={`flex flex-col bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 ${isExpanded ? 'ring-1 ring-primary/20 shadow-lg' : 'hover:bg-muted/30'}`}>
                                         {/* Collapsed Bar */}
                                         <button
@@ -618,8 +650,10 @@ export default function ProfilePage() {
                         archivedGroups.map((group) => {
                             const isExpanded = expandedId === group.event.id;
                             const won = didWin(group);
+                            const currentTibs = (group.entries?.[0]?.count || 0) * group.event.entry_cost_tibs
+                            const goalMet = group.event.goal_tibs > 0 ? currentTibs >= group.event.goal_tibs : true
                             return (
-                                <div key={group.event.id} className="w-full max-w-3xl mx-auto px-6">
+                                <div key={group.event.id} className="w-full mb-2">
                                     <div className={`flex flex-col bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 ${isExpanded ? 'ring-1 ring-primary/20 shadow-lg' : 'hover:bg-muted/30'}`}>
                                         {/* Collapsed Bar */}
                                         <button
@@ -635,9 +669,13 @@ export default function ProfilePage() {
                                                     <div className="flex items-center gap-2">
                                                         <span className="text-[10px] font-bold text-muted-foreground uppercase">x{group.entries.length} Entries</span>
                                                         <span className="w-1 h-1 rounded-full bg-border" />
-                                                        {won ? (
+                                                        {won && goalMet ? (
                                                             <div className="flex items-center gap-1 text-[10px] font-black bg-green-500 text-black px-2 py-0.5 rounded-md uppercase">
                                                                 <Trophy size={10} /> Won
+                                                            </div>
+                                                        ) : won && !goalMet ? (
+                                                            <div className="flex items-center gap-1 text-[10px] font-black bg-orange-500 text-black px-2 py-0.5 rounded-md uppercase">
+                                                                <Coins size={10} /> Tibs Refunded
                                                             </div>
                                                         ) : (
                                                             <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground/40 uppercase">
@@ -667,7 +705,8 @@ export default function ProfilePage() {
                                                     onShare={handleShareFacebook}
                                                     userId={userId}
                                                     variant="profile-archive"
-                                                    isWinner={won}
+                                                    isWinner={won && goalMet}
+                                                    isRefunded={won && !goalMet}
                                                     onClaim={handleClaim}
                                                     entryNumbers={group.entries.map(e => e.ticket_number).filter(Boolean) as string[]}
                                                 />

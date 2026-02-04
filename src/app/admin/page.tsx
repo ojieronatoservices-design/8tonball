@@ -13,6 +13,8 @@ const isVideo = (url: string) => {
     return videoExtensions.some(ext => url.toLowerCase().includes(ext)) || url.startsWith('data:video/')
 }
 
+const threshold = 8000;
+
 const CreateEventModal = memo(({
     isAdmin,
     isHostEligible,
@@ -330,6 +332,7 @@ export default function AdminDashboard() {
     // Permission State
     const [isAdmin, setIsAdmin] = useState(false)
     const [isHostEligible, setIsHostEligible] = useState(false)
+    const [totalSpentTib, setTotalSpentTib] = useState(0)
     const [isCheckingPermissions, setIsCheckingPermissions] = useState(true)
 
     // Payments State
@@ -423,8 +426,12 @@ export default function AdminDashboard() {
             const supabaseClient = await getClient()
             if (!supabaseClient) { setIsCheckingPermissions(false); return }
             try {
-                const { data: profile } = await supabaseClient.from('profiles').select('is_admin, is_host_eligible').eq('id', userId).single()
-                if (profile) { setIsAdmin(profile.is_admin || false); setIsHostEligible(profile.is_host_eligible || false) }
+                const { data: profile } = await supabaseClient.from('profiles').select('is_admin, is_host_eligible, total_tibs_spent').eq('id', userId).single()
+                if (profile) {
+                    setIsAdmin(profile.is_admin || false)
+                    setIsHostEligible(profile.is_host_eligible || false)
+                    setTotalSpentTib(profile.total_tibs_spent || 0)
+                }
             } catch (err) { console.error('Error checking permissions:', err) }
             finally { setIsCheckingPermissions(false) }
         }
@@ -956,9 +963,11 @@ export default function AdminDashboard() {
                     <p className="text-white/40 text-sm leading-relaxed">You do not have permission to access the administration panel.</p>
                 </div>
                 <div className="flex flex-col gap-3">
-                    <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+                    <div className="p-4 bg-white/5 rounded-2xl border border-white/5 text-left">
                         <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Requirements</p>
-                        <p className="text-xs text-white/60">Spending goal of 8,000 Tibs required to host events.</p>
+                        <p className="text-xs text-white/60 leading-relaxed">
+                            You have already spent {totalSpentTib.toLocaleString()} tibs! {Math.max(0, threshold - totalSpentTib).toLocaleString()} more to go to be able to host! Keep trying your luck!
+                        </p>
                     </div>
                     <button onClick={() => window.location.href = '/'} className="w-full py-4 bg-white/5 hover:bg-white/10 text-white font-black uppercase tracking-widest rounded-2xl transition-all border border-white/10">Back to Home</button>
                 </div>
@@ -967,7 +976,7 @@ export default function AdminDashboard() {
     )
 
     return (
-        <div className="min-h-screen bg-background text-sm">
+        <div className="min-h-screen bg-background text-sm -mx-6">
             {/* Sticky Header */}
             <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-white/5 px-6 py-3">
                 <div className="max-w-3xl mx-auto flex flex-col gap-3">
@@ -1000,7 +1009,7 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
-            <div className="max-w-3xl mx-auto px-6 py-8 pb-32">
+            <div className="max-w-3xl mx-auto py-8 pb-32">
                 {/* Content */}
                 {activeTab === 'analytics' ? (
                     <div className="flex flex-col gap-10">

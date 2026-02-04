@@ -15,6 +15,7 @@ interface EventCardProps {
     isAdmin?: boolean
     variant?: 'feed' | 'profile-live' | 'profile-archive'
     isWinner?: boolean
+    isRefunded?: boolean
     entryNumbers?: string[]
     onClaim?: (id: string) => Promise<void>
 }
@@ -28,6 +29,7 @@ export const EventCard = React.memo(({
     isAdmin,
     variant = 'feed',
     isWinner = false,
+    isRefunded = false,
     entryNumbers = [],
     onClaim
 }: EventCardProps) => {
@@ -268,16 +270,29 @@ export const EventCard = React.memo(({
                                         <div
                                             key={i}
                                             className={`px-3 py-1.5 rounded-lg text-[10px] font-black font-mono transition-all border ${isWinningTicket
-                                                ? 'bg-primary text-black border-primary shadow-[0_0_15px_rgba(57,255,20,0.5)] scale-110'
+                                                ? (isRefunded ? 'bg-orange-500/20 text-orange-500 border-orange-500/50' : 'bg-primary text-black border-primary shadow-[0_0_15px_rgba(57,255,20,0.5)] scale-110')
                                                 : 'bg-background text-muted-foreground border-border'
                                                 }`}
                                         >
-                                            {isWinningTicket && <Trophy size={10} className="inline mr-1 mb-0.5" />}
+                                            {isWinningTicket && !isRefunded && <Trophy size={10} className="inline mr-1 mb-0.5" />}
+                                            {isWinningTicket && isRefunded && <XCircle size={10} className="inline mr-1 mb-0.5" />}
                                             {num}
                                         </div>
                                     )
                                 })}
                             </div>
+
+                            {isRefunded && (
+                                <div className="mt-4 p-4 bg-orange-500/10 border border-orange-500/20 rounded-2xl">
+                                    <div className="flex items-center gap-2 text-orange-500 mb-1">
+                                        <Coins size={16} />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Tibs Refunded</span>
+                                    </div>
+                                    <p className="text-[10px] text-orange-500/60 font-medium leading-relaxed">
+                                        Your entries have been refunded because the event did not reach its required goal.
+                                    </p>
+                                </div>
+                            )}
 
                             {/* Contact Host Button for Winners */}
                             {variant === 'profile-archive' && isWinner && event.status !== 'claimed' && event.host && (
@@ -295,8 +310,8 @@ export const EventCard = React.memo(({
                                 </button>
                             )}
 
-                            {/* Mark as Claimed Button for Hosts */}
-                            {variant === 'profile-archive' && userId && userId === event.host_user_id && event.status === 'drawn' && (
+                            {/* Mark as Claimed Button for Winners & Hosts */}
+                            {variant === 'profile-archive' && userId && (userId === event.host_user_id || isWinner) && event.status === 'drawn' && (
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation()
