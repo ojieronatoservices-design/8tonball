@@ -719,12 +719,14 @@ export default function AdminDashboard() {
         isAdmin,
         userId,
         onSelectEvent,
+        onEditEvent,
         onDeleteEvent
     }: {
         event: any,
         isAdmin: boolean,
         userId: string | null | undefined,
         onSelectEvent: (e: any) => void,
+        onEditEvent: (e: any) => void,
         onDeleteEvent: (id: string) => void
     }) => {
         const [isExpanded, setIsExpanded] = useState(false)
@@ -765,6 +767,12 @@ export default function AdminDashboard() {
                                     <span className={goalMet ? "text-primary" : "text-white/20"}>{Math.round(progress)}% GOAL</span>
                                 </>
                             )}
+                            {event.status === 'drawn' && event.winner && (
+                                <>
+                                    <span>•</span>
+                                    <span className="text-primary font-black">WINNER: {event.winner.display_name} (#{event.winning_entry?.ticket_number})</span>
+                                </>
+                            )}
                         </div>
                     </div>
 
@@ -789,6 +797,14 @@ export default function AdminDashboard() {
                             >
                                 Details
                             </button>
+                            {event.status === 'open' && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onEditEvent(event); }}
+                                    className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all active:scale-95"
+                                >
+                                    Edit
+                                </button>
+                            )}
                             {isAdmin && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onDeleteEvent(event.id); }}
@@ -874,6 +890,7 @@ export default function AdminDashboard() {
                                 isAdmin={isAdmin}
                                 userId={userId}
                                 onSelectEvent={onSelectEvent}
+                                onEditEvent={onEditEvent}
                                 onDeleteEvent={onDeleteEvent}
                             />
                         ))}
