@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, memo, useCallback } from 'react'
-import { Plus, Check, X, LayoutDashboard, Loader2, CheckCircle2, Trophy, ShieldAlert, BarChart3, Users, Ticket, Coins, Image as ImageIcon, Edit, Trash2, Calendar } from 'lucide-react'
+import { Plus, Check, X, LayoutDashboard, Loader2, CheckCircle2, Trophy, ShieldAlert, BarChart3, Users, Ticket, Coins, Image as ImageIcon, Edit, Trash2, Calendar, ChevronDown } from 'lucide-react'
 import { useUser, useAuth } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
 import { EventCard } from '@/components/EventCard'
@@ -714,6 +714,96 @@ export default function AdminDashboard() {
         )
     })
     EditEventModal.displayName = 'EditEventModal'
+    const AdminEventBar = memo(({
+        event,
+        isAdmin,
+        userId,
+        onSelectEvent,
+        onDeleteEvent
+    }: {
+        event: any,
+        isAdmin: boolean,
+        userId: string | null | undefined,
+        onSelectEvent: (e: any) => void,
+        onDeleteEvent: (id: string) => void
+    }) => {
+        const [isExpanded, setIsExpanded] = useState(false)
+        const entryCount = event.entries?.[0]?.count || 0
+        const totalTibs = entryCount * event.entry_cost_tibs
+        const goalMet = event.goal_tibs > 0 ? totalTibs >= event.goal_tibs : true
+        const progress = event.goal_tibs > 0 ? Math.min((totalTibs / event.goal_tibs) * 100, 100) : 100
+
+        return (
+            <div className="bg-card rounded-2xl border border-white/5 overflow-hidden transition-all duration-300">
+                {/* Bar Header */}
+                <div
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="flex items-center gap-4 p-4 cursor-pointer hover:bg-white/[0.02] transition-colors"
+                >
+                    <div className="w-12 h-12 rounded-xl bg-white/5 overflow-hidden flex-shrink-0 border border-white/5">
+                        {event.media_urls?.[0] ? (
+                            isVideo(event.media_urls[0]) ? <video src={event.media_urls[0]} className="w-full h-full object-cover" />
+                                : <img src={event.media_urls[0]} alt="" className="w-full h-full object-cover" />
+                        ) : <ImageIcon className="w-full h-full p-3 text-white/10" />}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                            <h4 className="font-black text-xs uppercase tracking-tight truncate">{event.title}</h4>
+                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${event.status === 'open' ? 'bg-green-500/10 text-green-500' : 'bg-white/10 text-white/40'
+                                }`}>
+                                {event.status}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-white/20">
+                            <span>X{entryCount} ENTRIES</span>
+                            <span>•</span>
+                            <span className="truncate">{event.display_id || `#${event.id.slice(0, 4)}`}</span>
+                            {event.goal_tibs > 0 && (
+                                <>
+                                    <span>•</span>
+                                    <span className={goalMet ? "text-primary" : "text-white/20"}>{Math.round(progress)}% GOAL</span>
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className={`p-2 rounded-full hover:bg-white/5 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+                        <ChevronDown size={14} className="text-white/20" />
+                    </div>
+                </div>
+
+                {/* Expanded Content */}
+                {isExpanded && (
+                    <div className="px-4 pb-4 pt-2 border-t border-white/5 bg-white/[0.01] animate-in slide-in-from-top-2 duration-300">
+                        {event.description && (
+                            <p className="text-[11px] text-white/40 leading-relaxed whitespace-pre-wrap mb-4 px-2">
+                                {event.description}
+                            </p>
+                        )}
+
+                        <div className="flex flex-wrap gap-2 p-1">
+                            <button
+                                onClick={() => onSelectEvent(event)}
+                                className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all active:scale-95"
+                            >
+                                Details
+                            </button>
+                            {isAdmin && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onDeleteEvent(event.id); }}
+                                    className="px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl border border-red-500/20 transition-all active:scale-95"
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
+        )
+    })
+    AdminEventBar.displayName = 'AdminEventBar'
 
     const ExistingEventsSection = memo(({
         activeTab,
@@ -776,21 +866,16 @@ export default function AdminDashboard() {
                         <span className="text-[10px] font-black uppercase tracking-widest animate-pulse">Syncing Database...</span>
                     </div>
                 ) : filteredEvents.length > 0 ? (
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-3">
                         {filteredEvents.map((event) => (
-                            <div key={event.id} className="group">
-                                <EventCard
-                                    event={event}
-                                    entryCount={event.entries?.[0]?.count || 0}
-                                    onShare={() => { }}
-                                    isAdmin={isAdmin}
-                                    userId={userId}
-                                />
-                                <div className="flex mt-2 gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => onSelectEvent(event)} className="flex-1 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/5">Details</button>
-                                    {isAdmin && <button onClick={() => onDeleteEvent(event.id)} className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl border border-red-500/20"><Trash2 size={14} /></button>}
-                                </div>
-                            </div>
+                            <AdminEventBar
+                                key={event.id}
+                                event={event}
+                                isAdmin={isAdmin}
+                                userId={userId}
+                                onSelectEvent={onSelectEvent}
+                                onDeleteEvent={onDeleteEvent}
+                            />
                         ))}
                     </div>
                 ) : (
