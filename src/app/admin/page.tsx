@@ -953,23 +953,32 @@ export default function AdminDashboard() {
 
     if (!isAdmin && !isHostEligible) return (
         <div className="min-h-screen flex items-center justify-center p-6 bg-background">
-            <div className="bg-card w-full max-w-md p-10 rounded-[40px] border border-white/5 text-center flex flex-col gap-6 shadow-2xl relative overflow-hidden">
+            <div className="bg-card w-full max-w-md p-10 rounded-[40px] border border-white/5 text-center flex flex-col gap-8 shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
-                <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto border border-primary/20">
-                    <ShieldAlert size={40} className="text-primary" />
-                </div>
-                <div className="flex flex-col gap-2">
-                    <h2 className="text-3xl font-black tracking-tight">Access Denied</h2>
-                    <p className="text-white/40 text-sm leading-relaxed">You do not have permission to access the administration panel.</p>
-                </div>
-                <div className="flex flex-col gap-3">
-                    <div className="p-4 bg-white/5 rounded-2xl border border-white/5 text-left">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Requirements</p>
-                        <p className="text-xs text-white/60 leading-relaxed">
-                            You have already spent {totalSpentTib.toLocaleString()} tibs! {Math.max(0, threshold - totalSpentTib).toLocaleString()} more to go to be able to host! Keep trying your luck!
+
+                <div className="flex flex-col gap-6">
+                    <div className="w-40 h-40 mx-auto relative group">
+                        <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full scale-75 group-hover:scale-100 transition-transform duration-700" />
+                        <img
+                            src="/future_host.png"
+                            alt="Future Host"
+                            className="w-full h-full object-contain relative z-10 drop-shadow-[0_0_15px_rgba(57,255,20,0.3)]"
+                        />
+                    </div>
+
+                    <div className="flex flex-col gap-3">
+                        <h2 className="text-2xl font-black italic tracking-tight text-white uppercase">Head's up future Host!</h2>
+                        <p className="text-white/40 text-sm leading-relaxed font-medium px-4">
+                            You only need <span className="text-primary font-black">{(threshold - totalSpentTib).toLocaleString()} more tibs</span> to use in order to host an event!
                         </p>
                     </div>
-                    <button onClick={() => window.location.href = '/'} className="w-full py-4 bg-white/5 hover:bg-white/10 text-white font-black uppercase tracking-widest rounded-2xl transition-all border border-white/10">Back to Home</button>
+
+                    <button
+                        onClick={() => window.location.href = '/'}
+                        className="w-full py-5 bg-primary text-black font-black uppercase tracking-[0.2em] text-xs rounded-2xl transition-all shadow-[0_0_20px_rgba(57,255,20,0.2)] hover:shadow-[0_0_30px_rgba(57,255,20,0.4)] hover:scale-[1.02] active:scale-95 mt-2"
+                    >
+                        Discover more events
+                    </button>
                 </div>
             </div>
         </div>
