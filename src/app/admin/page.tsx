@@ -776,9 +776,9 @@ export default function AdminDashboard() {
                         <span className="text-[10px] font-black uppercase tracking-widest animate-pulse">Syncing Database...</span>
                     </div>
                 ) : filteredEvents.length > 0 ? (
-                    <div className="columns-1 md:columns-2 lg:columns-3 gap-4 space-y-4">
+                    <div className="flex flex-col gap-4">
                         {filteredEvents.map((event) => (
-                            <div key={event.id} className="break-inside-avoid group">
+                            <div key={event.id} className="group">
                                 <EventCard
                                     event={event}
                                     entryCount={event.entries?.[0]?.count || 0}
@@ -788,7 +788,6 @@ export default function AdminDashboard() {
                                 />
                                 <div className="flex mt-2 gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button onClick={() => onSelectEvent(event)} className="flex-1 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/5">Details</button>
-                                    <button onClick={() => onEditEvent(event)} className="flex-1 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/5">Edit</button>
                                     {isAdmin && <button onClick={() => onDeleteEvent(event.id)} className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl border border-red-500/20"><Trash2 size={14} /></button>}
                                 </div>
                             </div>

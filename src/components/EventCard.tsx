@@ -116,7 +116,7 @@ export const EventCard = React.memo(({
         <>
             <div className="group relative bg-card overflow-hidden border-b border-border transition-all duration-300">
                 {/* Image Section */}
-                <div className="relative min-h-[100px]">
+                <div className="relative aspect-square">
                     <div
                         ref={scrollRef}
                         onScroll={handleScroll}
@@ -224,7 +224,7 @@ export const EventCard = React.memo(({
                         <h3 className="text-lg font-black tracking-tight">{event.title}</h3>
                         {description && (
                             <div className="mt-1">
-                                <p className={`text-muted-foreground text-sm leading-relaxed ${!isDescriptionExpanded && isLongDescription ? 'line-clamp-2' : ''}`}>
+                                <p className={`text-muted-foreground text-sm leading-relaxed whitespace-pre-wrap ${!isDescriptionExpanded && isLongDescription ? 'line-clamp-2' : ''}`}>
                                     {description}
                                 </p>
                                 {isLongDescription && (
