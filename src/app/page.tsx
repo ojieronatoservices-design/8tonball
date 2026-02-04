@@ -21,6 +21,7 @@ export default function HomePage() {
   const { getClient } = useSupabase()
   const searchParams = useSearchParams()
   const searchQuery = searchParams.get('q')?.toLowerCase() || ''
+  const [showInsufficientModal, setShowInsufficientModal] = useState(false)
 
   const fetchEvents = async () => {
     const supabaseClient = await getClient()
@@ -208,6 +209,13 @@ export default function HomePage() {
     const supabaseClient = await getClient()
     if (!supabaseClient) return false
 
+    // BALANCE CHECK: Fetch current balance first
+    const { data: profile } = await supabaseClient.from('profiles').select('tibs_balance').eq('id', userId).single()
+    if (profile && profile.tibs_balance < cost) {
+      setShowInsufficientModal(true)
+      return false
+    }
+
     // No confirm popup here anymore - handled by UI
 
     try {
@@ -303,6 +311,49 @@ export default function HomePage() {
           ))
         )}
       </div>
+
+      {/* Insufficient Funds Modal */}
+      {showInsufficientModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-card w-full max-w-sm rounded-[2rem] border border-border p-8 flex flex-col items-center text-center gap-6 shadow-2xl animate-in zoom-in-95 duration-300 relative">
+            <button
+              onClick={() => setShowInsufficientModal(false)}
+              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Search size={0} className="hidden" /> {/* Dummy to keep imports valid if needed, or just X */}
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+            </button>
+
+            <div className="w-48 h-48 relative mb-2">
+              <img
+                src="/insufficient-tibs.png"
+                alt="Need more Tibs"
+                className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(57,255,20,0.3)]"
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <h3 className="text-2xl font-black italic uppercase tracking-tighter text-foreground">
+                Uh-oh...
+              </h3>
+              <p className="text-primary font-bold text-lg uppercase tracking-widest">
+                You need more Tibs!
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                setShowInsufficientModal(false)
+                window.dispatchEvent(new Event('openWallet'))
+              }}
+              className="w-full py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-[0_0_20px_rgba(57,255,20,0.4)] hover:scale-105 active:scale-95 transition-all text-sm flex items-center justify-center gap-2"
+            >
+              <Coins size={18} strokeWidth={3} />
+              Exit and Top Up
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
