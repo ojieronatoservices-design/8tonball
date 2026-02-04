@@ -29,6 +29,7 @@ export function Shell({ children }: ShellProps) {
     const [balance, setBalance] = useState<number>(0)
     const [isAdmin, setIsAdmin] = useState(false)
     const [isHostEligible, setIsHostEligible] = useState(false)
+    const [isSyncing, setIsSyncing] = useState(false)
 
     const router = useRouter()
     const searchParams = useSearchParams()
