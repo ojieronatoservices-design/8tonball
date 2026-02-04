@@ -4,6 +4,7 @@ import React, { useState, useEffect, memo, useCallback } from 'react'
 import { Plus, Check, X, LayoutDashboard, Loader2, CheckCircle2, Trophy, ShieldAlert, BarChart3, Users, Ticket, Coins, Image as ImageIcon, Edit, Trash2, Calendar } from 'lucide-react'
 import { useUser, useAuth } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
+import { EventCard } from '@/components/EventCard'
 
 // --- Performance Optimized Sub-components ---
 
