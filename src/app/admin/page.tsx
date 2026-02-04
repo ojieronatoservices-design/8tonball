@@ -1005,7 +1005,7 @@ export default function AdminDashboard() {
     )
 
     if (!isAdmin && !isHostEligible) return (
-        <div className="min-h-screen flex items-center justify-center p-6 bg-background">
+        <div className="min-h-screen flex items-start justify-center p-6 pt-24 md:pt-32 bg-background">
             <div className="bg-card w-full max-w-md p-10 rounded-[40px] border border-white/5 text-center flex flex-col gap-8 shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
 
