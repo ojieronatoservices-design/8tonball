@@ -182,36 +182,37 @@ export const EventCard = React.memo(({
                     )}
                 </div>
 
-                {/* Content Section */}
-                <div className="px-4 pt-4 pb-6 flex flex-col gap-3">
-                    {/* Flash Sale Banner */}
-                    <div className="flex justify-between items-center py-2 px-4 bg-gradient-to-r from-[#39FF14] to-[#d946ef] text-black shadow-[0_0_15px_rgba(57,255,20,0.3)]">
-                        {/* Left: Timer */}
-                        <div className="flex flex-col">
-                            <span className="text-[10px] font-medium uppercase tracking-tight opacity-80 leading-none mb-0.5">Event Ends In:</span>
-                            {variant === 'profile-archive' ? (
-                                <span className="text-sm font-bold font-sans">
-                                    {event.status === 'claimed' ? 'CLAIMED' : isWinner ? 'WON' : 'ENDED'}
-                                </span>
-                            ) : (
-                                <div className="text-sm font-bold font-sans tabular-nums">
-                                    <CountdownTimer endsAt={event.ends_at} showLabels={false} />
-                                </div>
-                            )}
+                {/* Flash Sale Banner - Edge to Edge */}
+                <div className="flex justify-between items-center py-3 px-6 bg-gradient-to-r from-[#39FF14] to-[#d946ef] text-black shadow-[0_0_20px_rgba(57,255,20,0.4)] relative z-10">
+                    {/* Left: Tibs & Entries */}
+                    <div className="flex flex-col items-start leading-none">
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-3xl font-black font-sans tracking-tighter">{event.entry_cost_tibs}</span>
+                            <span className="text-sm font-black font-sans uppercase opacity-80">Tibs</span>
                         </div>
-
-                        {/* Right: Cost & Entries */}
-                        <div className="flex flex-col items-end">
-                            <div className="flex items-center gap-1">
-                                <span className="text-sm font-bold font-sans">Tibs {event.entry_cost_tibs}</span>
-                            </div>
-                            <div className="flex items-center gap-1 opacity-80">
-                                <Ticket size={12} fill="currentColor" />
-                                <span className="text-[10px] font-medium font-sans">{localEntryCount} entries</span>
-                            </div>
+                        <div className="flex items-center gap-1 opacity-70 mt-0.5">
+                            <Ticket size={10} fill="currentColor" />
+                            <span className="text-[10px] font-bold font-sans uppercase tracking-wider">{localEntryCount} entries</span>
                         </div>
                     </div>
 
+                    {/* Right: Timer */}
+                    <div className="flex flex-col items-end leading-none">
+                        <span className="text-[9px] font-black uppercase tracking-widest opacity-70 mb-0.5">Event Ends In</span>
+                        {variant === 'profile-archive' ? (
+                            <span className="text-xl font-black font-sans tracking-tight">
+                                {event.status === 'claimed' ? 'CLAIMED' : isWinner ? 'WON' : 'ENDED'}
+                            </span>
+                        ) : (
+                            <div className="text-2xl font-black font-sans tabular-nums tracking-tight">
+                                <CountdownTimer endsAt={event.ends_at} showLabels={false} format="digital" className="text-black" />
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Content Section */}
+                <div className="px-4 pt-4 pb-6 flex flex-col gap-3">
                     <div className="flex flex-col gap-1">
                         <h3 className="text-lg font-black tracking-tight">{event.title}</h3>
                         {description && (

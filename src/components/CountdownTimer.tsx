@@ -6,15 +6,16 @@ interface CountdownTimerProps {
     endsAt: string
     className?: string
     showLabels?: boolean
+    format?: 'default' | 'digital'
 }
 
-export const CountdownTimer = memo(({ endsAt, className = '', showLabels = true }: CountdownTimerProps) => {
+export const CountdownTimer = memo(({ endsAt, className = '', showLabels = true, format = 'default' }: CountdownTimerProps) => {
     const [timeLeft, setTimeLeft] = useState<string>('')
     const [isExpired, setIsExpired] = useState(false)
 
     useEffect(() => {
         if (!endsAt) {
-            setTimeLeft('--:--')
+            setTimeLeft(format === 'digital' ? '00:00:00' : '--:--')
             return
         }
 
@@ -41,13 +42,21 @@ export const CountdownTimer = memo(({ endsAt, className = '', showLabels = true 
             const seconds = Math.floor((diff % (1000 * 60)) / 1000)
 
             let result = ''
-            if (days > 0) result = `${days}d ${hours}h ${minutes}m ${seconds}s`
-            else if (hours > 0) result = `${hours}h ${minutes}m ${seconds}s`
-            else if (minutes > 0) result = `${minutes}m ${seconds}s`
-            else result = `${seconds}s`
 
-            // Only update state if the text actually changed (saves 1 render per second if nothing changed, 
-            // though with seconds included it will always change, but good practice)
+            if (format === 'digital') {
+                const pad = (num: number) => num.toString().padStart(2, '0')
+                if (days > 0) {
+                    result = `${days}:${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
+                } else {
+                    result = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
+                }
+            } else {
+                if (days > 0) result = `${days}d ${hours}h ${minutes}m ${seconds}s`
+                else if (hours > 0) result = `${hours}h ${minutes}m ${seconds}s`
+                else if (minutes > 0) result = `${minutes}m ${seconds}s`
+                else result = `${seconds}s`
+            }
+
             setTimeLeft(result)
         }
 
@@ -55,11 +64,11 @@ export const CountdownTimer = memo(({ endsAt, className = '', showLabels = true 
         const timer = setInterval(calculateTimeLeft, 1000)
 
         return () => clearInterval(timer)
-    }, [endsAt])
+    }, [endsAt, format])
 
     return (
         <div className={`font-mono font-bold ${isExpired ? 'text-red-500' : 'text-primary'} ${className}`}>
-            {isExpired ? (showLabels ? '⏱️ ENDED' : 'ENDED') : (showLabels ? `⏱️ ${timeLeft}` : timeLeft)}
+            {isExpired ? (showLabels ? '⏱️ ENDED' : 'ENDED') : (showLabels && format !== 'digital' ? `⏱️ ${timeLeft}` : timeLeft)}
         </div>
     )
 })
