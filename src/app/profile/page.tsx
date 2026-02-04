@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useState, useRef, useMemo } from 'react'
-import { Plus, Ticket, ShieldCheck, Clock, Trophy, Loader2, User, LogOut, Wallet, CheckSquare, X, Settings, XCircle, Mail, ChevronDown, Bell, Coins } from 'lucide-react'
+import { Plus, Ticket, ShieldCheck, Clock, Trophy, Loader2, User, LogOut, Wallet, CheckSquare, X, Settings, XCircle, Mail, ChevronDown, Bell, Coins, Search } from 'lucide-react'
 import { useUser, useAuth, useClerk } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
 import { CountdownTimer } from '@/components/CountdownTimer'
@@ -50,6 +50,8 @@ export default function ProfilePage() {
     const [activeTab, setActiveTab] = useState<'live' | 'archives' | 'activity'>('live')
     const [notifications, setNotifications] = useState<any[]>([])
     const [isLoadingNotifs, setIsLoadingNotifs] = useState(false)
+    const [archiveSearch, setArchiveSearch] = useState('')
+    const deferredArchiveSearch = React.useDeferredValue(archiveSearch)
 
     // Payout State
     const [showPayoutModal, setShowPayoutModal] = useState(false)
@@ -290,10 +292,17 @@ export default function ProfilePage() {
         Object.values(groupedEntries).filter(g => g.event?.status === 'open'),
         [groupedEntries]
     )
-    const archivedGroups = useMemo(() =>
-        Object.values(groupedEntries).filter(g => g.event?.status !== 'open'),
-        [groupedEntries]
-    )
+    const archivedGroups = useMemo(() => {
+        const groups = Object.values(groupedEntries).filter(g => g.event?.status !== 'open')
+        if (!deferredArchiveSearch) return groups
+
+        const search = deferredArchiveSearch.toLowerCase()
+        return groups.filter(g => {
+            const matchesTitle = g.event?.title?.toLowerCase().includes(search)
+            const matchesTicket = g.entries.some(e => e.ticket_number?.toLowerCase().includes(search))
+            return matchesTitle || matchesTicket
+        })
+    }, [groupedEntries, deferredArchiveSearch])
 
     // Check if user won an event (Memoized)
     // Check if user won an event (Memoized)
@@ -648,82 +657,106 @@ export default function ProfilePage() {
                         })
                     )
                 ) : activeTab === 'archives' ? (
-                    archivedGroups.length === 0 ? (
-                        <div className="py-20 text-center text-muted-foreground/20 font-black uppercase tracking-[0.2em] text-xs">
-                            No Archive History
-                        </div>
-                    ) : (
-                        archivedGroups.map((group) => {
-                            const isExpanded = expandedId === group.event.id;
-                            const won = didWin(group);
-                            const totalEntries = group.event.all_entries?.[0]?.count || 0
-                            const currentTibs = totalEntries * group.event.entry_cost_tibs
-                            const goalMet = group.event.goal_tibs > 0 ? currentTibs >= group.event.goal_tibs : true
-                            return (
-                                <div key={group.event.id} className="w-full mb-2">
-                                    <div className={`flex flex-col bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 ${isExpanded ? 'ring-1 ring-primary/20 shadow-lg' : 'hover:bg-muted/30'}`}>
-                                        {/* Collapsed Bar */}
-                                        <button
-                                            onClick={() => setExpandedId(isExpanded ? null : group.event.id)}
-                                            className="flex items-center justify-between p-4 text-left group"
-                                        >
-                                            <div className="flex items-center gap-3 min-w-0">
-                                                <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-border grayscale-[0.5]">
-                                                    <img src={group.event.media_urls?.[0]} alt="" className="w-full h-full object-cover" />
-                                                </div>
-                                                <div className="flex flex-col min-w-0">
-                                                    <h4 className="text-sm font-black truncate uppercase tracking-tight text-muted-foreground/80">{group.event.title}</h4>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-[10px] font-bold text-muted-foreground uppercase">x{group.entries.length} Entries</span>
-                                                        <span className="w-1 h-1 rounded-full bg-border" />
-                                                        {won && goalMet ? (
-                                                            <div className="flex items-center gap-1 text-[10px] font-black bg-green-500 text-black px-2 py-0.5 rounded-md uppercase">
-                                                                <Trophy size={10} /> Won
-                                                            </div>
-                                                        ) : won && !goalMet ? (
-                                                            <div className="flex items-center gap-1 text-[10px] font-black bg-orange-500 text-black px-2 py-0.5 rounded-md uppercase">
-                                                                <Coins size={10} /> Tibs Refunded
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground/40 uppercase">
-                                                                <XCircle size={10} /> Missed
-                                                            </div>
-                                                        )}
+                    <div className="flex flex-col gap-4">
+                        {Object.values(groupedEntries).filter(g => g.event?.status !== 'open').length > 0 && (
+                            <div className="relative group">
+                                <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                                <input
+                                    type="text"
+                                    placeholder="Search by raffle title or ticket number..."
+                                    value={archiveSearch}
+                                    onChange={(e) => setArchiveSearch(e.target.value)}
+                                    className="w-full bg-muted/20 border border-border/50 rounded-2xl pl-10 pr-4 py-3 text-[10px] font-black uppercase tracking-widest focus:border-primary focus:outline-none transition-all placeholder:text-muted-foreground/30"
+                                />
+                                {archiveSearch && (
+                                    <button
+                                        onClick={() => setArchiveSearch('')}
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
+                        {archivedGroups.length === 0 ? (
+                            <div className="py-20 text-center text-muted-foreground/20 font-black uppercase tracking-[0.2em] text-xs">
+                                {archiveSearch ? 'No matching tickets found' : 'No Archive History'}
+                            </div>
+                        ) : (
+                            archivedGroups.map((group) => {
+                                const isExpanded = expandedId === group.event.id;
+                                const won = didWin(group);
+                                const totalEntries = group.event.all_entries?.[0]?.count || 0
+                                const currentTibs = totalEntries * group.event.entry_cost_tibs
+                                const goalMet = group.event.goal_tibs > 0 ? currentTibs >= group.event.goal_tibs : true
+                                return (
+                                    <div key={group.event.id} className="w-full mb-2">
+                                        <div className={`flex flex-col bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 ${isExpanded ? 'ring-1 ring-primary/20 shadow-lg' : 'hover:bg-muted/30'}`}>
+                                            {/* Collapsed Bar */}
+                                            <button
+                                                onClick={() => setExpandedId(isExpanded ? null : group.event.id)}
+                                                className="flex items-center justify-between p-4 text-left group"
+                                            >
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-border grayscale-[0.5]">
+                                                        <img src={group.event.media_urls?.[0]} alt="" className="w-full h-full object-cover" />
+                                                    </div>
+                                                    <div className="flex flex-col min-w-0">
+                                                        <h4 className="text-sm font-black truncate uppercase tracking-tight text-muted-foreground/80">{group.event.title}</h4>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[10px] font-bold text-muted-foreground uppercase">x{group.entries.length} Entries</span>
+                                                            <span className="w-1 h-1 rounded-full bg-border" />
+                                                            {won && goalMet ? (
+                                                                <div className="flex items-center gap-1 text-[10px] font-black bg-green-500 text-black px-2 py-0.5 rounded-md uppercase">
+                                                                    <Trophy size={10} /> Won
+                                                                </div>
+                                                            ) : won && !goalMet ? (
+                                                                <div className="flex items-center gap-1 text-[10px] font-black bg-orange-500 text-black px-2 py-0.5 rounded-md uppercase">
+                                                                    <Coins size={10} /> Tibs Refunded
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground/40 uppercase">
+                                                                    <XCircle size={10} /> Missed
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                {won && !group.event.is_read && (
-                                                    <div className="w-2 h-2 bg-red-500 rounded-full" />
-                                                )}
-                                                <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-                                                    <ChevronDown size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                                                <div className="flex items-center gap-3">
+                                                    {won && !group.event.is_read && (
+                                                        <div className="w-2 h-2 bg-red-500 rounded-full" />
+                                                    )}
+                                                    <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+                                                        <ChevronDown size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </button>
+                                            </button>
 
-                                        {/* Expanded Content */}
-                                        {isExpanded && (
-                                            <div className="animate-in slide-in-from-top-4 fade-in duration-300 border-t border-border/50">
-                                                <EventCard
-                                                    event={group.event}
-                                                    entryCount={entryCounts[group.event.id] || 0}
-                                                    onEnter={handleEnterEvent}
-                                                    onShare={handleShareFacebook}
-                                                    userId={userId}
-                                                    variant="profile-archive"
-                                                    isWinner={won && goalMet}
-                                                    isRefunded={won && !goalMet}
-                                                    onClaim={handleClaim}
-                                                    entryNumbers={group.entries.map(e => e.ticket_number).filter(Boolean) as string[]}
-                                                />
-                                            </div>
-                                        )}
+                                            {/* Expanded Content */}
+                                            {isExpanded && (
+                                                <div className="animate-in slide-in-from-top-4 fade-in duration-300 border-t border-border/50">
+                                                    <EventCard
+                                                        event={group.event}
+                                                        entryCount={entryCounts[group.event.id] || 0}
+                                                        onEnter={handleEnterEvent}
+                                                        onShare={handleShareFacebook}
+                                                        userId={userId}
+                                                        variant="profile-archive"
+                                                        isWinner={won && goalMet}
+                                                        isRefunded={won && !goalMet}
+                                                        onClaim={handleClaim}
+                                                        entryNumbers={group.entries.map(e => e.ticket_number).filter(Boolean) as string[]}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            )
-                        })
-                    )
+                                )
+                            })
+                        )
+                        }
+                    </div>
                 ) : (
                     <div className="px-6 w-full max-w-3xl mx-auto flex flex-col gap-4">
                         {isLoadingNotifs ? (
@@ -751,65 +784,62 @@ export default function ProfilePage() {
                 )}
             </div>
 
-
             {/* Payout Modal */}
-            {
-                showPayoutModal && (
-                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/95 backdrop-blur-md animate-in fade-in duration-300">
-                        <div className="bg-card w-full max-w-sm rounded-[2.5rem] border border-border p-10 flex flex-col gap-8 shadow-2xl animate-in zoom-in-95 duration-300">
-                            <div className="flex justify-between items-center">
-                                <h3 className="text-2xl font-black tracking-tight text-foreground uppercase italic">Request Payout</h3>
-                                <button onClick={() => setShowPayoutModal(false)} className="w-10 h-10 bg-muted flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-all">
-                                    <X size={20} />
-                                </button>
-                            </div>
-
-                            <div className="p-6 bg-primary/5 border border-primary/20 rounded-[2rem] flex flex-col items-center">
-                                <p className="text-[10px] font-black uppercase text-primary/50 tracking-widest mb-1">Estimated Value</p>
-                                <div className="text-4xl font-black neon-text mb-2">₱{(profile.tibs_balance / 8).toLocaleString()}</div>
-                                <div className="flex items-center gap-2 px-3 py-1 bg-black/20 rounded-full border border-white/5">
-                                    <span className="text-[11px] text-foreground font-black">{profile.tibs_balance.toLocaleString()}</span>
-                                    <span className="text-[8px] text-muted-foreground font-black uppercase">TIBS</span>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col gap-5">
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">GCash or Bank Details</label>
-                                    <input
-                                        type="text"
-                                        value={gcashNumber}
-                                        onChange={(e) => setGcashNumber(e.target.value)}
-                                        placeholder="Account # (e.g. 0912...)"
-                                        className="w-full h-14 bg-muted/50 border border-border rounded-2xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Account Name</label>
-                                    <input
-                                        type="text"
-                                        value={gcashName}
-                                        onChange={(e) => setGcashName(e.target.value)}
-                                        placeholder="Full Name"
-                                        className="w-full h-14 bg-muted/50 border border-border rounded-2xl px-6 text-sm font-bold focus:border-primary focus:outline-none uppercase text-foreground placeholder:text-muted-foreground/20"
-                                    />
-                                </div>
-                            </div>
-
-                            <button
-                                onClick={handleRequestPayout}
-                                disabled={isSubmitting}
-                                className="w-full h-16 bg-primary text-black font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 neon-border text-sm"
-                            >
-                                {isSubmitting ? 'Processing...' : 'Settle Now'}
+            {showPayoutModal && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/95 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-card w-full max-w-sm rounded-[2.5rem] border border-border p-10 flex flex-col gap-8 shadow-2xl animate-in zoom-in-95 duration-300">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-2xl font-black tracking-tight text-foreground uppercase italic">Request Payout</h3>
+                            <button onClick={() => setShowPayoutModal(false)} className="w-10 h-10 bg-muted flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-all">
+                                <X size={20} />
                             </button>
-                            <p className="text-[10px] text-center text-muted-foreground/30 font-medium px-4">
-                                Your TIBS will be converted and sent to your account of choice within 48 hours.
-                            </p>
                         </div>
+
+                        <div className="p-6 bg-primary/5 border border-primary/20 rounded-[2rem] flex flex-col items-center">
+                            <p className="text-[10px] font-black uppercase text-primary/50 tracking-widest mb-1">Estimated Value</p>
+                            <div className="text-4xl font-black neon-text mb-2">₱{(profile.tibs_balance / 8).toLocaleString()}</div>
+                            <div className="flex items-center gap-2 px-3 py-1 bg-black/20 rounded-full border border-white/5">
+                                <span className="text-[11px] text-foreground font-black">{profile.tibs_balance.toLocaleString()}</span>
+                                <span className="text-[8px] text-muted-foreground font-black uppercase">TIBS</span>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-5">
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">GCash or Bank Details</label>
+                                <input
+                                    type="text"
+                                    value={gcashNumber}
+                                    onChange={(e) => setGcashNumber(e.target.value)}
+                                    placeholder="Account # (e.g. 0912...)"
+                                    className="w-full h-14 bg-muted/50 border border-border rounded-2xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Account Name</label>
+                                <input
+                                    type="text"
+                                    value={gcashName}
+                                    onChange={(e) => setGcashName(e.target.value)}
+                                    placeholder="Full Name"
+                                    className="w-full h-14 bg-muted/50 border border-border rounded-2xl px-6 text-sm font-bold focus:border-primary focus:outline-none uppercase text-foreground placeholder:text-muted-foreground/20"
+                                />
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={handleRequestPayout}
+                            disabled={isSubmitting}
+                            className="w-full h-16 bg-primary text-black font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 neon-border text-sm"
+                        >
+                            {isSubmitting ? 'Processing...' : 'Settle Now'}
+                        </button>
+                        <p className="text-[10px] text-center text-muted-foreground/30 font-medium px-4">
+                            Your TIBS will be converted and sent to your account of choice within 48 hours.
+                        </p>
                     </div>
-                )
-            }
+                </div>
+            )}
         </div>
     )
 }

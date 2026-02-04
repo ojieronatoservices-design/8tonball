@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, memo, useCallback } from 'react'
-import { Plus, Check, X, LayoutDashboard, Loader2, CheckCircle2, Trophy, ShieldAlert, BarChart3, Users, Ticket, Coins, Image as ImageIcon, Edit, Trash2, Calendar, ChevronDown } from 'lucide-react'
+import { Plus, Check, X, LayoutDashboard, Loader2, CheckCircle2, Trophy, ShieldAlert, BarChart3, Users, Ticket, Coins, Image as ImageIcon, Edit, Trash2, Calendar, ChevronDown, Search } from 'lucide-react'
 import { useUser, useAuth } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
 import { EventCard } from '@/components/EventCard'
@@ -879,33 +879,63 @@ export default function AdminDashboard() {
         onDeleteEvent: (id: string) => void
     }) => {
         const [dateFilter, setDateFilter] = useState('')
+        const [searchQuery, setSearchQuery] = useState('')
         const deferredDateFilter = React.useDeferredValue(dateFilter)
+        const deferredSearchQuery = React.useDeferredValue(searchQuery)
 
         const filteredEvents = React.useMemo(() => {
             return existingEvents.filter(e => {
                 const matchesTab = activeTab === 'events' ? e.status === 'open' : (e.status === 'drawn' || e.status === 'closed');
                 const matchesDate = deferredDateFilter ? e.created_at.startsWith(deferredDateFilter) : true;
                 const matchesUser = isAdmin ? true : e.host_user_id === userId;
-                return matchesTab && matchesDate && matchesUser;
+
+                let matchesSearch = true;
+                if (deferredSearchQuery) {
+                    const search = deferredSearchQuery.toLowerCase();
+                    const matchesTitle = e.title?.toLowerCase().includes(search);
+                    const matchesWinner = e.winner_user_id?.toLowerCase().includes(search);
+                    const matchesWinningTicket = e.winning_ticket_number?.toLowerCase().includes(search);
+                    matchesSearch = matchesTitle || matchesWinner || matchesWinningTicket;
+                }
+
+                return matchesTab && matchesDate && matchesUser && matchesSearch;
             });
-        }, [existingEvents, activeTab, deferredDateFilter, isAdmin, userId]);
+        }, [existingEvents, activeTab, deferredDateFilter, deferredSearchQuery, isAdmin, userId]);
 
         return (
             <div className="flex flex-col gap-6">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div className="flex items-center gap-2 bg-card p-1 rounded-xl border border-white/5">
-                        <Calendar size={14} className="ml-2 text-white/20" />
-                        <input
-                            type="date"
-                            value={dateFilter}
-                            onChange={(e) => setDateFilter(e.target.value)}
-                            className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest focus:ring-0 px-2 py-1.5 [color-scheme:dark]"
-                        />
-                        {dateFilter && (
-                            <button onClick={() => setDateFilter('')} className="p-1 hover:bg-white/5 rounded-full mr-1 transition-colors">
-                                <X size={12} className="text-white/40" />
-                            </button>
-                        )}
+                    <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+                        <div className="flex items-center gap-2 bg-card p-1 rounded-xl border border-white/5 w-full md:w-auto">
+                            <Calendar size={14} className="ml-2 text-white/20" />
+                            <input
+                                type="date"
+                                value={dateFilter}
+                                onChange={(e) => setDateFilter(e.target.value)}
+                                className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest focus:ring-0 px-2 py-1.5 [color-scheme:dark] w-full"
+                            />
+                            {dateFilter && (
+                                <button onClick={() => setDateFilter('')} className="p-1 hover:bg-white/5 rounded-full mr-1 transition-colors">
+                                    <X size={12} className="text-white/40" />
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="flex items-center gap-2 bg-card p-1 rounded-xl border border-white/5 w-full md:w-auto min-w-[300px]">
+                            <Search size={14} className="ml-2 text-white/20" />
+                            <input
+                                type="text"
+                                placeholder="Search by title, winner ID, or ticket..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest focus:ring-0 px-2 py-1.5 flex-1 placeholder:text-white/10"
+                            />
+                            {searchQuery && (
+                                <button onClick={() => setSearchQuery('')} className="p-1 hover:bg-white/5 rounded-full mr-1 transition-colors">
+                                    <X size={12} className="text-white/40" />
+                                </button>
+                            )}
+                        </div>
                     </div>
                     <div className="text-[10px] font-black uppercase tracking-widest text-white/20">
                         {filteredEvents.length} Events Found
