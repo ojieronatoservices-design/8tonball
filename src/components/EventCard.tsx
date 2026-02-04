@@ -116,7 +116,7 @@ export const EventCard = React.memo(({
         <>
             <div className="group relative bg-card overflow-hidden border-b border-border transition-all duration-300">
                 {/* Image Section */}
-                <div className="relative aspect-square">
+                <div className="relative min-h-[100px]">
                     <div
                         ref={scrollRef}
                         onScroll={handleScroll}

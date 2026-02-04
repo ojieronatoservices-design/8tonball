@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, memo, useCallback } from 'react'
-import { Plus, Check, X, LayoutDashboard, Loader2, CheckCircle2, Trophy, ShieldAlert, BarChart3, Users, Ticket, Coins, Image as ImageIcon, Edit, Trash2 } from 'lucide-react'
+import { Plus, Check, X, LayoutDashboard, Loader2, CheckCircle2, Trophy, ShieldAlert, BarChart3, Users, Ticket, Coins, Image as ImageIcon, Edit, Trash2, Calendar } from 'lucide-react'
 import { useUser, useAuth } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
 
@@ -12,20 +12,22 @@ const isVideo = (url: string) => {
     return videoExtensions.some(ext => url.toLowerCase().includes(ext)) || url.startsWith('data:video/')
 }
 
-const CreateEventForm = memo(({
+const CreateEventModal = memo(({
     isAdmin,
     isHostEligible,
     onLaunch,
     getClient,
     userId,
-    existingEventsCount
+    existingEventsCount,
+    onClose
 }: {
     isAdmin: boolean,
     isHostEligible: boolean,
     onLaunch: () => void,
     getClient: () => Promise<any>,
     userId: string | null | undefined,
-    existingEventsCount: number
+    existingEventsCount: number,
+    onClose: () => void
 }) => {
     const [title, setTitle] = useState('')
     const [description, setDescription] = useState('')
@@ -115,10 +117,8 @@ const CreateEventForm = memo(({
 
             if (insertError) throw insertError
             alert('Event launched successfully!')
-            setTitle(''); setDescription(''); setCost(''); setGoal(''); setDrawTime('')
-            eventPreviews.forEach(url => URL.revokeObjectURL(url))
-            setEventImages([]); setEventPreviews([])
             onLaunch()
+            onClose()
         } catch (error: any) {
             alert(error.message || 'Error launching event.')
         } finally {
@@ -127,86 +127,92 @@ const CreateEventForm = memo(({
     }
 
     return (
-        <div className="bg-card p-8 rounded-3xl border border-dashed border-primary/30 flex flex-col gap-6">
-            <h3 className="text-lg font-bold flex items-center gap-2">
-                <Plus className="text-primary" size={20} /> New Event
-            </h3>
-            <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5" >
-                    <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Prize Title</label>
-                    <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. iPhone 15 Pro"
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
+            <div className="bg-card w-full max-w-lg rounded-3xl border border-white/10 overflow-auto max-h-[90vh] shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col">
+                <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+                    <h3 className="text-xl font-bold flex items-center gap-2">
+                        <Plus className="text-primary" size={20} /> New Event
+                    </h3>
+                    <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors"><X size={20} /></button>
                 </div>
-                <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Description</label>
-                    <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Prize details..."
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none min-h-[100px]" />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Draw Time</label>
-                    <input type="datetime-local" value={drawTime} onChange={(e) => setDrawTime(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none [color-scheme:dark]" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Cost (Tibs)</label>
-                        <input type="number" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="100"
+                <div className="p-8 flex flex-col gap-6">
+                    <div className="flex flex-col gap-1.5" >
+                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Prize Title</label>
+                        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. iPhone 15 Pro"
                             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" />
                     </div>
                     <div className="flex flex-col gap-1.5">
-                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Goal (Tibs)</label>
-                        <input type="number" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="5000"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Description</label>
+                        <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Prize details..."
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none min-h-[100px]" />
                     </div>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Media (Multiple allowed)</label>
-                    <div className="grid grid-cols-4 gap-2">
-                        {eventPreviews.map((preview: string, index: number) => (
-                            <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-white/10 group">
-                                {isVideo(preview) ? <video src={preview} className="w-full h-full object-cover" /> : <img src={preview} alt="Preview" className="w-full h-full object-cover" />}
-                                <button onClick={() => removeImage(index)} className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <X size={14} className="text-white" />
-                                </button>
-                            </div>
-                        ))}
-                        <label className="aspect-square bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-white/20 hover:text-white/40 cursor-pointer transition-colors group">
-                            <input type="file" className="hidden" accept="image/*,video/*" multiple onChange={handleFileChange} />
-                            <ImageIcon size={24} className="group-hover:scale-110 transition-transform" />
-                        </label>
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Draw Time</label>
+                        <input type="datetime-local" value={drawTime} onChange={(e) => setDrawTime(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none [color-scheme:dark]" />
                     </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Cost (Tibs)</label>
+                            <input type="number" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="100"
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Goal (Tibs)</label>
+                            <input type="number" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="5000"
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+                        </div>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Media (Multiple allowed)</label>
+                        <div className="grid grid-cols-4 gap-2">
+                            {eventPreviews.map((preview: string, index: number) => (
+                                <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-white/10 group">
+                                    {isVideo(preview) ? <video src={preview} className="w-full h-full object-cover" /> : <img src={preview} alt="Preview" className="w-full h-full object-cover" />}
+                                    <button onClick={() => removeImage(index)} className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <X size={14} className="text-white" />
+                                    </button>
+                                </div>
+                            ))}
+                            <label className="aspect-square bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-white/20 hover:text-white/40 cursor-pointer transition-colors group">
+                                <input type="file" className="hidden" accept="image/*,video/*" multiple onChange={handleFileChange} />
+                                <ImageIcon size={24} className="group-hover:scale-110 transition-transform" />
+                            </label>
+                        </div>
+                    </div>
+                    <button
+                        onClick={handleLaunchEvent}
+                        disabled={isLaunching || (!isAdmin && !isHostEligible)}
+                        className="w-full py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 mt-2 transition-transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isLaunching && <Loader2 size={18} className="animate-spin" />}
+                        {isLaunching ? 'Launching...' : (!isAdmin && !isHostEligible) ? 'Eligibility Required' : 'Launch'}
+                    </button>
+                    {!isAdmin && !isHostEligible && (
+                        <p className="text-[10px] text-red-500 font-black uppercase tracking-widest text-center">
+                            ⚠️ Spending goal of 8,000 Tibs required to host.
+                        </p>
+                    )}
                 </div>
-                <button
-                    onClick={handleLaunchEvent}
-                    disabled={isLaunching || (!isAdmin && !isHostEligible)}
-                    className="w-full py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 mt-2 transition-transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    {isLaunching && <Loader2 size={18} className="animate-spin" />}
-                    {isLaunching ? 'Launching...' : (!isAdmin && !isHostEligible) ? 'Eligibility Required' : 'Launch'}
-                </button>
-                {!isAdmin && !isHostEligible && (
-                    <p className="text-[10px] text-red-500 font-black uppercase tracking-widest text-center">
-                        ⚠️ Spending goal of 8,000 Tibs required to host.
-                    </p>
-                )}
             </div>
         </div>
     )
 })
 
-CreateEventForm.displayName = 'CreateEventForm'
+CreateEventModal.displayName = 'CreateEventModal'
 
 const AnalyticsOverview = memo(({ analytics }: { analytics: any }) => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-in slide-in-from-bottom-4 duration-500">
-        <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2 relative overflow-hidden group">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-in slide-in-from-bottom-4 duration-500">
+        <div className="bg-card p-4 rounded-2xl border border-white/5 flex flex-col gap-1 relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-8 bg-primary/5 rounded-full -mr-4 -mt-4 group-hover:bg-primary/10 transition-colors" />
             <div className="flex items-center gap-2 text-white/40">
-                <Coins size={18} />
-                <span className="text-xs font-bold uppercase tracking-widest">Total Revenue</span>
+                <Coins size={14} />
+                <span className="text-[10px] font-bold uppercase tracking-widest">Total Revenue</span>
             </div>
-            <div className="text-3xl font-black text-primary">₱{analytics.totalRevenuePHP.toLocaleString()}</div>
+            <div className="text-2xl font-black text-primary">₱{analytics.totalRevenuePHP.toLocaleString()}</div>
             <p className="text-[10px] text-white/20 uppercase font-black tracking-widest">{analytics.totalTibsSpentInEvents.toLocaleString()} Tibs flow</p>
         </div>
+
         <div className="bg-card p-6 rounded-3xl border border-white/5 flex flex-col gap-2">
             <div className="flex items-center gap-2 text-white/40">
                 <ShieldAlert size={18} />
@@ -339,6 +345,7 @@ export default function AdminDashboard() {
     const [selectedEvent, setSelectedEvent] = useState<any>(null)
     const [editingEvent, setEditingEvent] = useState<any>(null)
     const [isUpdating, setIsUpdating] = useState(false)
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
 
     const [analytics, setAnalytics] = useState<{
         totalUsers: number
@@ -731,7 +738,6 @@ export default function AdminDashboard() {
         const [dateFilter, setDateFilter] = useState('')
         const deferredDateFilter = React.useDeferredValue(dateFilter)
 
-        // Memoize the filtered list to avoid re-calculating on every unrelated render
         const filteredEvents = React.useMemo(() => {
             return existingEvents.filter(e => {
                 const matchesTab = activeTab === 'events' ? e.status === 'open' : (e.status === 'drawn' || e.status === 'closed');
@@ -743,51 +749,59 @@ export default function AdminDashboard() {
 
         return (
             <div className="flex flex-col gap-6">
-                <div className="flex justify-between items-center">
-                    <h2 className="text-xl font-black uppercase tracking-widest">{activeTab === 'events' ? 'Active Events' : 'Archived Events'}</h2>
-                    <div className="flex items-center gap-4">
-                        <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}
-                            className="bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-[10px] font-black uppercase text-white/40 focus:border-primary outline-none [color-scheme:dark]" />
-                        <button onClick={fetchEvents} className="p-2 hover:bg-white/5 rounded-full transition-colors">
-                            <Loader2 size={18} className={isLoadingEvents ? "animate-spin" : ""} />
-                        </button>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div className="flex items-center gap-2 bg-card p-1 rounded-xl border border-white/5">
+                        <Calendar size={14} className="ml-2 text-white/20" />
+                        <input
+                            type="date"
+                            value={dateFilter}
+                            onChange={(e) => setDateFilter(e.target.value)}
+                            className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest focus:ring-0 px-2 py-1.5 [color-scheme:dark]"
+                        />
+                        {dateFilter && (
+                            <button onClick={() => setDateFilter('')} className="p-1 hover:bg-white/5 rounded-full mr-1 transition-colors">
+                                <X size={12} className="text-white/40" />
+                            </button>
+                        )}
+                    </div>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-white/20">
+                        {filteredEvents.length} Events Found
                     </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredEvents.map((event) => (
-                        <div key={event.id} className="bg-card rounded-[32px] border border-white/5 overflow-hidden group hover:border-primary/30 transition-all duration-500 flex flex-col">
-                            <div className="relative aspect-[4/3] cursor-pointer" onClick={() => onSelectEvent(event)}>
-                                {event.media_urls?.[0] ? (
-                                    isVideo(event.media_urls[0]) ? <video src={event.media_urls[0]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                                        : <img src={event.media_urls[0]} alt={event.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                                ) : <div className="w-full h-full bg-white/5 flex items-center justify-center text-white/5"><ImageIcon size={48} /></div>}
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
-                                <div className="absolute top-4 left-4 flex gap-2">
-                                    <div className="px-3 py-1 bg-black/50 backdrop-blur-md rounded-full border border-white/10 text-[10px] font-black uppercase text-primary">
-                                        #{event.display_id || event.id.slice(0, 4)}
-                                    </div>
-                                </div>
-                                <div className="absolute bottom-4 left-4 right-4 text-white">
-                                    <h3 className="text-lg font-black leading-tight line-clamp-1">{event.title}</h3>
-                                </div>
-                            </div>
-                            <div className="p-6 flex flex-col gap-4">
-                                <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-white/30">
-                                    <div className="flex items-center gap-1.5"><Users size={12} /> {event.entries?.[0]?.count || 0} Entries</div>
-                                    <div className="flex items-center gap-1.5"><Coins size={12} className="text-primary" /> {event.entry_cost_tibs} Tibs</div>
-                                </div>
-                                <div className="flex gap-2">
-                                    <button onClick={() => onSelectEvent(event)} className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Details</button>
-                                    <button onClick={() => onEditEvent(event)} className="p-3 bg-white/5 hover:bg-primary/20 hover:text-primary rounded-xl transition-all"><Edit size={16} /></button>
-                                    <button onClick={() => onDeleteEvent(event.id)} className="p-3 bg-white/5 hover:bg-red-500/20 hover:text-red-500 rounded-xl transition-all"><Trash2 size={16} /></button>
+
+                {isLoadingEvents ? (
+                    <div className="flex flex-col items-center justify-center py-20 gap-4">
+                        <Loader2 className="animate-spin text-primary" size={32} />
+                        <span className="text-[10px] font-black uppercase tracking-widest animate-pulse">Syncing Database...</span>
+                    </div>
+                ) : filteredEvents.length > 0 ? (
+                    <div className="columns-1 md:columns-2 lg:columns-3 gap-4 space-y-4">
+                        {filteredEvents.map((event) => (
+                            <div key={event.id} className="break-inside-avoid group">
+                                <EventCard
+                                    event={event}
+                                    entryCount={event.entries?.[0]?.count || 0}
+                                    onShare={() => { }}
+                                    isAdmin={isAdmin}
+                                    userId={userId}
+                                />
+                                <div className="flex mt-2 gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onClick={() => onSelectEvent(event)} className="flex-1 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/5">Details</button>
+                                    <button onClick={() => onEditEvent(event)} className="flex-1 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/5">Edit</button>
+                                    {isAdmin && <button onClick={() => onDeleteEvent(event.id)} className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl border border-red-500/20"><Trash2 size={14} /></button>}
                                 </div>
                             </div>
-                        </div>
-                    ))}
-                </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center justify-center py-20 bg-card rounded-3xl border border-dashed border-white/5">
+                        <span className="text-sm font-bold text-white/20 uppercase tracking-widest">No Events Found</span>
+                    </div>
+                )}
             </div>
         )
     })
+
     ExistingEventsSection.displayName = 'ExistingEventsSection'
 
     if (isCheckingPermissions) return (
@@ -822,29 +836,40 @@ export default function AdminDashboard() {
     )
 
     return (
-        <div className="min-h-screen bg-background pb-32">
-            <div className="max-w-6xl mx-auto px-6 pt-12">
-                {/* Header */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-primary/10 rounded-2xl border border-primary/20">
-                            <LayoutDashboard className="text-primary" size={28} />
+        <div className="min-h-screen bg-background text-sm">
+            {/* Sticky Header */}
+            <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-white/5 px-6 py-3">
+                <div className="max-w-6xl mx-auto flex flex-col gap-3">
+                    <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold opacity-30 uppercase tracking-widest">Admin Terminal</span>
+                            <div className="w-1 h-1 rounded-full bg-green-500/50 animate-pulse" />
                         </div>
-                        <div>
-                            <h1 className="text-4xl font-black tracking-tighter uppercase italic">8TONBALL <span className="text-primary not-italic">OS</span></h1>
-                            <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Terminal Control</span>
-                                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                            </div>
-                        </div>
+                        {(activeTab === 'events' || activeTab === 'archives') && (
+                            <button
+                                onClick={() => setIsCreateModalOpen(true)}
+                                className="px-3 py-1.5 bg-primary/20 hover:bg-primary/30 text-primary text-[10px] font-black uppercase tracking-widest rounded-lg border border-primary/30 transition-all active:scale-95 flex items-center gap-1.5"
+                            >
+                                <Plus size={12} /> Create Event
+                            </button>
+                        )}
                     </div>
-                    <div className="flex bg-card p-1.5 rounded-2xl border border-white/5">
+
+                    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar -mx-2 px-2">
                         {(['events', 'archives', 'payments', 'payouts', 'analytics'] as const).map((tab) => (
-                            <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-primary text-black shadow-lg shadow-primary/20' : 'text-white/40 hover:text-white hover:bg-white/5'}`}>{tab}</button>
+                            <button
+                                key={tab}
+                                onClick={() => setActiveTab(tab)}
+                                className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab ? 'bg-white/10 text-white' : 'text-white/20 hover:text-white/40 hover:bg-white/5'}`}
+                            >
+                                {tab}
+                            </button>
                         ))}
                     </div>
                 </div>
+            </div>
 
+            <div className="max-w-6xl mx-auto px-6 py-8 pb-32">
                 {/* Content */}
                 {activeTab === 'analytics' ? (
                     <div className="flex flex-col gap-10">
@@ -856,8 +881,16 @@ export default function AdminDashboard() {
                     </div>
                 ) : (activeTab === 'events' || activeTab === 'archives') ? (
                     <div className="flex flex-col gap-10">
-                        {activeTab === 'events' && (
-                            <CreateEventForm isAdmin={isAdmin} isHostEligible={isHostEligible} onLaunch={fetchEventsMemo} getClient={getClient} userId={userId} existingEventsCount={existingEvents?.length || 0} />
+                        {isCreateModalOpen && (
+                            <CreateEventModal
+                                isAdmin={isAdmin}
+                                isHostEligible={isHostEligible}
+                                onLaunch={fetchEventsMemo}
+                                getClient={getClient}
+                                userId={userId}
+                                existingEventsCount={existingEvents?.length || 0}
+                                onClose={() => setIsCreateModalOpen(false)}
+                            />
                         )}
                         <ExistingEventsSection
                             activeTab={activeTab}
@@ -883,3 +916,4 @@ export default function AdminDashboard() {
         </div>
     )
 }
+
