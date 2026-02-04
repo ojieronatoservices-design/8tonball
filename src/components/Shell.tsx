@@ -111,7 +111,7 @@ export function Shell({ children }: ShellProps) {
 
             if (fetchError && fetchError.code === 'PGRST116') {
                 // Profile doesn't exist, create it
-                console.log('[syncProfile] Creating new profile for user:', user.id)
+                // console.log('[syncProfile] Creating new profile for user:', user.id)
                 // Check current count for "Incoming 10" bonus (5 existing + next 10 = up to 15)
                 const { count } = await supabaseClient
                     .from('profiles')
@@ -133,7 +133,7 @@ export function Shell({ children }: ShellProps) {
                     console.error('[syncProfile] Error creating profile')
                     showToast(`Profile sync failed`, 'error')
                 } else {
-                    console.log('[syncProfile] Profile created successfully')
+                    // console.log('[syncProfile] Profile created successfully')
                     if (registrationBonus > 0) {
                         showToast(`Welcome! You've received a ${registrationBonus} TIBS Early Bird bonus!`, 'success')
                     } else {
@@ -288,7 +288,7 @@ export function Shell({ children }: ShellProps) {
                         table: 'profiles',
                         filter: `id=eq.${userId}`
                     }, (payload: any) => {
-                        console.log('[Realtime] Profile update:', payload.new?.tibs_balance)
+                        // console.log('[Realtime] Profile update:', payload.new?.tibs_balance)
                         if (payload.new && typeof payload.new.tibs_balance === 'number') {
                             setBalance(payload.new.tibs_balance)
                         }
@@ -306,7 +306,7 @@ export function Shell({ children }: ShellProps) {
                         // Manual Filter for security/correctness (just in case RLS leaks, filtered by user_id)
                         if (payload.new && payload.new.user_id === userId) {
                             if (payload.eventType === 'INSERT') {
-                                console.log('[Realtime] Notification INSERT:', payload.new)
+                                // console.log('[Realtime] Notification INSERT:', payload.new)
                                 setUnreadCount(prev => prev + 1)
 
                                 const type = payload.new.type
@@ -323,7 +323,7 @@ export function Shell({ children }: ShellProps) {
                         }
                     })
                     .subscribe((status: string) => {
-                        console.log('[Realtime] Shell Notification Status:', status)
+                        // console.log('[Realtime] Shell Notification Status:', status)
                     })
 
             } else if (isLoaded && !user) {
@@ -438,7 +438,7 @@ export function Shell({ children }: ShellProps) {
 
             {/* Main Content */}
             <main className={cn(
-                "w-full max-w-3xl pb-32 px-6 transition-all duration-300",
+                "w-full max-w-3xl pb-32 px-6 transition-all duration-300 animate-in fade-in zoom-in-95 duration-500",
                 pathname === '/' ? "pt-32" : "pt-24"
             )}>
                 {children}

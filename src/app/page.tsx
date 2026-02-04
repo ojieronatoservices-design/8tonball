@@ -136,19 +136,16 @@ export default function HomePage() {
           // FORENSIC FIX:
           // 1. If it's OUR entry, we already optimistically added +1. Ignore to prevent double count.
           // 2. If it's SOMEONE ELSE, add +1.
-          if (entrantId === userIdRef.current) {
-            // console.log('[Realtime] Ignoring own entry (optimistic)')
-            return
-          }
 
-          console.log('[Realtime] Entry added by other user:', entrantId)
+
+          // console.log('[Realtime] Entry added by other user:', entrantId)
           setEntryCounts(prev => ({
             ...prev,
             [raffleId]: (prev[raffleId] || 0) + 1
           }))
         })
         .subscribe((status: string) => {
-          console.log('[Realtime] Entries channel:', status)
+          // console.log('[Realtime] Entries channel:', status)
         })
 
       // Subscribe to raffle status changes (for when drawn/closed)
@@ -159,7 +156,7 @@ export default function HomePage() {
           schema: 'public',
           table: 'raffles'
         }, (payload: any) => {
-          console.log('[Realtime] Raffle updated:', payload.new?.id, 'status:', payload.new?.status)
+          // console.log('[Realtime] Raffle updated:', payload.new?.id, 'status:', payload.new?.status)
 
           // If raffle is no longer open, remove it from the list
           if (payload.new?.status !== 'open') {
@@ -178,14 +175,14 @@ export default function HomePage() {
         }, (payload: any) => {
           // New raffle created - add to list if open
           if (payload.new?.status === 'open') {
-            console.log('[Realtime] New raffle created:', payload.new?.title)
+            // console.log('[Realtime] New raffle created:', payload.new?.title)
             setEvents(prev => [payload.new, ...prev])
             // Initialize entry count for new raffle
             setEntryCounts(prev => ({ ...prev, [payload.new.id]: 0 }))
           }
         })
         .subscribe((status: string) => {
-          console.log('[Realtime] Raffles channel:', status)
+          // console.log('[Realtime] Raffles channel:', status)
         })
     }
 
@@ -288,16 +285,21 @@ export default function HomePage() {
             </div>
           </div>
         ) : (
-          filteredEvents.map((event) => (
-            <EventCard
+          filteredEvents.map((event, index) => (
+            <div
               key={event.id}
-              event={event}
-              entryCount={entryCounts[event.id] || 0}
-              onEnter={handleEnterEvent}
-              onShare={handleShareFacebook}
-              userId={userId}
-              isAdmin={isAdmin}
-            />
+              className="animate-in slide-in-from-bottom-4 fade-in duration-700 fill-mode-backwards"
+              style={{ animationDelay: `${index * 100}ms` }}
+            >
+              <EventCard
+                event={event}
+                entryCount={entryCounts[event.id] || 0}
+                onEnter={handleEnterEvent}
+                onShare={handleShareFacebook}
+                userId={userId}
+                isAdmin={isAdmin}
+              />
+            </div>
           ))
         )}
       </div>

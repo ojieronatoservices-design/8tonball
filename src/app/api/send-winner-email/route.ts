@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
+import { currentUser } from '@clerk/nextjs/server'
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_123')
 
 export async function POST(request: NextRequest) {
     try {
+        const user = await currentUser()
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
         const { to, winnerName, eventTitle, eventImage } = await request.json()
 
-        console.log('[send-winner-email] Processing winner email request...')
+        // console.log('[send-winner-email] Processing winner email request...')
 
         if (!to || !eventTitle) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })

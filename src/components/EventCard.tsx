@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react'
 import Image from 'next/image'
-import { Trophy, Clock, Users, Loader2, Share2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Coins, XCircle } from 'lucide-react'
+import { Trophy, Clock, Users, Loader2, Share2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Coins, XCircle, Ticket } from 'lucide-react'
 import { CountdownTimer } from '@/components/CountdownTimer'
 import { ImageLightbox } from '@/components/ImageLightbox'
 
@@ -184,41 +184,31 @@ export const EventCard = React.memo(({
 
                 {/* Content Section */}
                 <div className="px-4 pt-4 pb-6 flex flex-col gap-3">
-                    {/* Meta Info Bar */}
-                    <div className="grid grid-cols-3 gap-0 py-1.5 border-y border-border bg-muted/30">
-                        <div className="flex items-center justify-center gap-2">
-                            <Coins size={18} className="text-primary" />
-                            <span className="text-sm font-black text-foreground">{event.entry_cost_tibs}</span>
-                        </div>
-                        <div className={`flex items-center justify-center gap-2 border-x border-border transition-all duration-300 ${justJoined ? 'scale-125 text-primary' : ''}`}>
-                            <Users size={18} className={justJoined ? "text-primary" : "text-muted-foreground"} />
-                            <span className={`text-sm font-black ${justJoined ? "text-primary transition-all neon-text" : "text-foreground"}`}>{localEntryCount}</span>
-                        </div>
-                        <div className="flex items-center justify-center gap-2">
+                    {/* Flash Sale Banner */}
+                    <div className="flex justify-between items-center py-2 px-4 bg-gradient-to-r from-[#39FF14] to-[#d946ef] text-black shadow-[0_0_15px_rgba(57,255,20,0.3)]">
+                        {/* Left: Timer */}
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-medium uppercase tracking-tight opacity-80 leading-none mb-0.5">Event Ends In:</span>
                             {variant === 'profile-archive' ? (
-                                <div className="flex items-center gap-2">
-                                    {event.status === 'claimed' ? (
-                                        <div className="flex items-center gap-1.5 text-primary font-black text-[10px] uppercase tracking-wider">
-                                            ✓ CLAIMED
-                                        </div>
-                                    ) : isWinner ? (
-                                        <div className="flex items-center gap-1.5 text-green-500 font-black text-xs uppercase tracking-tight">
-                                            <Trophy size={14} /> WON
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-1.5 text-white/20 font-black text-xs uppercase tracking-tight">
-                                            <XCircle size={14} /> MISSED
-                                        </div>
-                                    )}
-                                </div>
+                                <span className="text-sm font-bold font-sans">
+                                    {event.status === 'claimed' ? 'CLAIMED' : isWinner ? 'WON' : 'ENDED'}
+                                </span>
                             ) : (
-                                <>
-                                    <Clock size={18} className="text-muted-foreground" />
-                                    <div className="text-sm font-black text-foreground">
-                                        <CountdownTimer endsAt={event.ends_at} showLabels={false} />
-                                    </div>
-                                </>
+                                <div className="text-sm font-bold font-sans tabular-nums">
+                                    <CountdownTimer endsAt={event.ends_at} showLabels={false} />
+                                </div>
                             )}
+                        </div>
+
+                        {/* Right: Cost & Entries */}
+                        <div className="flex flex-col items-end">
+                            <div className="flex items-center gap-1">
+                                <span className="text-sm font-bold font-sans">Tibs {event.entry_cost_tibs}</span>
+                            </div>
+                            <div className="flex items-center gap-1 opacity-80">
+                                <Ticket size={12} fill="currentColor" />
+                                <span className="text-[10px] font-medium font-sans">{localEntryCount} entries</span>
+                            </div>
                         </div>
                     </div>
 

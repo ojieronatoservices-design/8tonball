@@ -189,11 +189,11 @@ export default function ProfilePage() {
                     table: 'profiles',
                     filter: `id=eq.${userId}`
                 }, (payload: any) => {
-                    console.log('[Profile Realtime] Update received:', payload.new)
+                    // console.log('[Profile Realtime] Update received:', payload.new)
                     setProfile((prev: any) => prev ? { ...prev, ...payload.new } : payload.new)
                 })
                 .subscribe((status: string) => {
-                    console.log('[Profile Realtime] Channel status:', status)
+                    // console.log('[Profile Realtime] Channel status:', status)
                 })
 
             // Subscribe to raffle updates (for when events user entered are drawn)
@@ -205,7 +205,7 @@ export default function ProfilePage() {
                     table: 'raffles'
                 }, (payload: any) => {
                     // If any raffle user is part of gets updated, refresh entries
-                    console.log('[Profile Realtime] Raffle updated:', payload.new?.id)
+                    // console.log('[Profile Realtime] Raffle updated:', payload.new?.id)
                     // Update the entries list with new raffle data
                     setMyEntries((prev: EntryWithEvent[]) => prev.map(entry =>
                         entry.raffle_id === payload.new?.id
@@ -214,7 +214,7 @@ export default function ProfilePage() {
                     ))
                 })
                 .subscribe((status: string) => {
-                    console.log('[Profile Realtime] Raffles channel:', status)
+                    // console.log('[Profile Realtime] Raffles channel:', status)
                 })
         }
 
