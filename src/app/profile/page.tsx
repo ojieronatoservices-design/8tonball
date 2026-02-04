@@ -315,32 +315,23 @@ export default function ProfilePage() {
         return isWinnerById || isWinnerByTicket || isWinnerByEntryId
     }, [userId])
 
-    // Mark unread wins as read when viewing Archive tab
+    // Load read wins from local storage
+    const [readWinIds, setReadWinIds] = useState<Set<string>>(new Set())
     useEffect(() => {
-        if (activeTab === 'archives' && userId) {
-            const markAsRead = async () => {
-                const supabaseClient = await getClient()
-                if (!supabaseClient) return
-
-                const unreadWins = archivedGroups
-                    .filter(g => didWin(g) && !g.event.is_read)
-                    .map(g => g.event.id)
-
-                if (unreadWins.length > 0) {
-                    const { error } = await supabaseClient
-                        .from('raffles')
-                        .update({ is_read: true })
-                        .in('id', unreadWins)
-
-                    if (!error) {
-                        // Refresh data silently to clear badges
-                        fetchProfile(true)
-                    }
-                }
-            }
-            markAsRead()
+        const stored = localStorage.getItem('read_wins')
+        if (stored) {
+            setReadWinIds(new Set(JSON.parse(stored)))
         }
-    }, [activeTab, userId, archivedGroups, didWin])
+    }, [])
+
+    const markWinAsRead = (id: string) => {
+        if (!readWinIds.has(id)) {
+            const newSet = new Set(readWinIds)
+            newSet.add(id)
+            setReadWinIds(newSet)
+            localStorage.setItem('read_wins', JSON.stringify(Array.from(newSet)))
+        }
+    }
 
     const handleEnterEvent = async (eventId: string, cost: number): Promise<boolean> => {
         const supabaseClient = await getClient()
@@ -584,7 +575,7 @@ export default function ProfilePage() {
                     >
                         <Trophy size={14} />
                         Archive
-                        {archivedGroups.some(g => didWin(g) && !g.event.is_read) && (
+                        {archivedGroups.some(g => didWin(g) && !g.event.is_read && !readWinIds.has(g.event.id)) && (
                             <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                         )}
                     </button>
@@ -695,7 +686,13 @@ export default function ProfilePage() {
                                         <div className={`flex flex-col bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 ${isExpanded ? 'ring-1 ring-primary/20 shadow-lg' : 'hover:bg-muted/30'}`}>
                                             {/* Collapsed Bar */}
                                             <button
-                                                onClick={() => setExpandedId(isExpanded ? null : group.event.id)}
+                                                onClick={() => {
+                                                    const isExpanded = expandedId === group.event.id
+                                                    setExpandedId(isExpanded ? null : group.event.id)
+                                                    if (!isExpanded && won) {
+                                                        markWinAsRead(group.event.id)
+                                                    }
+                                                }}
                                                 className="flex items-center justify-between p-4 text-left group"
                                             >
                                                 <div className="flex items-center gap-3 min-w-0">
@@ -724,7 +721,7 @@ export default function ProfilePage() {
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-3">
-                                                    {won && !group.event.is_read && (
+                                                    {won && !group.event.is_read && !readWinIds.has(group.event.id) && (
                                                         <div className="w-2 h-2 bg-red-500 rounded-full" />
                                                     )}
                                                     <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
