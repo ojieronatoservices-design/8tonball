@@ -970,7 +970,7 @@ export default function AdminDashboard() {
         <div className="min-h-screen bg-background text-sm">
             {/* Sticky Header */}
             <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-white/5 px-6 py-3">
-                <div className="max-w-6xl mx-auto flex flex-col gap-3">
+                <div className="max-w-3xl mx-auto flex flex-col gap-3">
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2">
                             <span className="text-[10px] font-bold opacity-30 uppercase tracking-widest">Admin Terminal</span>
@@ -1000,7 +1000,7 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
-            <div className="max-w-6xl mx-auto px-6 py-8 pb-32">
+            <div className="max-w-3xl mx-auto px-6 py-8 pb-32">
                 {/* Content */}
                 {activeTab === 'analytics' ? (
                     <div className="flex flex-col gap-10">

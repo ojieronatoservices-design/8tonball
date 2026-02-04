@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useState, useRef, useMemo } from 'react'
-import { Wallet, Trophy, Bell, User, LayoutDashboard, Loader2, LogOut, Search, X } from 'lucide-react'
+import { Wallet, Trophy, Bell, User, LayoutDashboard, Loader2, LogOut, Search, X, Plus, QrCode, Upload, Camera, Image as ImageIcon } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
@@ -50,8 +50,12 @@ export function Shell({ children }: ShellProps) {
         }
         router.replace(`/?${params.toString()}`, { scroll: false })
     }
-    const [isSyncing, setIsSyncing] = useState(false)
     const [showLegalModal, setShowLegalModal] = useState(false)
+    const [showWalletModal, setShowWalletModal] = useState(false)
+    const [selectedPackage, setSelectedPackage] = useState<number | null>(null)
+    const [proofFile, setProofFile] = useState<File | null>(null)
+    const [proofPreview, setProofPreview] = useState<string | null>(null)
+    const [isSubmitting, setIsSubmitting] = useState(false)
     const [isVisible, setIsVisible] = useState(true)
     const lastScrollY = useRef(0)
 
@@ -179,6 +183,72 @@ export function Shell({ children }: ShellProps) {
         }
     }
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (file) {
+            if (file.size > 200 * 1024 * 1024) {
+                showToast('File too large (Max 200MB)', 'error')
+                return
+            }
+            setProofFile(file)
+            const reader = new FileReader()
+            reader.onloadend = () => setProofPreview(reader.result as string)
+            reader.readAsDataURL(file)
+        }
+    }
+
+    const handleSubmitProof = async () => {
+        if (!proofFile || !selectedPackage || !user) return
+        const supabaseClient = await getClient()
+        if (!supabaseClient) return
+
+        setIsSubmitting(true)
+        try {
+            const fileExt = proofFile.name.split('.').pop()
+            const fileName = `${user.id}-${Date.now()}.${fileExt}`
+            const filePath = `proofs/${fileName}`
+
+            const { error: uploadError } = await supabaseClient.storage
+                .from('media')
+                .upload(filePath, proofFile)
+
+            if (uploadError) throw uploadError
+
+            const { data: { publicUrl } } = supabaseClient.storage
+                .from('media')
+                .getPublicUrl(filePath)
+
+            const { error: insertError } = await supabaseClient
+                .from('transactions')
+                .insert([{
+                    user_id: user.id,
+                    requested_tibs: selectedPackage,
+                    proof_image_url: publicUrl,
+                    status: 'pending'
+                }])
+
+            if (insertError) throw insertError
+
+            showToast('Payment proof submitted! Verification pending.', 'success')
+            setProofFile(null)
+            setProofPreview(null)
+            setSelectedPackage(null)
+            setShowWalletModal(false)
+        } catch (error: any) {
+            console.error('Error submitting proof:', error)
+            showToast(error.message || 'Error submitting proof', 'error')
+        } finally {
+            setIsSubmitting(false)
+        }
+    }
+
+    const packages = [
+        { tibs: 80, price: 10, label: 'Starter' },
+        { tibs: 400, price: 50, label: 'Popular' },
+        { tibs: 800, price: 100, label: 'Best Value' },
+        { tibs: 8000, price: 1000, label: 'TONBALL' },
+    ]
+
 
     const [unreadCount, setUnreadCount] = useState(0)
 
@@ -281,7 +351,6 @@ export function Shell({ children }: ShellProps) {
     // Build nav items - Admin tab only for admins, Host tab for eligible hosts
     const navItems = useMemo(() => [
         { label: 'Feed', href: '/', icon: Trophy },
-        { label: 'Wallet', href: '/wallet', icon: Wallet },
         // Unified Admin/Host Tab: Admins see "Admin Hub", everyone else sees "Host Dashboard"
         ...(user
             ? [{
@@ -290,7 +359,6 @@ export function Shell({ children }: ShellProps) {
                 icon: LayoutDashboard
             }]
             : []),
-        { label: 'Activity', href: '/notifications', icon: Bell },
         { label: 'Profile', href: '/profile', icon: User },
     ], [user?.id, isAdmin])
 
@@ -302,20 +370,31 @@ export function Shell({ children }: ShellProps) {
         <div className="min-h-screen bg-background text-foreground flex flex-col items-center">
             {/* Top Header */}
             <header className={cn(
-                "fixed top-0 w-full max-w-lg glass z-50 flex flex-col transition-transform duration-300 will-change-transform",
+                "fixed top-0 w-full max-w-3xl glass z-50 flex flex-col transition-transform duration-300 will-change-transform",
                 !isVisible && "-translate-y-full",
                 pathname === '/' ? "py-3" : "py-4"
             )}>
                 <div className="w-full px-6 flex justify-between items-center">
                     <Link href="/">
-                        <h1 className="text-xl font-black tracking-tighter neon-text">8TONBALL</h1>
+                        <h1 className="text-xl font-black italic tracking-tighter">
+                            <span className="text-primary tracking-[-0.1em] mr-0.5">8</span>
+                            <span className="text-white">TONBALL</span>
+                        </h1>
                     </Link>
                     <div className="flex items-center gap-3">
                         {isLoaded && user ? (
                             <div className="flex items-center gap-3">
-                                <div className="flex items-center gap-1.5 bg-muted px-3 py-1 rounded-full border border-border">
-                                    <span className="text-sm font-bold neon-text">{balance.toLocaleString()}</span>
-                                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Tibs</span>
+                                <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1.5 bg-muted px-3 py-1 rounded-full border border-border">
+                                        <span className="text-sm font-bold neon-text">{balance.toLocaleString()}</span>
+                                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Tibs</span>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowWalletModal(true)}
+                                        className="w-7 h-7 flex items-center justify-center bg-primary rounded-full text-black hover:scale-110 active:scale-95 transition-all shadow-lg"
+                                    >
+                                        <Plus size={16} strokeWidth={4} />
+                                    </button>
                                 </div>
                                 <UserButton afterSignOutUrl="/" />
                             </div>
@@ -358,7 +437,7 @@ export function Shell({ children }: ShellProps) {
 
             {/* Main Content */}
             <main className={cn(
-                "w-full max-w-lg pb-32 px-6 transition-all duration-300",
+                "w-full max-w-3xl pb-32 px-6 transition-all duration-300",
                 pathname === '/' ? "pt-32" : "pt-24"
             )}>
                 {children}
@@ -366,7 +445,7 @@ export function Shell({ children }: ShellProps) {
 
             {/* Bottom Navigation */}
             <nav className={cn(
-                "fixed bottom-0 w-full max-w-lg glass z-50 px-6 py-4 transition-transform duration-300",
+                "fixed bottom-0 w-full max-w-3xl glass z-50 px-6 py-4 transition-transform duration-300",
                 !isVisible && "translate-y-full"
             )}>
                 <div className="flex justify-between items-center">
@@ -458,6 +537,95 @@ export function Shell({ children }: ShellProps) {
                                 Philippine Digital Safety Standards
                             </p>
                         </div>
+                    </div>
+                </div>
+            )}
+            {/* Wallet Modal */}
+            {showWalletModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-card w-full max-w-sm rounded-[2.5rem] border border-border p-8 flex flex-col gap-6 shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto custom-scrollbar">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-xl font-black tracking-tight text-foreground uppercase italic underline decoration-primary decoration-4 underline-offset-4">Top Up Tibs</h3>
+                            <button onClick={() => setShowWalletModal(false)} className="w-8 h-8 bg-muted flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-all">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {!selectedPackage ? (
+                            <div className="grid grid-cols-2 gap-3">
+                                {packages.map((pkg) => (
+                                    <button
+                                        key={pkg.tibs}
+                                        onClick={() => setSelectedPackage(pkg.tibs)}
+                                        className="p-4 rounded-3xl border border-white/5 bg-card hover:border-primary/30 text-left transition-all active:scale-95 group"
+                                    >
+                                        <div className="text-[8px] uppercase tracking-widest font-black text-primary mb-1">{pkg.label}</div>
+                                        <div className="text-xl font-black">{pkg.tibs}</div>
+                                        <div className="text-[10px] font-bold text-white/40">{pkg.price} PHP</div>
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-6 animate-in slide-in-from-right-4 duration-300">
+                                <button
+                                    onClick={() => setSelectedPackage(null)}
+                                    className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1 hover:gap-2 transition-all w-fit"
+                                >
+                                    ← Back to packages
+                                </button>
+
+                                <div className="p-4 bg-white/5 rounded-3xl border border-white/5 flex flex-col items-center text-center gap-4">
+                                    <div className="relative w-48 h-48 bg-white rounded-2xl overflow-hidden p-2">
+                                        <div className="absolute top-[-60px] left-0 w-full">
+                                            <img src="/qr.jpg" alt="Payment QR" className="w-full object-contain" />
+                                        </div>
+                                        <div className="absolute top-0 left-0 w-full pt-1 pb-1 bg-white flex flex-col items-center justify-center shadow-sm">
+                                            <span className="text-[8px] font-black text-black/40 tracking-wider">•••••••• 2142</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-sm">Scan to Pay</h4>
+                                        <p className="text-white/40 text-[10px] mt-1">Pay <span className="text-white font-bold">{packages.find(p => p.tibs === selectedPackage)?.price} PHP</span> via <span className="text-primary font-black uppercase">InstaPay</span></p>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col gap-3">
+                                    {proofPreview ? (
+                                        <div className="relative w-full aspect-video rounded-3xl overflow-hidden border border-white/10 group">
+                                            <img src={proofPreview} alt="Proof" className="w-full h-full object-cover" />
+                                            <button
+                                                onClick={() => { setProofFile(null); setProofPreview(null); }}
+                                                className="absolute top-2 right-2 w-8 h-8 bg-black/60 rounded-full flex items-center justify-center text-white"
+                                            >
+                                                <X size={16} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <label className="flex flex-col items-center justify-center gap-2 p-6 bg-muted/40 rounded-2xl border-2 border-dashed border-white/5 hover:border-primary/20 cursor-pointer transition-all">
+                                                <input type="file" className="hidden" accept="image/*" capture="environment" onChange={handleFileChange} />
+                                                <Camera className="text-white/20" size={20} />
+                                                <span className="text-[8px] font-black uppercase tracking-widest text-white/20">Camera</span>
+                                            </label>
+                                            <label className="flex flex-col items-center justify-center gap-2 p-6 bg-muted/40 rounded-2xl border-2 border-dashed border-white/5 hover:border-primary/20 cursor-pointer transition-all">
+                                                <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+                                                <ImageIcon className="text-white/20" size={20} />
+                                                <span className="text-[8px] font-black uppercase tracking-widest text-white/20">Photos</span>
+                                            </label>
+                                        </div>
+                                    )}
+
+                                    <button
+                                        onClick={handleSubmitProof}
+                                        disabled={!proofFile || isSubmitting}
+                                        className="w-full py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 text-xs"
+                                    >
+                                        {isSubmitting && <Loader2 size={14} className="animate-spin" />}
+                                        {isSubmitting ? 'PROCESSING...' : 'SUBMIT PROOF'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

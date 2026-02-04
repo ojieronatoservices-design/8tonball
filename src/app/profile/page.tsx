@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useState, useRef, useMemo } from 'react'
-import { Plus, Ticket, ShieldCheck, Clock, Trophy, Loader2, User, LogOut, Wallet, CheckSquare, X, Settings, XCircle, Mail, ChevronDown } from 'lucide-react'
+import { Plus, Ticket, ShieldCheck, Clock, Trophy, Loader2, User, LogOut, Wallet, CheckSquare, X, Settings, XCircle, Mail, ChevronDown, Bell } from 'lucide-react'
 import { useUser, useAuth, useClerk } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
 import { CountdownTimer } from '@/components/CountdownTimer'
@@ -44,7 +44,9 @@ export default function ProfilePage() {
     const [hostedEvents, setHostedEvents] = useState<any[]>(globalHostedCache || [])
     const [entryCounts, setEntryCounts] = useState<Record<string, number>>(globalCountsCache || {})
     const { getClient } = useSupabase()
-    const [activeTab, setActiveTab] = useState<'live' | 'archives' | 'hosted'>('live')
+    const [activeTab, setActiveTab] = useState<'live' | 'archives' | 'activity'>('live')
+    const [notifications, setNotifications] = useState<any[]>([])
+    const [isLoadingNotifs, setIsLoadingNotifs] = useState(false)
 
     // Payout State
     const [showPayoutModal, setShowPayoutModal] = useState(false)
@@ -440,7 +442,7 @@ export default function ProfilePage() {
         <div className="flex flex-col gap-6 -mx-6">
             {/* STICKY FOLDING HEADER */}
             <div className={`sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border transition-all duration-500 px-6 pt-6 pb-4 ${isFolded ? 'translate-y-0 shadow-lg' : 'translate-y-0'}`}>
-                <div className="flex flex-col gap-4">
+                <div className="w-full max-w-3xl mx-auto flex flex-col gap-4">
                     {/* Top Row: User Info & Metrics */}
                     <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3 min-w-0">
@@ -520,7 +522,7 @@ export default function ProfilePage() {
             </div>
 
             {/* TABS */}
-            <div className="px-6">
+            <div className="px-6 w-full max-w-3xl mx-auto">
                 <div className="flex bg-muted/30 p-1 rounded-2xl border border-border/50">
                     <button
                         onClick={() => setActiveTab('live')}
@@ -531,20 +533,21 @@ export default function ProfilePage() {
                     </button>
                     <button
                         onClick={() => setActiveTab('archives')}
-                        className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'archives' ? 'bg-primary text-black shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
+                        className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 relative ${activeTab === 'archives' ? 'bg-primary text-black shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
                     >
                         <Trophy size={14} />
                         Archive
+                        {archivedGroups.some(g => didWin(g) && !g.event.is_read) && (
+                            <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                        )}
                     </button>
-                    {isHostEligible && (
-                        <button
-                            onClick={() => setActiveTab('hosted')}
-                            className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'hosted' ? 'bg-primary text-black shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
-                        >
-                            <Plus size={14} strokeWidth={3} />
-                            Host
-                        </button>
-                    )}
+                    <button
+                        onClick={() => setActiveTab('activity')}
+                        className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'activity' ? 'bg-primary text-black shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                        <Bell size={14} />
+                        Activity
+                    </button>
                 </div>
             </div>
 
@@ -559,49 +562,51 @@ export default function ProfilePage() {
                         liveGroups.map((group) => {
                             const isExpanded = expandedId === group.event.id;
                             return (
-                                <div key={group.event.id} className={`flex flex-col bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 ${isExpanded ? 'ring-1 ring-primary/20 shadow-lg' : 'hover:bg-muted/30'}`}>
-                                    {/* Collapsed Bar */}
-                                    <button
-                                        onClick={() => setExpandedId(isExpanded ? null : group.event.id)}
-                                        className="flex items-center justify-between p-4 text-left group"
-                                    >
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-border">
-                                                <img src={group.event.media_urls?.[0]} alt="" className="w-full h-full object-cover" />
-                                            </div>
-                                            <div className="flex flex-col min-w-0">
-                                                <h4 className="text-sm font-black truncate uppercase tracking-tight">{group.event.title}</h4>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase">x{group.entries.length} Entries</span>
-                                                    <span className="w-1 h-1 rounded-full bg-primary/30" />
-                                                    <div className="flex items-center gap-1 text-[10px] font-black bg-primary text-black px-2 py-0.5 rounded-md uppercase animate-pulse">
-                                                        <Clock size={10} /> Live
+                                <div key={group.event.id} className="w-full max-w-3xl mx-auto px-6">
+                                    <div className={`flex flex-col bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 ${isExpanded ? 'ring-1 ring-primary/20 shadow-lg' : 'hover:bg-muted/30'}`}>
+                                        {/* Collapsed Bar */}
+                                        <button
+                                            onClick={() => setExpandedId(isExpanded ? null : group.event.id)}
+                                            className="flex items-center justify-between p-4 text-left group"
+                                        >
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-border">
+                                                    <img src={group.event.media_urls?.[0]} alt="" className="w-full h-full object-cover" />
+                                                </div>
+                                                <div className="flex flex-col min-w-0">
+                                                    <h4 className="text-sm font-black truncate uppercase tracking-tight">{group.event.title}</h4>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] font-bold text-muted-foreground uppercase">x{group.entries.length} Entries</span>
+                                                        <span className="w-1 h-1 rounded-full bg-primary/30" />
+                                                        <div className="flex items-center gap-1 text-[10px] font-black bg-primary text-black px-2 py-0.5 rounded-md uppercase animate-pulse">
+                                                            <Clock size={10} /> Live
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-                                            <ChevronDown size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
-                                        </div>
-                                    </button>
+                                            <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+                                                <ChevronDown size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                                            </div>
+                                        </button>
 
-                                    {/* Expanded Content */}
-                                    {isExpanded && (
-                                        <div className="animate-in slide-in-from-top-4 fade-in duration-300 border-t border-border/50">
-                                            <EventCard
-                                                event={group.event}
-                                                entryCount={entryCounts[group.event.id] || 0}
-                                                onEnter={handleEnterEvent}
-                                                onShare={handleShareFacebook}
-                                                userId={userId}
-                                                variant="profile-live"
-                                                onClaim={handleClaim}
-                                                entryNumbers={group.entries.map(e => e.ticket_number).filter(Boolean) as string[]}
-                                            />
-                                        </div>
-                                    )}
+                                        {/* Expanded Content */}
+                                        {isExpanded && (
+                                            <div className="animate-in slide-in-from-top-4 fade-in duration-300 border-t border-border/50">
+                                                <EventCard
+                                                    event={group.event}
+                                                    entryCount={entryCounts[group.event.id] || 0}
+                                                    onEnter={handleEnterEvent}
+                                                    onShare={handleShareFacebook}
+                                                    userId={userId}
+                                                    variant="profile-live"
+                                                    onClaim={handleClaim}
+                                                    entryNumbers={group.entries.map(e => e.ticket_number).filter(Boolean) as string[]}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            )
+                            );
                         })
                     )
                 ) : activeTab === 'archives' ? (
@@ -614,182 +619,151 @@ export default function ProfilePage() {
                             const isExpanded = expandedId === group.event.id;
                             const won = didWin(group);
                             return (
-                                <div key={group.event.id} className={`flex flex-col bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 ${isExpanded ? 'ring-1 ring-primary/20 shadow-lg' : 'hover:bg-muted/30'}`}>
-                                    {/* Collapsed Bar */}
-                                    <button
-                                        onClick={() => setExpandedId(isExpanded ? null : group.event.id)}
-                                        className="flex items-center justify-between p-4 text-left group"
-                                    >
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-border grayscale-[0.5]">
-                                                <img src={group.event.media_urls?.[0]} alt="" className="w-full h-full object-cover" />
-                                            </div>
-                                            <div className="flex flex-col min-w-0">
-                                                <h4 className="text-sm font-black truncate uppercase tracking-tight text-muted-foreground/80">{group.event.title}</h4>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase">x{group.entries.length} Entries</span>
-                                                    <span className="w-1 h-1 rounded-full bg-border" />
-                                                    {won ? (
-                                                        <div className="flex items-center gap-1 text-[10px] font-black bg-green-500 text-black px-2 py-0.5 rounded-md uppercase">
-                                                            <Trophy size={10} /> Won
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground/40 uppercase">
-                                                            <XCircle size={10} /> Missed
-                                                        </div>
-                                                    )}
+                                <div key={group.event.id} className="w-full max-w-3xl mx-auto px-6">
+                                    <div className={`flex flex-col bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 ${isExpanded ? 'ring-1 ring-primary/20 shadow-lg' : 'hover:bg-muted/30'}`}>
+                                        {/* Collapsed Bar */}
+                                        <button
+                                            onClick={() => setExpandedId(isExpanded ? null : group.event.id)}
+                                            className="flex items-center justify-between p-4 text-left group"
+                                        >
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-border grayscale-[0.5]">
+                                                    <img src={group.event.media_urls?.[0]} alt="" className="w-full h-full object-cover" />
+                                                </div>
+                                                <div className="flex flex-col min-w-0">
+                                                    <h4 className="text-sm font-black truncate uppercase tracking-tight text-muted-foreground/80">{group.event.title}</h4>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] font-bold text-muted-foreground uppercase">x{group.entries.length} Entries</span>
+                                                        <span className="w-1 h-1 rounded-full bg-border" />
+                                                        {won ? (
+                                                            <div className="flex items-center gap-1 text-[10px] font-black bg-green-500 text-black px-2 py-0.5 rounded-md uppercase">
+                                                                <Trophy size={10} /> Won
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground/40 uppercase">
+                                                                <XCircle size={10} /> Missed
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-                                            <ChevronDown size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
-                                        </div>
-                                    </button>
+                                            <div className="flex items-center gap-3">
+                                                {won && !group.event.is_read && (
+                                                    <div className="w-2 h-2 bg-red-500 rounded-full" />
+                                                )}
+                                                <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+                                                    <ChevronDown size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                                                </div>
+                                            </div>
+                                        </button>
 
-                                    {/* Expanded Content */}
-                                    {isExpanded && (
-                                        <div className="animate-in slide-in-from-top-4 fade-in duration-300 border-t border-border/50">
-                                            <EventCard
-                                                event={group.event}
-                                                entryCount={entryCounts[group.event.id] || 0}
-                                                onEnter={handleEnterEvent}
-                                                onShare={handleShareFacebook}
-                                                userId={userId}
-                                                variant="profile-archive"
-                                                isWinner={won}
-                                                onClaim={handleClaim}
-                                                entryNumbers={group.entries.map(e => e.ticket_number).filter(Boolean) as string[]}
-                                            />
-                                        </div>
-                                    )}
+                                        {/* Expanded Content */}
+                                        {isExpanded && (
+                                            <div className="animate-in slide-in-from-top-4 fade-in duration-300 border-t border-border/50">
+                                                <EventCard
+                                                    event={group.event}
+                                                    entryCount={entryCounts[group.event.id] || 0}
+                                                    onEnter={handleEnterEvent}
+                                                    onShare={handleShareFacebook}
+                                                    userId={userId}
+                                                    variant="profile-archive"
+                                                    isWinner={won}
+                                                    onClaim={handleClaim}
+                                                    entryNumbers={group.entries.map(e => e.ticket_number).filter(Boolean) as string[]}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             )
                         })
                     )
                 ) : (
-                    hostedEvents.length === 0 ? (
-                        <div className="py-20 text-center">
-                            <p className="text-muted-foreground/20 font-black uppercase tracking-[0.2em] text-xs mb-6">No Hosted Events</p>
-                            <Link href="/admin" className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground font-black uppercase tracking-widest rounded-xl text-[10px] neon-border">
-                                <Plus size={16} strokeWidth={3} /> Create One
-                            </Link>
-                        </div>
-                    ) : (
-                        hostedEvents.map((event) => {
-                            const isExpanded = expandedId === event.id;
-                            const isLive = event.status === 'open';
-                            return (
-                                <div key={event.id} className={`flex flex-col bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 ${isExpanded ? 'ring-1 ring-primary/20 shadow-lg' : 'hover:bg-muted/30'}`}>
-                                    {/* Collapsed Bar */}
-                                    <button
-                                        onClick={() => setExpandedId(isExpanded ? null : event.id)}
-                                        className="flex items-center justify-between p-4 text-left group"
-                                    >
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-border">
-                                                <img src={event.media_urls?.[0]} alt="" className="w-full h-full object-cover" />
-                                            </div>
-                                            <div className="flex flex-col min-w-0">
-                                                <h4 className="text-sm font-black truncate uppercase tracking-tight">{event.title}</h4>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase">{entryCounts[event.id] || 0} Entries</span>
-                                                    <span className="w-1 h-1 rounded-full bg-border" />
-                                                    {isLive ? (
-                                                        <div className="flex items-center gap-1 text-[10px] font-black text-primary uppercase animate-pulse">
-                                                            <Clock size={10} /> Live
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground/40 uppercase">
-                                                            <XCircle size={10} /> Closed
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-                                            <ChevronDown size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
-                                        </div>
-                                    </button>
-
-                                    {/* Expanded Content */}
-                                    {isExpanded && (
-                                        <div className="animate-in slide-in-from-top-4 fade-in duration-300 border-t border-border/50">
-                                            <EventCard
-                                                event={event}
-                                                entryCount={entryCounts[event.id] || 0}
-                                                onEnter={handleEnterEvent}
-                                                onShare={handleShareFacebook}
-                                                userId={userId}
-                                                variant={isLive ? 'feed' : 'profile-archive'}
-                                                isWinner={false}
-                                                onClaim={handleClaim}
-                                            />
-                                        </div>
-                                    )}
+                    <div className="px-6 w-full max-w-3xl mx-auto flex flex-col gap-4">
+                        {isLoadingNotifs ? (
+                            <div className="py-20 flex justify-center">
+                                <Loader2 className="animate-spin text-primary" />
+                            </div>
+                        ) : notifications.length > 0 ? (
+                            notifications.map((n) => (
+                                <div key={n.id} className="p-4 bg-muted/20 border border-border rounded-2xl flex gap-4 items-start">
+                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                        {n.type === 'win' ? <Trophy size={18} className="text-primary" /> : <Bell size={18} className="text-muted-foreground" />}
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-sm font-medium">{n.message}</p>
+                                        <p className="text-[10px] text-muted-foreground mt-1">{new Date(n.created_at).toLocaleDateString()}</p>
+                                    </div>
                                 </div>
-                            )
-                        })
-                    )
+                            ))
+                        ) : (
+                            <div className="py-20 text-center text-muted-foreground/20 font-black uppercase tracking-[0.2em] text-xs">
+                                No Activity Yet
+                            </div>
+                        )}
+                    </div>
                 )}
             </div>
 
 
             {/* Payout Modal */}
-            {showPayoutModal && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/95 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="bg-card w-full max-w-sm rounded-[2.5rem] border border-border p-10 flex flex-col gap-8 shadow-2xl animate-in zoom-in-95 duration-300">
-                        <div className="flex justify-between items-center">
-                            <h3 className="text-2xl font-black tracking-tight text-foreground uppercase italic">Request Payout</h3>
-                            <button onClick={() => setShowPayoutModal(false)} className="w-10 h-10 bg-muted flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-all">
-                                <X size={20} />
+            {
+                showPayoutModal && (
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/95 backdrop-blur-md animate-in fade-in duration-300">
+                        <div className="bg-card w-full max-w-sm rounded-[2.5rem] border border-border p-10 flex flex-col gap-8 shadow-2xl animate-in zoom-in-95 duration-300">
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-2xl font-black tracking-tight text-foreground uppercase italic">Request Payout</h3>
+                                <button onClick={() => setShowPayoutModal(false)} className="w-10 h-10 bg-muted flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-all">
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <div className="p-6 bg-primary/5 border border-primary/20 rounded-[2rem] flex flex-col items-center">
+                                <p className="text-[10px] font-black uppercase text-primary/50 tracking-widest mb-1">Estimated Value</p>
+                                <div className="text-4xl font-black neon-text mb-2">₱{(profile.tibs_balance / 8).toLocaleString()}</div>
+                                <div className="flex items-center gap-2 px-3 py-1 bg-black/20 rounded-full border border-white/5">
+                                    <span className="text-[11px] text-foreground font-black">{profile.tibs_balance.toLocaleString()}</span>
+                                    <span className="text-[8px] text-muted-foreground font-black uppercase">TIBS</span>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-5">
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">GCash or Bank Details</label>
+                                    <input
+                                        type="text"
+                                        value={gcashNumber}
+                                        onChange={(e) => setGcashNumber(e.target.value)}
+                                        placeholder="Account # (e.g. 0912...)"
+                                        className="w-full h-14 bg-muted/50 border border-border rounded-2xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Account Name</label>
+                                    <input
+                                        type="text"
+                                        value={gcashName}
+                                        onChange={(e) => setGcashName(e.target.value)}
+                                        placeholder="Full Name"
+                                        className="w-full h-14 bg-muted/50 border border-border rounded-2xl px-6 text-sm font-bold focus:border-primary focus:outline-none uppercase text-foreground placeholder:text-muted-foreground/20"
+                                    />
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={handleRequestPayout}
+                                disabled={isSubmitting}
+                                className="w-full h-16 bg-primary text-black font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 neon-border text-sm"
+                            >
+                                {isSubmitting ? 'Processing...' : 'Settle Now'}
                             </button>
+                            <p className="text-[10px] text-center text-muted-foreground/30 font-medium px-4">
+                                Your TIBS will be converted and sent to your account of choice within 48 hours.
+                            </p>
                         </div>
-
-                        <div className="p-6 bg-primary/5 border border-primary/20 rounded-[2rem] flex flex-col items-center">
-                            <p className="text-[10px] font-black uppercase text-primary/50 tracking-widest mb-1">Estimated Value</p>
-                            <div className="text-4xl font-black neon-text mb-2">₱{(profile.tibs_balance / 8).toLocaleString()}</div>
-                            <div className="flex items-center gap-2 px-3 py-1 bg-black/20 rounded-full border border-white/5">
-                                <span className="text-[11px] text-foreground font-black">{profile.tibs_balance.toLocaleString()}</span>
-                                <span className="text-[8px] text-muted-foreground font-black uppercase">TIBS</span>
-                            </div>
-                        </div>
-
-                        <div className="flex flex-col gap-5">
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">GCash or Bank Details</label>
-                                <input
-                                    type="text"
-                                    value={gcashNumber}
-                                    onChange={(e) => setGcashNumber(e.target.value)}
-                                    placeholder="Account # (e.g. 0912...)"
-                                    className="w-full h-14 bg-muted/50 border border-border rounded-2xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Account Name</label>
-                                <input
-                                    type="text"
-                                    value={gcashName}
-                                    onChange={(e) => setGcashName(e.target.value)}
-                                    placeholder="Full Name"
-                                    className="w-full h-14 bg-muted/50 border border-border rounded-2xl px-6 text-sm font-bold focus:border-primary focus:outline-none uppercase text-foreground placeholder:text-muted-foreground/20"
-                                />
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={handleRequestPayout}
-                            disabled={isSubmitting}
-                            className="w-full h-16 bg-primary text-black font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 neon-border text-sm"
-                        >
-                            {isSubmitting ? 'Processing...' : 'Settle Now'}
-                        </button>
-                        <p className="text-[10px] text-center text-muted-foreground/30 font-medium px-4">
-                            Your TIBS will be converted and sent to your account of choice within 48 hours.
-                        </p>
                     </div>
-                </div>
-            )}
+                )
+            }
         </div>
     )
 }
