@@ -20,6 +20,9 @@ type EntryWithEvent = {
         winning_user_id?: string | null
         winning_entry_id: string | null
         media_urls: string[]
+        entry_cost_tibs: number
+        goal_tibs: number
+        all_entries?: { count: number }[]
     }
     ticket_number?: string
 }
@@ -80,7 +83,8 @@ export default function ProfilePage() {
                         ticket_number, 
                         raffles:raffles!entries_raffle_id_fkey(
                             *,
-                            host:profiles!host_user_id(email, display_name)
+                            host:profiles!host_user_id(email, display_name),
+                            all_entries:entries!entries_raffle_id_fkey(count)
                         )
                     `)
                     .eq('user_id', userId)
@@ -652,7 +656,8 @@ export default function ProfilePage() {
                         archivedGroups.map((group) => {
                             const isExpanded = expandedId === group.event.id;
                             const won = didWin(group);
-                            const currentTibs = (group.entries?.[0]?.count || 0) * group.event.entry_cost_tibs
+                            const totalEntries = group.event.all_entries?.[0]?.count || 0
+                            const currentTibs = totalEntries * group.event.entry_cost_tibs
                             const goalMet = group.event.goal_tibs > 0 ? currentTibs >= group.event.goal_tibs : true
                             return (
                                 <div key={group.event.id} className="w-full mb-2">
