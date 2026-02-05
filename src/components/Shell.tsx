@@ -54,9 +54,11 @@ export function Shell({ children }: ShellProps) {
     const [showLegalModal, setShowLegalModal] = useState(false)
     const [showWalletModal, setShowWalletModal] = useState(false)
     const [selectedPackage, setSelectedPackage] = useState<number | null>(null)
+    const [paymentMethod, setPaymentMethod] = useState<'paymongo' | 'qr' | null>(null)
     const [proofFile, setProofFile] = useState<File | null>(null)
     const [proofPreview, setProofPreview] = useState<string | null>(null)
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [isProcessingPaymongo, setIsProcessingPaymongo] = useState(false)
     const [isVisible, setIsVisible] = useState(true)
     const lastScrollY = useRef(0)
 
@@ -195,6 +197,34 @@ export function Shell({ children }: ShellProps) {
             const reader = new FileReader()
             reader.onloadend = () => setProofPreview(reader.result as string)
             reader.readAsDataURL(file)
+        }
+    }
+
+    const handlePayMongoCheckout = async () => {
+        if (!selectedPackage || !user) return
+
+        setIsProcessingPaymongo(true)
+        try {
+            const response = await fetch('/api/paymongo/checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tibs: selectedPackage, userId: user.id }) // Use user.id from Clerk
+            })
+
+            const data = await response.json()
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to create checkout')
+            }
+
+            // Redirect to PayMongo checkout
+            window.location.href = data.checkout_url
+
+        } catch (error: any) {
+            console.error('PayMongo error:', error)
+            showToast(error.message || 'Error creating checkout', 'error')
+        } finally {
+            setIsProcessingPaymongo(false)
         }
     }
 
@@ -542,89 +572,158 @@ export function Shell({ children }: ShellProps) {
                     </div>
                 </div>
             )}
-            {/* Wallet Modal */}
-            {showWalletModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="bg-card w-full max-w-sm rounded-[2.5rem] border border-border p-8 flex flex-col gap-6 shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto custom-scrollbar">
-                        <div className="flex justify-between items-center">
-                            <h3 className="text-xl font-black tracking-tight text-foreground uppercase italic underline decoration-primary decoration-4 underline-offset-4">Top Up Tibs</h3>
-                            <button onClick={() => setShowWalletModal(false)} className="w-8 h-8 bg-muted flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-all">
-                                <X size={18} />
-                            </button>
-                        </div>
-
-                        {!selectedPackage ? (
-                            <div className="grid grid-cols-2 gap-3">
-                                {packages.map((pkg) => (
-                                    <button
-                                        key={pkg.tibs}
-                                        onClick={() => setSelectedPackage(pkg.tibs)}
-                                        className="p-4 rounded-3xl border border-white/5 bg-card hover:border-primary/30 text-left transition-all active:scale-95 group"
-                                    >
-                                        <div className="text-[8px] uppercase tracking-widest font-black text-primary mb-1">{pkg.label}</div>
-                                        <div className="text-xl font-black">{pkg.tibs}</div>
-                                        <div className="text-[10px] font-bold text-white/40">{pkg.price} PHP</div>
-                                    </button>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="flex flex-col gap-6 animate-in slide-in-from-right-4 duration-300">
-                                <button
-                                    onClick={() => setSelectedPackage(null)}
-                                    className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1 hover:gap-2 transition-all w-fit"
-                                >
-                                    ← Back to packages
-                                </button>
-
-                                <div className="p-4 bg-white/5 rounded-3xl border border-white/5 flex flex-col items-center text-center gap-4">
-                                    <div className="bg-white rounded-2xl overflow-hidden p-3">
-                                        <img src="/code_ryR7XuoSc86641e9EvUyjSAs.jpg" alt="QR Ph Payment" className="w-48 h-auto object-contain" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-sm">Scan with Any Bank App</h4>
-                                        <p className="text-white/40 text-[10px] mt-1">Pay <span className="text-white font-bold">{packages.find(p => p.tibs === selectedPackage)?.price} PHP</span> via <span className="text-primary font-black uppercase">QR Ph</span></p>
-                                    </div>
-                                </div>
-
-                                <div className="flex flex-col gap-3">
-                                    {proofPreview ? (
-                                        <div className="relative w-full aspect-video rounded-3xl overflow-hidden border border-white/10 group">
-                                            <img src={proofPreview} alt="Proof" className="w-full h-full object-cover" />
-                                            <button
-                                                onClick={() => { setProofFile(null); setProofPreview(null); }}
-                                                className="absolute top-2 right-2 w-8 h-8 bg-black/60 rounded-full flex items-center justify-center text-white"
-                                            >
-                                                <X size={16} />
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <label className="flex flex-col items-center justify-center gap-2 p-6 bg-muted/40 rounded-2xl border-2 border-dashed border-white/5 hover:border-primary/20 cursor-pointer transition-all">
-                                                <input type="file" className="hidden" accept="image/*" capture="environment" onChange={handleFileChange} />
-                                                <Camera className="text-white/20" size={20} />
-                                                <span className="text-[8px] font-black uppercase tracking-widest text-white/20">Camera</span>
-                                            </label>
-                                            <label className="flex flex-col items-center justify-center gap-2 p-6 bg-muted/40 rounded-2xl border-2 border-dashed border-white/5 hover:border-primary/20 cursor-pointer transition-all">
-                                                <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
-                                                <ImageIcon className="text-white/20" size={20} />
-                                                <span className="text-[8px] font-black uppercase tracking-widest text-white/20">Photos</span>
-                                            </label>
-                                        </div>
-                                    )}
-
-                                    <button
-                                        onClick={handleSubmitProof}
-                                        disabled={!proofFile || isSubmitting}
-                                        className="w-full py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 text-xs"
-                                    >
-                                        {isSubmitting && <Loader2 size={14} className="animate-spin" />}
-                                        {isSubmitting ? 'PROCESSING...' : 'SUBMIT PROOF'}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
+                <div className="bg-card w-full max-w-sm rounded-[2.5rem] border border-border p-8 flex flex-col gap-6 shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto custom-scrollbar">
+                    <div className="flex justify-between items-center">
+                        <h3 className="text-xl font-black tracking-tight text-foreground uppercase italic underline decoration-primary decoration-4 underline-offset-4">Top Up Tibs</h3>
+                        <button onClick={() => { setShowWalletModal(false); setPaymentMethod(null); setSelectedPackage(null); }} className="w-8 h-8 bg-muted flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-all">
+                            <X size={18} />
+                        </button>
                     </div>
+
+                    {!selectedPackage ? (
+                        <div className="grid grid-cols-2 gap-3">
+                            {packages.map((pkg) => (
+                                <button
+                                    key={pkg.tibs}
+                                    onClick={() => { setSelectedPackage(pkg.tibs); setPaymentMethod(null); }}
+                                    className="p-4 rounded-3xl border border-white/5 bg-card hover:border-primary/30 text-left transition-all active:scale-95 group"
+                                >
+                                    <div className="text-[8px] uppercase tracking-widest font-black text-primary mb-1">{pkg.label}</div>
+                                    <div className="text-xl font-black">{pkg.tibs}</div>
+                                    <div className="text-[10px] font-bold text-white/40">{pkg.price} PHP</div>
+                                </button>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-6 animate-in slide-in-from-right-4 duration-300">
+                            <button
+                                onClick={() => { setSelectedPackage(null); setPaymentMethod(null); }}
+                                className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1 hover:gap-2 transition-all w-fit"
+                            >
+                                ← Back to packages
+                            </button>
+
+                            {/* Payment Method Selection */}
+                            <div className="flex flex-col gap-3">
+                                <label className="text-xs font-bold uppercase tracking-widest text-white/40 ml-2">Choose Payment Method</label>
+                                <div className="flex flex-col gap-2">
+                                    {/* PayMongo Option */}
+                                    <button
+                                        onClick={() => setPaymentMethod('paymongo')}
+                                        className={`p-4 rounded-3xl border text-left transition-all duration-200 ${paymentMethod === 'paymongo'
+                                            ? 'bg-gradient-to-br from-blue-500/20 to-purple-500/20 border-blue-500/50'
+                                            : 'bg-card border-white/5 hover:border-blue-500/30'
+                                            }`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${paymentMethod === 'paymongo' ? 'bg-blue-500/30' : 'bg-white/5'}`}>
+                                                <Wallet className={paymentMethod === 'paymongo' ? 'text-blue-400' : 'text-white/40'} size={20} />
+                                            </div>
+                                            <div>
+                                                <div className="font-black text-sm">Card / GCash / Maya</div>
+                                                <div className="text-[10px] text-white/40 flex items-center gap-1">Fast & Secure</div>
+                                            </div>
+                                        </div>
+                                    </button>
+
+                                    {/* QR Option */}
+                                    <button
+                                        onClick={() => setPaymentMethod('qr')}
+                                        className={`p-4 rounded-3xl border text-left transition-all duration-200 ${paymentMethod === 'qr'
+                                            ? 'bg-gradient-to-br from-primary/20 to-yellow-500/20 border-primary/50'
+                                            : 'bg-card border-white/5 hover:border-primary/30'
+                                            }`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${paymentMethod === 'qr' ? 'bg-primary/30' : 'bg-white/5'}`}>
+                                                <QrCode className={paymentMethod === 'qr' ? 'text-primary' : 'text-white/40'} size={20} />
+                                            </div>
+                                            <div>
+                                                <div className="font-black text-sm">QR Ph</div>
+                                                <div className="text-[10px] text-white/40">Any bank or e-wallet via manual verification</div>
+                                            </div>
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* PayMongo Flow */}
+                            {paymentMethod === 'paymongo' && (
+                                <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                    <button
+                                        onClick={handlePayMongoCheckout}
+                                        disabled={isProcessingPaymongo}
+                                        className="w-full py-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-blue-500/20 flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+                                    >
+                                        {isProcessingPaymongo ? (
+                                            <>
+                                                <Loader2 size={16} className="animate-spin" />
+                                                Processing...
+                                            </>
+                                        ) : (
+                                            <>
+                                                Pay {packages.find(p => p.tibs === selectedPackage)?.price} PHP Now
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* QR Flow */}
+                            {paymentMethod === 'qr' && (
+                                <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                    <div className="p-4 bg-white/5 rounded-3xl border border-white/5 flex flex-col items-center text-center gap-4">
+                                        <div className="bg-white rounded-2xl overflow-hidden p-3">
+                                            <img src="/code_ryR7XuoSc86641e9EvUyjSAs.jpg" alt="QR Ph Payment" className="w-48 h-auto object-contain" />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-sm">Scan with Any Bank App</h4>
+                                            <p className="text-white/40 text-[10px] mt-1">Pay <span className="text-white font-bold">{packages.find(p => p.tibs === selectedPackage)?.price} PHP</span> via <span className="text-primary font-black uppercase">QR Ph</span></p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col gap-3">
+                                        {proofPreview ? (
+                                            <div className="relative w-full aspect-video rounded-3xl overflow-hidden border border-white/10 group">
+                                                <img src={proofPreview} alt="Proof" className="w-full h-full object-cover" />
+                                                <button
+                                                    onClick={() => { setProofFile(null); setProofPreview(null); }}
+                                                    className="absolute top-2 right-2 w-8 h-8 bg-black/60 rounded-full flex items-center justify-center text-white"
+                                                >
+                                                    <X size={16} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <label className="flex flex-col items-center justify-center gap-2 p-6 bg-muted/40 rounded-2xl border-2 border-dashed border-white/5 hover:border-primary/20 cursor-pointer transition-all">
+                                                    <input type="file" className="hidden" accept="image/*" capture="environment" onChange={handleFileChange} />
+                                                    <Camera className="text-white/20" size={20} />
+                                                    <span className="text-[8px] font-black uppercase tracking-widest text-white/20">Camera</span>
+                                                </label>
+                                                <label className="flex flex-col items-center justify-center gap-2 p-6 bg-muted/40 rounded-2xl border-2 border-dashed border-white/5 hover:border-primary/20 cursor-pointer transition-all">
+                                                    <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+                                                    <ImageIcon className="text-white/20" size={20} />
+                                                    <span className="text-[8px] font-black uppercase tracking-widest text-white/20">Photos</span>
+                                                </label>
+                                            </div>
+                                        )}
+
+                                        <button
+                                            onClick={handleSubmitProof}
+                                            disabled={!proofFile || isSubmitting}
+                                            className="w-full py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 text-xs"
+                                        >
+                                            {isSubmitting && <Loader2 size={14} className="animate-spin" />}
+                                            {isSubmitting ? 'PROCESSING...' : 'SUBMIT PROOF'}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
+            </div>
             )}
         </div>
     )
