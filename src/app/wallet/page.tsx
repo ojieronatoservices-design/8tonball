@@ -241,8 +241,8 @@ export default function WalletPage() {
                         <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
                             <div className="p-6 bg-white/5 rounded-3xl border border-white/5 flex flex-col items-center text-center gap-4">
                                 {/* QR Ph Container */}
-                                <div className="bg-white rounded-2xl overflow-hidden shadow-2xl shadow-primary/20 p-4">
-                                    <img src="/code_ryR7XuoSc86641e9EvUyjSAs.jpg" alt="QR Ph Payment" className="w-64 h-auto object-contain" />
+                                <div className="bg-white rounded-2xl overflow-hidden shadow-2xl shadow-primary/20 w-64 h-64 relative flex items-center justify-center bg-white">
+                                    <img src="/code_ryR7XuoSc86641e9EvUyjSAs.jpg" alt="QR Ph Payment" className="w-full h-full object-cover scale-[1.3]" />
                                 </div>
 
                                 <div>

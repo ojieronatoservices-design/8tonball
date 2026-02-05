@@ -201,7 +201,16 @@ export function Shell({ children }: ShellProps) {
     }
 
     const handlePayMongoCheckout = async () => {
-        if (!selectedPackage || !user) return
+        console.log('Starting PayMongo checkout...', { selectedPackage, userId: user?.id })
+
+        if (!user) {
+            showToast('Please sign in to proceed', 'error')
+            return
+        }
+        if (!selectedPackage) {
+            showToast('No package selected', 'error')
+            return
+        }
 
         setIsProcessingPaymongo(true)
         try {
@@ -676,8 +685,8 @@ export function Shell({ children }: ShellProps) {
                                 {paymentMethod === 'qr' && (
                                     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
                                         <div className="p-4 bg-white/5 rounded-3xl border border-white/5 flex flex-col items-center text-center gap-4">
-                                            <div className="bg-white rounded-2xl overflow-hidden p-3">
-                                                <img src="/code_ryR7XuoSc86641e9EvUyjSAs.jpg" alt="QR Ph Payment" className="w-48 h-auto object-contain" />
+                                            <div className="bg-white rounded-2xl overflow-hidden w-48 h-48 relative flex items-center justify-center">
+                                                <img src="/code_ryR7XuoSc86641e9EvUyjSAs.jpg" alt="QR Ph Payment" className="w-full h-full object-cover scale-[1.3]" />
                                             </div>
                                             <div>
                                                 <h4 className="font-bold text-sm">Scan with Any Bank App</h4>
