@@ -201,12 +201,9 @@ export function Shell({ children }: ShellProps) {
     }
 
     const handlePayMongoCheckout = async () => {
-        // DEBUG: Alert to confirm click is registered
-        window.alert(`Debug: Starting checkout. Package: ${selectedPackage}, User: ${user?.id}`)
         console.log('Starting PayMongo checkout...', { selectedPackage, userId: user?.id })
 
         if (!user) {
-            window.alert('Debug: No user found')
             showToast('Please sign in to proceed', 'error')
             return
         }
@@ -220,17 +217,27 @@ export function Shell({ children }: ShellProps) {
             const response = await fetch('/api/paymongo/checkout', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tibs: selectedPackage, userId: user.id }) // Use user.id from Clerk
+                body: JSON.stringify({ tibs: selectedPackage, userId: user.id })
             })
 
             const data = await response.json()
 
             if (!response.ok) {
-                throw new Error(data.error || 'Failed to create checkout')
+                console.error('PayMongo API Error:', data);
+                if (data.error && data.error.includes('auth')) {
+                    showToast('System Error: Payment configuration missing. Please report to admin.', 'error');
+                } else {
+                    throw new Error(data.error || 'Failed to create checkout')
+                }
+                return;
             }
 
             // Redirect to PayMongo checkout
-            window.location.href = data.checkout_url
+            if (data.checkout_url) {
+                window.location.href = data.checkout_url
+            } else {
+                throw new Error('Invalid response from payment provider')
+            }
 
         } catch (error: any) {
             console.error('PayMongo error:', error)
