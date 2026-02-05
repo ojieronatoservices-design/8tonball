@@ -577,17 +577,12 @@ export function Shell({ children }: ShellProps) {
                                 </button>
 
                                 <div className="p-4 bg-white/5 rounded-3xl border border-white/5 flex flex-col items-center text-center gap-4">
-                                    <div className="relative w-48 h-48 bg-white rounded-2xl overflow-hidden p-2">
-                                        <div className="absolute top-[-60px] left-0 w-full">
-                                            <img src="/qr.jpg" alt="Payment QR" className="w-full object-contain" />
-                                        </div>
-                                        <div className="absolute top-0 left-0 w-full pt-1 pb-1 bg-white flex flex-col items-center justify-center shadow-sm">
-                                            <span className="text-[8px] font-black text-black/40 tracking-wider">•••••••• 2142</span>
-                                        </div>
+                                    <div className="bg-white rounded-2xl overflow-hidden p-3">
+                                        <img src="/code_ryR7XuoSc86641e9EvUyjSAs.jpg" alt="QR Ph Payment" className="w-48 h-auto object-contain" />
                                     </div>
                                     <div>
-                                        <h4 className="font-bold text-sm">Scan to Pay</h4>
-                                        <p className="text-white/40 text-[10px] mt-1">Pay <span className="text-white font-bold">{packages.find(p => p.tibs === selectedPackage)?.price} PHP</span> via <span className="text-primary font-black uppercase">InstaPay</span></p>
+                                        <h4 className="font-bold text-sm">Scan with Any Bank App</h4>
+                                        <p className="text-white/40 text-[10px] mt-1">Pay <span className="text-white font-bold">{packages.find(p => p.tibs === selectedPackage)?.price} PHP</span> via <span className="text-primary font-black uppercase">QR Ph</span></p>
                                     </div>
                                 </div>
 
