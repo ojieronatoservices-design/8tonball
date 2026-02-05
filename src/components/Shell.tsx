@@ -224,6 +224,8 @@ export function Shell({ children }: ShellProps) {
 
             if (!response.ok) {
                 console.error('PayMongo API Error:', data);
+                // DEBUG: Force alert for API errors
+                window.alert(`API Error: ${data.error || 'Unknown error'}`)
                 if (data.error && data.error.includes('auth')) {
                     showToast('System Error: Payment configuration missing. Please report to admin.', 'error');
                 } else {
@@ -236,11 +238,13 @@ export function Shell({ children }: ShellProps) {
             if (data.checkout_url) {
                 window.location.href = data.checkout_url
             } else {
+                window.alert('Error: No checkout URL received from API')
                 throw new Error('Invalid response from payment provider')
             }
 
         } catch (error: any) {
             console.error('PayMongo error:', error)
+            window.alert(`Catch Error: ${error.message}`)
             showToast(error.message || 'Error creating checkout', 'error')
         } finally {
             setIsProcessingPaymongo(false)
