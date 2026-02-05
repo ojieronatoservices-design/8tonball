@@ -381,7 +381,7 @@ export function Shell({ children }: ShellProps) {
             )}>
                 <div className="w-full px-6 flex justify-between items-center">
                     <Link href="/">
-                        <img src="/logo.png" alt="8TONBALL" className="h-12 object-contain" />
+                        <img src="/logo.png" alt="8TONBALL" className="h-16 object-contain" />
                     </Link>
                     <div className="flex items-center gap-3">
                         {isLoaded && user ? (
