@@ -201,9 +201,12 @@ export function Shell({ children }: ShellProps) {
     }
 
     const handlePayMongoCheckout = async () => {
+        // DEBUG: Alert to confirm click is registered
+        window.alert(`Debug: Starting checkout. Package: ${selectedPackage}, User: ${user?.id}`)
         console.log('Starting PayMongo checkout...', { selectedPackage, userId: user?.id })
 
         if (!user) {
+            window.alert('Debug: No user found')
             showToast('Please sign in to proceed', 'error')
             return
         }
