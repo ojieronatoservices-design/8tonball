@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Buffer } from 'buffer'
 
 const PAYMONGO_SECRET_KEY = process.env.PAYMONGO_SECRET_KEY
 
@@ -11,13 +12,16 @@ const PACKAGES: Record<number, { tibs: number; price: number; label: string }> =
 }
 
 export async function POST(req: NextRequest) {
+    let debugStatus = 'init';
     try {
+        debugStatus = 'validating_env';
         // Validate environment
         if (!PAYMONGO_SECRET_KEY) {
             console.error('PAYMONGO_SECRET_KEY is not configured')
             return NextResponse.json({ error: 'Payment system not configured. Contact admin.' }, { status: 500 })
         }
 
+        debugStatus = 'parsing_body';
         const { tibs, userId } = await req.json()
 
         if (!tibs || !userId) {
@@ -29,12 +33,16 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Invalid package' }, { status: 400 })
         }
 
+        debugStatus = 'creating_session';
         // Create PayMongo Checkout Session
+        const authHeader = `Basic ${Buffer.from(PAYMONGO_SECRET_KEY + ':').toString('base64')}`;
+
         const response = await fetch('https://api.paymongo.com/v1/checkout_sessions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Basic ${Buffer.from(PAYMONGO_SECRET_KEY + ':').toString('base64')}`,
+                'Authorization': authHeader,
+                'Accept': 'application/json'
             },
             body: JSON.stringify({
                 data: {
@@ -69,11 +77,25 @@ export async function POST(req: NextRequest) {
             })
         })
 
-        const data = await response.json()
+        debugStatus = 'reading_response';
+        // Read text first to avoid JSON parse errors
+        const responseText = await response.text();
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch (e) {
+            data = { error: 'Failed to parse JSON response', raw: responseText };
+        }
 
         if (!response.ok) {
             console.error('PayMongo error:', data)
-            return NextResponse.json({ error: data.errors?.[0]?.detail || 'PayMongo error' }, { status: 500 })
+            const errorDetail = data.errors?.[0]?.detail || JSON.stringify(data);
+            return NextResponse.json({
+                error: `PayMongo Failed: ${response.status}`,
+                details: errorDetail,
+                debug_url: 'https://api.paymongo.com/v1/checkout_sessions',
+                debug_key_prefix: PAYMONGO_SECRET_KEY.substring(0, 7) + '...'
+            }, { status: 500 })
         }
 
         return NextResponse.json({
@@ -83,6 +105,11 @@ export async function POST(req: NextRequest) {
 
     } catch (error: any) {
         console.error('Checkout error:', error)
-        return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
+        return NextResponse.json({
+            error: error.message || 'Internal server error',
+            stack: error.stack,
+            debug_status: debugStatus,
+            debug_key_configured: !!PAYMONGO_SECRET_KEY
+        }, { status: 500 })
     }
 }
