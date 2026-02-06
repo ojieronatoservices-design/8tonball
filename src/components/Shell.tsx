@@ -224,8 +224,8 @@ export function Shell({ children }: ShellProps) {
 
             if (!response.ok) {
                 console.error('PayMongo API Error:', data);
-                // DEBUG: Force alert for API errors
-                window.alert(`API Error: ${data.error || 'Unknown error'}`)
+                // DEBUG: Detailed error info
+                window.alert(`API Error: ${data.error || 'Unknown error'}\nStatus: ${response.status}\nURL: ${response.url}`)
                 if (data.error && data.error.includes('auth')) {
                     showToast('System Error: Payment configuration missing. Please report to admin.', 'error');
                 } else {
