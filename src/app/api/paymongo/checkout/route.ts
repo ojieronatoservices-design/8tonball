@@ -12,6 +12,12 @@ const PACKAGES: Record<number, { tibs: number; price: number; label: string }> =
 
 export async function POST(req: NextRequest) {
     try {
+        // Validate environment
+        if (!PAYMONGO_SECRET_KEY) {
+            console.error('PAYMONGO_SECRET_KEY is not configured')
+            return NextResponse.json({ error: 'Payment system not configured. Contact admin.' }, { status: 500 })
+        }
+
         const { tibs, userId } = await req.json()
 
         if (!tibs || !userId) {
