@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
 
         debugStatus = 'creating_session';
         // Create PayMongo Checkout Session
-        const authHeader = `Basic ${Buffer.from(PAYMONGO_SECRET_KEY + ':').toString('base64')}`;
+        const authHeader = `Basic ${Buffer.from(PAYMONGO_SECRET_KEY.trim() + ':').toString('base64')}`;
 
         const response = await fetch('https://api.paymongo.com/v1/checkout_sessions', {
             method: 'POST',
