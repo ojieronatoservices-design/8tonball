@@ -35,7 +35,8 @@ export async function POST(req: NextRequest) {
 
         debugStatus = 'creating_session';
         // Create PayMongo Checkout Session
-        const authHeader = `Basic ${Buffer.from(PAYMONGO_SECRET_KEY.trim() + ':').toString('base64')}`;
+        const cleanKey = PAYMONGO_SECRET_KEY.trim();
+        const authHeader = `Basic ${btoa(cleanKey + ':')}`;
 
         const response = await fetch('https://api.paymongo.com/v1/checkout_sessions', {
             method: 'POST',
@@ -93,8 +94,11 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({
                 error: `PayMongo Failed: ${response.status}`,
                 details: errorDetail,
+                debug_status: debugStatus,
                 debug_url: 'https://api.paymongo.com/v1/checkout_sessions',
-                debug_key_prefix: PAYMONGO_SECRET_KEY.substring(0, 7) + '...'
+                debug_key_length: cleanKey.length,
+                debug_key_start: cleanKey.substring(0, 5) + '...',
+                debug_key_end: '...' + cleanKey.substring(cleanKey.length - 4)
             }, { status: 500 })
         }
 
