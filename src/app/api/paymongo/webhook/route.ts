@@ -1,21 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-// Use service role for webhook (no user auth context)
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+// Use standard client (matches implementation in Shell.tsx for persistence)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json()
         const event = body.data
+        const attributes = event?.attributes
+        const type = attributes?.type
 
-        // Handle checkout session payment completed
-        if (event?.attributes?.type === 'checkout_session.payment.paid') {
-            const checkoutData = event.attributes.data
-            const metadata = checkoutData?.attributes?.metadata
+        // Handle checkout session payment completed or event success
+        if (type === 'checkout_session.payment.paid' || type === 'source.chargeable') {
+            const data = attributes.data
+            const metadata = data?.attributes?.metadata || attributes?.metadata
 
             if (!metadata?.user_id || !metadata?.tibs) {
                 console.error('Missing metadata in webhook:', metadata)
