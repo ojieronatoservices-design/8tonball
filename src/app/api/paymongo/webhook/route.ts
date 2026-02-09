@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-// Use standard client (matches implementation in Shell.tsx for persistence)
+// Use Service Role Key for background updates (bypasses RLS)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
+const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 export async function POST(req: NextRequest) {
     try {
@@ -14,8 +14,8 @@ export async function POST(req: NextRequest) {
         const attributes = event?.attributes
         const type = attributes?.type
 
-        // Handle checkout session payment completed or event success
-        if (type === 'checkout_session.payment.paid' || type === 'source.chargeable') {
+        // Handle checkout session payment completed or direct charge success
+        if (type === 'checkout_session.payment.paid' || type === 'source.chargeable' || type === 'charge.paid') {
             const data = attributes.data
             const metadata = data?.attributes?.metadata || attributes?.metadata
 
