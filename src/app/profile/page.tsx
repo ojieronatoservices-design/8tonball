@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useState, useRef, useMemo } from 'react'
-import { Plus, Ticket, ShieldCheck, Clock, Trophy, Loader2, User, LogOut, Wallet, CheckSquare, X, Settings, XCircle, Mail, ChevronDown, Bell, Coins, Search } from 'lucide-react'
+import { Plus, Ticket, ShieldCheck, Clock, Trophy, Loader2, User, LogOut, Wallet, CheckSquare, X, Settings, Image as ImageIcon, XCircle, Mail, ChevronDown, Bell, Coins, Search } from 'lucide-react'
 import { useUser, useAuth, useClerk } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
 import { CountdownTimer } from '@/components/CountdownTimer'
@@ -58,6 +58,19 @@ export default function ProfilePage() {
     const [gcashNumber, setGcashNumber] = useState('')
     const [gcashName, setGcashName] = useState('')
     const [isSubmitting, setIsSubmitting] = useState(false)
+
+    // KYC State
+    const [showKYCModal, setShowKYCModal] = useState(false)
+    const [kycForm, setKycForm] = useState({
+        fullName: '',
+        address: ''
+    })
+    const [kycIDFile, setKycIDFile] = useState<File | null>(null)
+    const [kycIDPreview, setKycIDPreview] = useState<string | null>(null)
+    const [kycSelfieFile, setKycSelfieFile] = useState<File | null>(null)
+    const [kycSelfiePreview, setKycSelfiePreview] = useState<string | null>(null)
+    const [isSubmittingKYC, setIsSubmittingKYC] = useState(false)
+    const [kycStatus, setKycStatus] = useState<'unverified' | 'pending' | 'verified' | 'rejected'>('unverified')
 
     const fetchProfile = async (silent = false) => {
         if (!userId) return
@@ -141,6 +154,19 @@ export default function ProfilePage() {
                         }
                     })
             }
+
+            // PHASE 4: Check KYC Status
+            const { data: kycData } = await supabaseClient
+                .from('kyc_requests')
+                .select('status')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle()
+
+            if (kycData) {
+                setKycStatus(kycData.status as any)
+            }
         } catch (error) {
             console.error('Error fetching profile:', error)
             if (!silent) setIsLoading(false)
@@ -155,16 +181,76 @@ export default function ProfilePage() {
         }
     }, [isAuthLoaded, userId])
 
-    // Safety timeout for loading state (mobile hangs)
-    useEffect(() => {
-        if (isLoading) {
-            const timer = setTimeout(() => {
-                console.warn('[ProfilePage] Loading safety timeout triggered')
-                setIsLoading(false)
-            }, 10000)
-            return () => clearTimeout(timer)
+    const handleKYCSubmit = async () => {
+        if (!userId || !kycIDFile || !kycSelfieFile || !kycForm.fullName) {
+            alert('Please complete all fields and upload both photos.')
+            return
         }
-    }, [isLoading])
+
+        const supabaseClient = await getClient()
+        if (!supabaseClient) return
+
+        setIsSubmittingKYC(true)
+        try {
+            // 1. Upload ID
+            const idExt = kycIDFile.name.split('.').pop()
+            const idPath = `kyc/${userId}-id-${Date.now()}.${idExt}`
+            const { error: idError } = await supabaseClient.storage.from('media').upload(idPath, kycIDFile)
+            if (idError) throw idError
+
+            // 2. Upload Selfie
+            const selfieExt = kycSelfieFile.name.split('.').pop()
+            const selfiePath = `kyc/${userId}-selfie-${Date.now()}.${selfieExt}`
+            const { error: selfieError } = await supabaseClient.storage.from('media').upload(selfiePath, kycSelfieFile)
+            if (selfieError) throw selfieError
+
+            const { data: { publicUrl: idUrl } } = supabaseClient.storage.from('media').getPublicUrl(idPath)
+            const { data: { publicUrl: selfieUrl } } = supabaseClient.storage.from('media').getPublicUrl(selfiePath)
+
+            // 3. Create Request
+            const { error: insertError } = await supabaseClient
+                .from('kyc_requests')
+                .insert([{
+                    user_id: userId,
+                    full_name: kycForm.fullName,
+                    address: kycForm.address,
+                    id_image_url: idUrl,
+                    selfie_image_url: selfieUrl,
+                    status: 'pending'
+                }])
+
+            if (insertError) throw insertError
+
+            setKycStatus('pending')
+            setShowKYCModal(false)
+            alert('Verification request submitted! We will review it shortly.')
+        } catch (error: any) {
+            console.error('KYC Error:', error)
+            alert(error.message || 'Error submitting verification')
+        } finally {
+            setIsSubmittingKYC(false)
+        }
+    }
+
+    const handleIDChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (file) {
+            setKycIDFile(file)
+            const reader = new FileReader()
+            reader.onloadend = () => setKycIDPreview(reader.result as string)
+            reader.readAsDataURL(file)
+        }
+    }
+
+    const handleSelfieChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (file) {
+            setKycSelfieFile(file)
+            const reader = new FileReader()
+            reader.onloadend = () => setKycSelfiePreview(reader.result as string)
+            reader.readAsDataURL(file)
+        }
+    }
 
     // Realtime subscriptions for profile updates
     const supabaseRef = useRef<any>(null)
@@ -547,8 +633,20 @@ export default function ProfilePage() {
                             <p className="text-[10px] text-muted-foreground/60 font-medium leading-relaxed mt-1">
                                 {isHostEligible
                                     ? "Verified Host: You can now launch and manage events."
-                                    : `You have already spent ${totalSpent.toLocaleString()} tibs! ${Math.max(0, threshold - totalSpent).toLocaleString()} more to go to be able to host! Keep trying your luck!`}
+                                    : kycStatus === 'pending'
+                                        ? "Verification Pending: Our team is reviewing your ID and selfie."
+                                        : kycStatus === 'rejected'
+                                            ? "Verification Rejected: Please try again with clearer photos."
+                                            : `You have already spent ${totalSpent.toLocaleString()} tibs! ${Math.max(0, threshold - totalSpent).toLocaleString()} more to go to be able to host! Keep trying your luck!`}
                             </p>
+                            {!isHostEligible && kycStatus !== 'pending' && (
+                                <button
+                                    onClick={() => setShowKYCModal(true)}
+                                    className="mt-2 w-full py-3 bg-primary/10 border border-primary/20 rounded-xl text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/20 hover:border-primary/40 transition-all active:scale-95"
+                                >
+                                    {kycStatus === 'rejected' ? 'Try Verification Again' : 'Become a Host (KYC)'}
+                                </button>
+                            )}
                         </div>
                     )}
                     {isAdmin && !isFolded && (
@@ -833,6 +931,93 @@ export default function ProfilePage() {
                         </button>
                         <p className="text-[10px] text-center text-muted-foreground/30 font-medium px-4">
                             Your TIBS will be converted and sent to your account of choice within 48 hours.
+                        </p>
+                    </div>
+                </div>
+            )}
+            {/* KYC Modal */}
+            {showKYCModal && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/95 backdrop-blur-md animate-in fade-in duration-300 overflow-auto">
+                    <div className="bg-card w-full max-w-lg rounded-[2.5rem] border border-border p-10 flex flex-col gap-6 shadow-2xl animate-in zoom-in-95 duration-300">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-2xl font-black tracking-tight text-foreground uppercase italic">Account Verification</h3>
+                            <button onClick={() => setShowKYCModal(false)} className="w-10 h-10 bg-muted flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-all">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="flex flex-col gap-4">
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Full Legal Name</label>
+                                <input
+                                    type="text"
+                                    value={kycForm.fullName}
+                                    onChange={(e) => setKycForm(prev => ({ ...prev, fullName: e.target.value }))}
+                                    placeholder="as shown on ID"
+                                    className="w-full h-12 bg-muted/50 border border-border rounded-xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Home Address (Optional)</label>
+                                <input
+                                    type="text"
+                                    value={kycForm.address}
+                                    onChange={(e) => setKycForm(prev => ({ ...prev, address: e.target.value }))}
+                                    placeholder="Current Residence"
+                                    className="w-full h-12 bg-muted/50 border border-border rounded-xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 mt-2">
+                                {/* ID Upload */}
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest text-center">ID Photo</label>
+                                    <button
+                                        onClick={() => document.getElementById('id-upload')?.click()}
+                                        className={`aspect-video w-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 overflow-hidden bg-muted/30 transition-all ${kycIDPreview ? 'border-primary/50' : 'border-border hover:border-primary/30'}`}
+                                    >
+                                        {kycIDPreview ? (
+                                            <img src={kycIDPreview} alt="ID" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <>
+                                                <ImageIcon size={24} className="text-muted-foreground/30" />
+                                                <span className="text-[8px] font-black uppercase text-muted-foreground/50">Upload ID</span>
+                                            </>
+                                        )}
+                                    </button>
+                                    <input type="file" id="id-upload" hidden accept="image/*" onChange={handleIDChange} />
+                                </div>
+
+                                {/* Selfie Upload */}
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest text-center">Selfie Photo</label>
+                                    <button
+                                        onClick={() => document.getElementById('selfie-upload')?.click()}
+                                        className={`aspect-video w-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 overflow-hidden bg-muted/30 transition-all ${kycSelfiePreview ? 'border-primary/50' : 'border-border hover:border-primary/30'}`}
+                                    >
+                                        {kycSelfiePreview ? (
+                                            <img src={kycSelfiePreview} alt="Selfie" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <>
+                                                <User size={24} className="text-muted-foreground/30" />
+                                                <span className="text-[8px] font-black uppercase text-muted-foreground/50">Upload Selfie</span>
+                                            </>
+                                        )}
+                                    </button>
+                                    <input type="file" id="selfie-upload" hidden accept="image/*" onChange={handleSelfieChange} />
+                                </div>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={handleKYCSubmit}
+                            disabled={isSubmittingKYC || !kycIDFile || !kycSelfieFile || !kycForm.fullName}
+                            className="w-full h-16 bg-primary text-black font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 neon-border text-sm mt-4"
+                        >
+                            {isSubmittingKYC ? 'Uploading Photos...' : 'Submit Verification'}
+                        </button>
+                        <p className="text-[9px] text-center text-muted-foreground/40 font-medium px-4 leading-normal">
+                            By submitting, you agree to our host terms. Verification typically takes 2-6 hours. Your data is encrypted and stored securely.
                         </p>
                     </div>
                 </div>
