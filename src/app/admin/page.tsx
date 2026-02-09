@@ -393,6 +393,7 @@ export default function AdminDashboard() {
     // Permission State
     const [isAdmin, setIsAdmin] = useState(false)
     const [isHostEligible, setIsHostEligible] = useState(false)
+    const [kycStatus, setKycStatus] = useState<'unverified' | 'pending' | 'verified' | 'rejected'>('unverified')
     const [totalSpentTib, setTotalSpentTib] = useState(0)
     const [isCheckingPermissions, setIsCheckingPermissions] = useState(true)
 
@@ -497,6 +498,16 @@ export default function AdminDashboard() {
                     setIsAdmin(profile.is_admin || false)
                     setIsHostEligible(profile.is_host_eligible || false)
                     setTotalSpentTib(profile.total_tibs_spent || 0)
+
+                    // Also check KYC status
+                    const { data: kycData } = await supabaseClient
+                        .from('kyc_requests')
+                        .select('status')
+                        .eq('user_id', userId)
+                        .order('created_at', { ascending: false })
+                        .limit(1)
+                        .maybeSingle()
+                    if (kycData) setKycStatus(kycData.status as any)
                 }
             } catch (err) { console.error('Error checking permissions:', err) }
             finally { setIsCheckingPermissions(false) }
@@ -1132,17 +1143,23 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="flex flex-col gap-3">
-                        <h2 className="text-2xl font-black italic tracking-tight text-white uppercase">Head's up future Host!</h2>
+                        <h2 className="text-2xl font-black italic tracking-tight text-white uppercase">
+                            {kycStatus === 'pending' ? 'Verification in Progress' : 'Head\'s up future Host!'}
+                        </h2>
                         <p className="text-white/40 text-sm leading-relaxed font-medium px-4">
-                            You only need <span className="text-primary font-black">{(threshold - totalSpentTib).toLocaleString()} more tibs</span> to use in order to host an event!
+                            {kycStatus === 'pending'
+                                ? "Our team is currently reviewing your application. This typicaly takes 2-6 hours. We'll notify you once you're approved!"
+                                : kycStatus === 'rejected'
+                                    ? "Your previous verification was rejected. Please head to your profile to try again with clearer photos."
+                                    : "Unlock hosting capabilities by completing account verification (KYC) on your profile page!"}
                         </p>
                     </div>
 
                     <button
-                        onClick={() => window.location.href = '/'}
+                        onClick={() => window.location.href = '/profile'}
                         className="w-full py-5 bg-primary text-black font-black uppercase tracking-[0.2em] text-xs rounded-2xl transition-all shadow-[0_0_20px_rgba(57,255,20,0.2)] hover:shadow-[0_0_30px_rgba(57,255,20,0.4)] hover:scale-[1.02] active:scale-95 mt-2"
                     >
-                        Discover more events
+                        {kycStatus === 'pending' ? 'View Profile Status' : 'Go to Profile for KYC'}
                     </button>
                 </div>
             </div>

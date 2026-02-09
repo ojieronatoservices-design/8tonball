@@ -34,20 +34,26 @@ ADD COLUMN IF NOT EXISTS escrow_released BOOLEAN DEFAULT FALSE;
 ALTER TABLE public.kyc_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.refund_queue ENABLE ROW LEVEL SECURITY;
 
+-- Clean up existing policies if any
+DROP POLICY IF EXISTS "Users can view own kyc" ON public.kyc_requests;
+DROP POLICY IF EXISTS "Users can create own kyc" ON public.kyc_requests;
+DROP POLICY IF EXISTS "Admins can manage kyc" ON public.kyc_requests;
+DROP POLICY IF EXISTS "Admins can manage refund queue" ON public.refund_queue;
+
 -- 5. KYC RLS Policies
 -- Users can view their own requests
 CREATE POLICY "Users can view own kyc" ON public.kyc_requests
-    FOR SELECT USING (auth.uid()::text = user_id);
+    FOR SELECT USING (auth_uid_text() = user_id);
 
 -- Users can create their own requests
 CREATE POLICY "Users can create own kyc" ON public.kyc_requests
-    FOR INSERT WITH CHECK (auth.uid()::text = user_id);
+    FOR INSERT WITH CHECK (auth_uid_text() = user_id);
 
 -- Admins can view and update everything
 CREATE POLICY "Admins can manage kyc" ON public.kyc_requests
-    USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid()::text AND is_admin = true));
+    USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth_uid_text() AND is_admin = true));
 
 -- 6. Refund Queue RLS
 -- Only admins can see the queue
 CREATE POLICY "Admins can manage refund queue" ON public.refund_queue
-    USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid()::text AND is_admin = true));
+    USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth_uid_text() AND is_admin = true));
