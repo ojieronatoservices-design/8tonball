@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, memo, useCallback } from 'react'
-import { Plus, Check, X, LayoutDashboard, Loader2, CheckCircle2, Trophy, ShieldAlert, BarChart3, Users, Ticket, Coins, Image as ImageIcon, Edit, Trash2, Calendar, ChevronDown, Search } from 'lucide-react'
+import { Plus, Check, X, LayoutDashboard, Loader2, CheckCircle2, Trophy, ShieldAlert, BarChart3, Users, Ticket, Coins, Image as ImageIcon, Edit, Trash2, Calendar, ChevronDown, Search, Phone, MapPin } from 'lucide-react'
 import { useUser, useAuth } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
 import { EventCard } from '@/components/EventCard'
@@ -328,9 +328,16 @@ const KYCList = memo(({ requests, handleApprove, handleReject, isLoadingKYC, fet
                             </div>
                             <div className="flex-1">
                                 <div className="font-black text-lg uppercase italic">{req.full_name}</div>
-                                <div className="text-white/40 text-xs mt-1">{req.profiles?.email}</div>
-                                {req.address && <div className="text-white/20 text-[10px] mt-2 font-medium">{req.address}</div>}
-                                <div className="text-white/20 text-[10px] mt-1 font-medium italic">Applied on {new Date(req.created_at).toLocaleString()}</div>
+                                <div className="text-white/40 text-[10px] mt-1 font-bold tracking-wider">{req.profiles?.email}</div>
+                                <div className="flex flex-col gap-1.5 mt-4">
+                                    <div className="flex items-center gap-2 text-white/50 text-[10px] font-black uppercase tracking-widest bg-white/5 px-3 py-1.5 rounded-lg w-fit">
+                                        <Phone size={10} className="text-primary" /> {req.phone_number || 'No Phone Provided'}
+                                    </div>
+                                    <div className="flex items-start gap-2 text-white/40 text-[10px] font-medium leading-relaxed px-1">
+                                        <MapPin size={10} className="shrink-0 mt-0.5" /> {req.address}
+                                    </div>
+                                </div>
+                                <div className="text-white/20 text-[10px] mt-4 font-black uppercase tracking-widest border-t border-white/5 pt-2">Applied {new Date(req.created_at).toLocaleDateString()} at {new Date(req.created_at).toLocaleTimeString()}</div>
                             </div>
                             <div className="flex gap-2 shrink-0 self-center">
                                 <button onClick={() => handleApprove(req.id, req.user_id)} className="px-6 py-3 bg-primary text-black font-black uppercase tracking-widest rounded-xl text-xs shadow-lg shadow-primary/10">Approve</button>

@@ -63,7 +63,8 @@ export default function ProfilePage() {
     const [showKYCModal, setShowKYCModal] = useState(false)
     const [kycForm, setKycForm] = useState({
         fullName: '',
-        address: ''
+        address: '',
+        phoneNumber: ''
     })
     const [kycIDFile, setKycIDFile] = useState<File | null>(null)
     const [kycIDPreview, setKycIDPreview] = useState<string | null>(null)
@@ -182,8 +183,15 @@ export default function ProfilePage() {
     }, [isAuthLoaded, userId])
 
     const handleKYCSubmit = async () => {
-        if (!userId || !kycIDFile || !kycSelfieFile || !kycForm.fullName) {
+        if (!userId || !kycIDFile || !kycSelfieFile || !kycForm.fullName || !kycForm.address || !kycForm.phoneNumber) {
             alert('Please complete all fields and upload both photos.')
+            return
+        }
+
+        // Clerk Phone Check
+        if (!user?.primaryPhoneNumber) {
+            alert('A verified phone number is required to become a host. Please link and verify your mobile number in your Clerk Account Settings first.')
+            window.location.href = '/profile/settings' // Assuming settings handles Clerk user profile
             return
         }
 
@@ -214,6 +222,7 @@ export default function ProfilePage() {
                     user_id: userId,
                     full_name: kycForm.fullName,
                     address: kycForm.address,
+                    phone_number: kycForm.phoneNumber,
                     id_image_url: idUrl,
                     selfie_image_url: selfieUrl,
                     status: 'pending'
@@ -971,7 +980,7 @@ export default function ProfilePage() {
                                     />
                                 </div>
                                 <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Home Address (Optional)</label>
+                                    <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Home Address</label>
                                     <input
                                         type="text"
                                         value={kycForm.address}
@@ -979,6 +988,19 @@ export default function ProfilePage() {
                                         placeholder="Current Residence"
                                         className="w-full h-12 bg-muted/50 border border-border rounded-xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
                                     />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Mobile Number</label>
+                                    <input
+                                        type="tel"
+                                        value={kycForm.phoneNumber}
+                                        onChange={(e) => setKycForm(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                                        placeholder="+63 9XX XXX XXXX"
+                                        className="w-full h-12 bg-muted/50 border border-border rounded-xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
+                                    />
+                                    {!user?.primaryPhoneNumber && (
+                                        <p className="text-[9px] text-primary/70 font-bold px-2 italic">Note: Make sure this matches the number verified in your account settings.</p>
+                                    )}
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4 mt-2">
