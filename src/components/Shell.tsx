@@ -181,19 +181,6 @@ export function Shell({ children }: ShellProps) {
         }
     }
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (file) {
-            if (file.size > 200 * 1024 * 1024) {
-                showToast('File too large (Max 200MB)', 'error')
-                return
-            }
-            setProofFile(file)
-            const reader = new FileReader()
-            reader.onloadend = () => setProofPreview(reader.result as string)
-            reader.readAsDataURL(file)
-        }
-    }
 
     const handlePayMongoCheckout = async (tibsAmount: number) => {
         if (!user) {
