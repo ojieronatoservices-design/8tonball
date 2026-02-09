@@ -614,427 +614,428 @@ export default function ProfilePage() {
                     {/* Bottom Row: Hosting Eligibility (Full Width) */}
                     {/* Bottom Row: Hosting Eligibility (Full Width) */}
                     {!isFolded && !isAdmin && (
-                        {!isHostEligible && (
-                    <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">
-                        <span>Verification Status</span>
-                        <span className={`font-black italic ${kycStatus === 'verified' ? 'text-green-500' : kycStatus === 'pending' ? 'text-primary' : 'text-muted-foreground'}`}>
-                            {kycStatus.toUpperCase()}
-                        </span>
-                    </div>
+                        <div className="flex flex-col gap-1.5 animate-in slide-in-from-top fade-in duration-500">
+                            {!isHostEligible && (
+                                <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">
+                                    <span>Verification Status</span>
+                                    <span className={`font-black italic ${kycStatus === 'verified' ? 'text-green-500' : kycStatus === 'pending' ? 'text-primary' : 'text-muted-foreground'}`}>
+                                        {kycStatus.toUpperCase()}
+                                    </span>
+                                </div>
                             )}
 
-                    {/* Only show progress bar if not already eligible and no pending KYC */}
-                    {!isHostEligible && kycStatus === 'unverified' && progress > 5 && (
-                        <>
-                            <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 mt-1">
-                                <span>Alt Eligibility (Spent)</span>
-                                <span className="text-primary font-black italic">{totalSpent.toLocaleString()} / {threshold.toLocaleString()}</span>
-                            </div>
-                            <div className="w-full h-1 bg-muted rounded-full overflow-hidden border border-border/50 relative">
-                                <div
-                                    className="h-full bg-primary transition-all duration-1000 shadow-[0_0_12px_rgba(57,255,20,0.4)]"
-                                    style={{ width: `${Math.min(progress, 100)}%` }}
-                                />
-                            </div>
-                        </>
-                    )}
-
-                    <p className="text-[10px] text-muted-foreground/60 font-medium leading-relaxed mt-1">
-                        {isHostEligible
-                            ? "Verified Host: You can now launch and manage events."
-                            : kycStatus === 'pending'
-                                ? "Verification Pending: Our team is reviewing your ID and selfie. This typically takes 2-6 hours."
-                                : kycStatus === 'rejected'
-                                    ? "Verification Rejected: Please try again with clearer photos or matching details."
-                                    : `Complete account verification to unlock hosting capabilities.`}
-                    </p>
-                    {!isHostEligible && kycStatus !== 'pending' && (
-                        <button
-                            onClick={() => setShowKYCModal(true)}
-                            className="mt-2 w-full py-3 bg-primary/10 border border-primary/20 rounded-xl text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/20 hover:border-primary/40 transition-all active:scale-95"
-                        >
-                            {kycStatus === 'rejected' ? 'Try Verification Again' : 'Become a Host (KYC)'}
-                        </button>
-                    )}
-                </div>
-                    )}
-                {isAdmin && !isFolded && (
-                    <div className="py-2 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center">
-                        <span className="text-[8px] font-black uppercase tracking-[0.2em] text-primary">✓ SYSTEM ADMIN PERSPECTIVE</span>
-                    </div>
-                )}
-            </div>
-        </div>
-
-            {/* TABS */ }
-    <div className="px-6 w-full max-w-3xl mx-auto">
-        <div className="flex bg-muted/30 p-1 rounded-2xl border border-border/50">
-            <button
-                onClick={() => setActiveTab('live')}
-                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'live' ? 'bg-primary text-black shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-                <Clock size={14} />
-                Live
-            </button>
-            <button
-                onClick={() => setActiveTab('archives')}
-                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 relative ${activeTab === 'archives' ? 'bg-primary text-black shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-                <Trophy size={14} />
-                Archive
-                {archivedGroups.some(g => didWin(g) && !g.event.is_read && !readWinIds.has(g.event.id)) && (
-                    <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                )}
-            </button>
-            <button
-                onClick={() => setActiveTab('activity')}
-                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'activity' ? 'bg-primary text-black shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-                <Bell size={14} />
-                Activity
-            </button>
-        </div>
-    </div>
-
-    {/* EVENT MINI FEED */ }
-    <div className="flex flex-col gap-2 px-6">
-        {activeTab === 'live' ? (
-            liveGroups.length === 0 ? (
-                <div className="py-20 text-center text-muted-foreground/20 font-black uppercase tracking-[0.2em] text-xs">
-                    No Active Entries
-                </div>
-            ) : (
-                liveGroups.map((group) => {
-                    const isExpanded = expandedId === group.event.id;
-                    return (
-                        <div key={group.event.id} className="w-full">
-                            <div className={`flex flex-col bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 ${isExpanded ? 'ring-1 ring-primary/20 shadow-lg' : 'hover:bg-muted/30'}`}>
-                                {/* Collapsed Bar */}
-                                <button
-                                    onClick={() => setExpandedId(isExpanded ? null : group.event.id)}
-                                    className="flex items-center justify-between p-4 text-left group"
-                                >
-                                    <div className="flex items-center gap-3 min-w-0">
-                                        <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-border">
-                                            <img src={group.event.media_urls?.[0]} alt="" className="w-full h-full object-cover" />
-                                        </div>
-                                        <div className="flex flex-col min-w-0">
-                                            <h4 className="text-sm font-black truncate uppercase tracking-tight">{group.event.title}</h4>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[10px] font-bold text-muted-foreground uppercase">x{group.entries.length} Entries</span>
-                                                <span className="w-1 h-1 rounded-full bg-primary/30" />
-                                                <div className="flex items-center gap-1 text-[10px] font-black bg-primary text-black px-2 py-0.5 rounded-md uppercase animate-pulse">
-                                                    <Clock size={10} /> Live
-                                                </div>
-                                            </div>
-                                        </div>
+                            {/* Only show progress bar if not already eligible and no pending KYC */}
+                            {!isHostEligible && kycStatus === 'unverified' && progress > 5 && (
+                                <>
+                                    <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 mt-1">
+                                        <span>Alt Eligibility (Spent)</span>
+                                        <span className="text-primary font-black italic">{totalSpent.toLocaleString()} / {threshold.toLocaleString()}</span>
                                     </div>
-                                    <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-                                        <ChevronDown size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
-                                    </div>
-                                </button>
-
-                                {/* Expanded Content */}
-                                {isExpanded && (
-                                    <div className="animate-in slide-in-from-top-4 fade-in duration-300 border-t border-border/50">
-                                        <EventCard
-                                            event={group.event}
-                                            entryCount={entryCounts[group.event.id] || 0}
-                                            onEnter={handleEnterEvent}
-                                            onShare={handleShareFacebook}
-                                            userId={userId}
-                                            variant="profile-live"
-                                            onClaim={handleClaim}
-                                            entryNumbers={group.entries.map(e => e.ticket_number).filter(Boolean) as string[]}
+                                    <div className="w-full h-1 bg-muted rounded-full overflow-hidden border border-border/50 relative">
+                                        <div
+                                            className="h-full bg-primary transition-all duration-1000 shadow-[0_0_12px_rgba(57,255,20,0.4)]"
+                                            style={{ width: `${Math.min(progress, 100)}%` }}
                                         />
                                     </div>
-                                )}
-                            </div>
-                        </div>
-                    );
-                })
-            )
-        ) : activeTab === 'archives' ? (
-            <div className="flex flex-col gap-4">
-                {Object.values(groupedEntries).filter(g => g.event?.status !== 'open').length > 0 && (
-                    <div className="relative group">
-                        <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                        <input
-                            type="text"
-                            placeholder="Search by raffle title or ticket number..."
-                            value={archiveSearch}
-                            onChange={(e) => setArchiveSearch(e.target.value)}
-                            className="w-full bg-muted/20 border border-border/50 rounded-2xl pl-10 pr-4 py-3 text-[10px] font-black uppercase tracking-widest focus:border-primary focus:outline-none transition-all placeholder:text-muted-foreground/30"
-                        />
-                        {archiveSearch && (
-                            <button
-                                onClick={() => setArchiveSearch('')}
-                                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                            >
-                                <X size={14} />
-                            </button>
-                        )}
-                    </div>
-                )}
+                                </>
+                            )}
 
-                {archivedGroups.length === 0 ? (
-                    <div className="py-20 text-center text-muted-foreground/20 font-black uppercase tracking-[0.2em] text-xs">
-                        {archiveSearch ? 'No matching tickets found' : 'No Archive History'}
-                    </div>
-                ) : (
-                    archivedGroups.map((group) => {
-                        const isExpanded = expandedId === group.event.id;
-                        const won = didWin(group);
-                        const totalEntries = group.event.all_entries?.[0]?.count || 0
-                        const currentTibs = totalEntries * group.event.entry_cost_tibs
-                        const goalMet = group.event.goal_tibs > 0 ? currentTibs >= group.event.goal_tibs : true
-                        return (
-                            <div key={group.event.id} className="w-full mb-2">
-                                <div className={`flex flex-col bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 ${isExpanded ? 'ring-1 ring-primary/20 shadow-lg' : 'hover:bg-muted/30'}`}>
-                                    {/* Collapsed Bar */}
-                                    <button
-                                        onClick={() => {
-                                            const isExpanded = expandedId === group.event.id
-                                            setExpandedId(isExpanded ? null : group.event.id)
-                                            if (!isExpanded && won) {
-                                                markWinAsRead(group.event.id)
-                                            }
-                                        }}
-                                        className="flex items-center justify-between p-4 text-left group"
-                                    >
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-border grayscale-[0.5]">
-                                                <img src={group.event.media_urls?.[0]} alt="" className="w-full h-full object-cover" />
-                                            </div>
-                                            <div className="flex flex-col min-w-0">
-                                                <h4 className="text-sm font-black truncate uppercase tracking-tight text-muted-foreground/80">{group.event.title}</h4>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase">x{group.entries.length} Entries</span>
-                                                    <span className="w-1 h-1 rounded-full bg-border" />
-                                                    {won && goalMet ? (
-                                                        <div className="flex items-center gap-1 text-[10px] font-black bg-green-500 text-black px-2 py-0.5 rounded-md uppercase">
-                                                            <Trophy size={10} /> Won
+                            <p className="text-[10px] text-muted-foreground/60 font-medium leading-relaxed mt-1">
+                                {isHostEligible
+                                    ? "Verified Host: You can now launch and manage events."
+                                    : kycStatus === 'pending'
+                                        ? "Verification Pending: Our team is reviewing your ID and selfie. This typically takes 2-6 hours."
+                                        : kycStatus === 'rejected'
+                                            ? "Verification Rejected: Please try again with clearer photos or matching details."
+                                            : `Complete account verification to unlock hosting capabilities.`}
+                            </p>
+                            {!isHostEligible && kycStatus !== 'pending' && (
+                                <button
+                                    onClick={() => setShowKYCModal(true)}
+                                    className="mt-2 w-full py-3 bg-primary/10 border border-primary/20 rounded-xl text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/20 hover:border-primary/40 transition-all active:scale-95"
+                                >
+                                    {kycStatus === 'rejected' ? 'Try Verification Again' : 'Become a Host (KYC)'}
+                                </button>
+                            )}
+                        </div>
+                    )}
+                    {isAdmin && !isFolded && (
+                        <div className="py-2 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center">
+                            <span className="text-[8px] font-black uppercase tracking-[0.2em] text-primary">✓ SYSTEM ADMIN PERSPECTIVE</span>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* TABS */}
+            <div className="px-6 w-full max-w-3xl mx-auto">
+                <div className="flex bg-muted/30 p-1 rounded-2xl border border-border/50">
+                    <button
+                        onClick={() => setActiveTab('live')}
+                        className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'live' ? 'bg-primary text-black shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                        <Clock size={14} />
+                        Live
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('archives')}
+                        className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 relative ${activeTab === 'archives' ? 'bg-primary text-black shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                        <Trophy size={14} />
+                        Archive
+                        {archivedGroups.some(g => didWin(g) && !g.event.is_read && !readWinIds.has(g.event.id)) && (
+                            <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                        )}
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('activity')}
+                        className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'activity' ? 'bg-primary text-black shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                        <Bell size={14} />
+                        Activity
+                    </button>
+                </div>
+            </div>
+
+            {/* EVENT MINI FEED */}
+            <div className="flex flex-col gap-2 px-6">
+                {activeTab === 'live' ? (
+                    liveGroups.length === 0 ? (
+                        <div className="py-20 text-center text-muted-foreground/20 font-black uppercase tracking-[0.2em] text-xs">
+                            No Active Entries
+                        </div>
+                    ) : (
+                        liveGroups.map((group) => {
+                            const isExpanded = expandedId === group.event.id;
+                            return (
+                                <div key={group.event.id} className="w-full">
+                                    <div className={`flex flex-col bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 ${isExpanded ? 'ring-1 ring-primary/20 shadow-lg' : 'hover:bg-muted/30'}`}>
+                                        {/* Collapsed Bar */}
+                                        <button
+                                            onClick={() => setExpandedId(isExpanded ? null : group.event.id)}
+                                            className="flex items-center justify-between p-4 text-left group"
+                                        >
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-border">
+                                                    <img src={group.event.media_urls?.[0]} alt="" className="w-full h-full object-cover" />
+                                                </div>
+                                                <div className="flex flex-col min-w-0">
+                                                    <h4 className="text-sm font-black truncate uppercase tracking-tight">{group.event.title}</h4>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] font-bold text-muted-foreground uppercase">x{group.entries.length} Entries</span>
+                                                        <span className="w-1 h-1 rounded-full bg-primary/30" />
+                                                        <div className="flex items-center gap-1 text-[10px] font-black bg-primary text-black px-2 py-0.5 rounded-md uppercase animate-pulse">
+                                                            <Clock size={10} /> Live
                                                         </div>
-                                                    ) : won && !goalMet ? (
-                                                        <div className="flex items-center gap-1 text-[10px] font-black bg-orange-500 text-black px-2 py-0.5 rounded-md uppercase">
-                                                            <Coins size={10} /> Tibs Refunded
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground/40 uppercase">
-                                                            <XCircle size={10} /> Missed
-                                                        </div>
-                                                    )}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            {won && !group.event.is_read && !readWinIds.has(group.event.id) && (
-                                                <div className="w-2 h-2 bg-red-500 rounded-full" />
-                                            )}
                                             <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
                                                 <ChevronDown size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
                                             </div>
-                                        </div>
-                                    </button>
+                                        </button>
 
-                                    {/* Expanded Content */}
-                                    {isExpanded && (
-                                        <div className="animate-in slide-in-from-top-4 fade-in duration-300 border-t border-border/50">
-                                            <EventCard
-                                                event={group.event}
-                                                entryCount={entryCounts[group.event.id] || 0}
-                                                onEnter={handleEnterEvent}
-                                                onShare={handleShareFacebook}
-                                                userId={userId}
-                                                variant="profile-archive"
-                                                isWinner={won && goalMet}
-                                                isRefunded={won && !goalMet}
-                                                onClaim={handleClaim}
-                                                entryNumbers={group.entries.map(e => e.ticket_number).filter(Boolean) as string[]}
-                                            />
-                                        </div>
-                                    )}
+                                        {/* Expanded Content */}
+                                        {isExpanded && (
+                                            <div className="animate-in slide-in-from-top-4 fade-in duration-300 border-t border-border/50">
+                                                <EventCard
+                                                    event={group.event}
+                                                    entryCount={entryCounts[group.event.id] || 0}
+                                                    onEnter={handleEnterEvent}
+                                                    onShare={handleShareFacebook}
+                                                    userId={userId}
+                                                    variant="profile-live"
+                                                    onClaim={handleClaim}
+                                                    entryNumbers={group.entries.map(e => e.ticket_number).filter(Boolean) as string[]}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
+                            );
+                        })
+                    )
+                ) : activeTab === 'archives' ? (
+                    <div className="flex flex-col gap-4">
+                        {Object.values(groupedEntries).filter(g => g.event?.status !== 'open').length > 0 && (
+                            <div className="relative group">
+                                <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                                <input
+                                    type="text"
+                                    placeholder="Search by raffle title or ticket number..."
+                                    value={archiveSearch}
+                                    onChange={(e) => setArchiveSearch(e.target.value)}
+                                    className="w-full bg-muted/20 border border-border/50 rounded-2xl pl-10 pr-4 py-3 text-[10px] font-black uppercase tracking-widest focus:border-primary focus:outline-none transition-all placeholder:text-muted-foreground/30"
+                                />
+                                {archiveSearch && (
+                                    <button
+                                        onClick={() => setArchiveSearch('')}
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                )}
                             </div>
+                        )}
+
+                        {archivedGroups.length === 0 ? (
+                            <div className="py-20 text-center text-muted-foreground/20 font-black uppercase tracking-[0.2em] text-xs">
+                                {archiveSearch ? 'No matching tickets found' : 'No Archive History'}
+                            </div>
+                        ) : (
+                            archivedGroups.map((group) => {
+                                const isExpanded = expandedId === group.event.id;
+                                const won = didWin(group);
+                                const totalEntries = group.event.all_entries?.[0]?.count || 0
+                                const currentTibs = totalEntries * group.event.entry_cost_tibs
+                                const goalMet = group.event.goal_tibs > 0 ? currentTibs >= group.event.goal_tibs : true
+                                return (
+                                    <div key={group.event.id} className="w-full mb-2">
+                                        <div className={`flex flex-col bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 ${isExpanded ? 'ring-1 ring-primary/20 shadow-lg' : 'hover:bg-muted/30'}`}>
+                                            {/* Collapsed Bar */}
+                                            <button
+                                                onClick={() => {
+                                                    const isExpanded = expandedId === group.event.id
+                                                    setExpandedId(isExpanded ? null : group.event.id)
+                                                    if (!isExpanded && won) {
+                                                        markWinAsRead(group.event.id)
+                                                    }
+                                                }}
+                                                className="flex items-center justify-between p-4 text-left group"
+                                            >
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-border grayscale-[0.5]">
+                                                        <img src={group.event.media_urls?.[0]} alt="" className="w-full h-full object-cover" />
+                                                    </div>
+                                                    <div className="flex flex-col min-w-0">
+                                                        <h4 className="text-sm font-black truncate uppercase tracking-tight text-muted-foreground/80">{group.event.title}</h4>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[10px] font-bold text-muted-foreground uppercase">x{group.entries.length} Entries</span>
+                                                            <span className="w-1 h-1 rounded-full bg-border" />
+                                                            {won && goalMet ? (
+                                                                <div className="flex items-center gap-1 text-[10px] font-black bg-green-500 text-black px-2 py-0.5 rounded-md uppercase">
+                                                                    <Trophy size={10} /> Won
+                                                                </div>
+                                                            ) : won && !goalMet ? (
+                                                                <div className="flex items-center gap-1 text-[10px] font-black bg-orange-500 text-black px-2 py-0.5 rounded-md uppercase">
+                                                                    <Coins size={10} /> Tibs Refunded
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground/40 uppercase">
+                                                                    <XCircle size={10} /> Missed
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    {won && !group.event.is_read && !readWinIds.has(group.event.id) && (
+                                                        <div className="w-2 h-2 bg-red-500 rounded-full" />
+                                                    )}
+                                                    <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+                                                        <ChevronDown size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                                                    </div>
+                                                </div>
+                                            </button>
+
+                                            {/* Expanded Content */}
+                                            {isExpanded && (
+                                                <div className="animate-in slide-in-from-top-4 fade-in duration-300 border-t border-border/50">
+                                                    <EventCard
+                                                        event={group.event}
+                                                        entryCount={entryCounts[group.event.id] || 0}
+                                                        onEnter={handleEnterEvent}
+                                                        onShare={handleShareFacebook}
+                                                        userId={userId}
+                                                        variant="profile-archive"
+                                                        isWinner={won && goalMet}
+                                                        isRefunded={won && !goalMet}
+                                                        onClaim={handleClaim}
+                                                        entryNumbers={group.entries.map(e => e.ticket_number).filter(Boolean) as string[]}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )
+                            })
                         )
-                    })
-                )
-                }
-            </div>
-        ) : (
-            <div className="px-6 w-full max-w-3xl mx-auto flex flex-col gap-4">
-                {isLoadingNotifs ? (
-                    <div className="py-20 flex justify-center">
-                        <Loader2 className="animate-spin text-primary" />
+                        }
                     </div>
-                ) : notifications.length > 0 ? (
-                    notifications.map((n) => (
-                        <div key={n.id} className="p-4 bg-muted/20 border border-border rounded-2xl flex gap-4 items-start">
-                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                                {n.type === 'win' ? <Trophy size={18} className="text-primary" /> : <Bell size={18} className="text-muted-foreground" />}
-                            </div>
-                            <div className="flex-1">
-                                <p className="text-sm font-medium">{n.message}</p>
-                                <p className="text-[10px] text-muted-foreground mt-1">{new Date(n.created_at).toLocaleDateString()}</p>
-                            </div>
-                        </div>
-                    ))
                 ) : (
-                    <div className="py-20 text-center text-muted-foreground/20 font-black uppercase tracking-[0.2em] text-xs">
-                        No Activity Yet
+                    <div className="px-6 w-full max-w-3xl mx-auto flex flex-col gap-4">
+                        {isLoadingNotifs ? (
+                            <div className="py-20 flex justify-center">
+                                <Loader2 className="animate-spin text-primary" />
+                            </div>
+                        ) : notifications.length > 0 ? (
+                            notifications.map((n) => (
+                                <div key={n.id} className="p-4 bg-muted/20 border border-border rounded-2xl flex gap-4 items-start">
+                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                        {n.type === 'win' ? <Trophy size={18} className="text-primary" /> : <Bell size={18} className="text-muted-foreground" />}
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-sm font-medium">{n.message}</p>
+                                        <p className="text-[10px] text-muted-foreground mt-1">{new Date(n.created_at).toLocaleDateString()}</p>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="py-20 text-center text-muted-foreground/20 font-black uppercase tracking-[0.2em] text-xs">
+                                No Activity Yet
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
-        )}
-    </div>
 
-    {/* Payout Modal */ }
-    {
-        showPayoutModal && (
-            <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/95 backdrop-blur-md animate-in fade-in duration-300">
-                <div className="bg-card w-full max-w-sm rounded-[2.5rem] border border-border p-10 flex flex-col gap-8 shadow-2xl animate-in zoom-in-95 duration-300">
-                    <div className="flex justify-between items-center">
-                        <h3 className="text-2xl font-black tracking-tight text-foreground uppercase italic">Request Payout</h3>
-                        <button onClick={() => setShowPayoutModal(false)} className="w-10 h-10 bg-muted flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-all">
-                            <X size={20} />
-                        </button>
-                    </div>
-
-                    <div className="p-6 bg-primary/5 border border-primary/20 rounded-[2rem] flex flex-col items-center">
-                        <p className="text-[10px] font-black uppercase text-primary/50 tracking-widest mb-1">Estimated Value</p>
-                        <div className="text-4xl font-black neon-text mb-2">₱{(profile.tibs_balance / 8).toLocaleString()}</div>
-                        <div className="flex items-center gap-2 px-3 py-1 bg-black/20 rounded-full border border-white/5">
-                            <span className="text-[11px] text-foreground font-black">{profile.tibs_balance.toLocaleString()}</span>
-                            <span className="text-[8px] text-muted-foreground font-black uppercase">TIBS</span>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col gap-5">
-                        <div className="flex flex-col gap-2">
-                            <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">GCash or Bank Details</label>
-                            <input
-                                type="text"
-                                value={gcashNumber}
-                                onChange={(e) => setGcashNumber(e.target.value)}
-                                placeholder="Account # (e.g. 0912...)"
-                                className="w-full h-14 bg-muted/50 border border-border rounded-2xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
-                            />
-                        </div>
-                        <div className="flex flex-col gap-2">
-                            <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Account Name</label>
-                            <input
-                                type="text"
-                                value={gcashName}
-                                onChange={(e) => setGcashName(e.target.value)}
-                                placeholder="Full Name"
-                                className="w-full h-14 bg-muted/50 border border-border rounded-2xl px-6 text-sm font-bold focus:border-primary focus:outline-none uppercase text-foreground placeholder:text-muted-foreground/20"
-                            />
-                        </div>
-                    </div>
-
-                    <button
-                        onClick={handleRequestPayout}
-                        disabled={isSubmitting}
-                        className="w-full h-16 bg-primary text-black font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 neon-border text-sm"
-                    >
-                        {isSubmitting ? 'Processing...' : 'Settle Now'}
-                    </button>
-                    <p className="text-[10px] text-center text-muted-foreground/30 font-medium px-4">
-                        Your TIBS will be converted and sent to your account of choice within 48 hours.
-                    </p>
-                </div>
-            </div>
-        )
-    }
-    {/* KYC Modal */ }
-    {
-        showKYCModal && (
-            <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/95 backdrop-blur-md animate-in fade-in duration-300 overflow-auto">
-                <div className="bg-card w-full max-w-lg rounded-[2.5rem] border border-border p-10 flex flex-col gap-6 shadow-2xl animate-in zoom-in-95 duration-300">
-                    <div className="flex justify-between items-center">
-                        <h3 className="text-2xl font-black tracking-tight text-foreground uppercase italic">Account Verification</h3>
-                        <button onClick={() => setShowKYCModal(false)} className="w-10 h-10 bg-muted flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-all">
-                            <X size={20} />
-                        </button>
-                    </div>
-
-                    <div className="flex flex-col gap-4">
-                        <div className="flex flex-col gap-2">
-                            <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Full Legal Name</label>
-                            <input
-                                type="text"
-                                value={kycForm.fullName}
-                                onChange={(e) => setKycForm(prev => ({ ...prev, fullName: e.target.value }))}
-                                placeholder="as shown on ID"
-                                className="w-full h-12 bg-muted/50 border border-border rounded-xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
-                            />
-                        </div>
-                        <div className="flex flex-col gap-2">
-                            <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Home Address (Optional)</label>
-                            <input
-                                type="text"
-                                value={kycForm.address}
-                                onChange={(e) => setKycForm(prev => ({ ...prev, address: e.target.value }))}
-                                placeholder="Current Residence"
-                                className="w-full h-12 bg-muted/50 border border-border rounded-xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4 mt-2">
-                            {/* ID Upload */}
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest text-center">ID Photo</label>
-                                <button
-                                    onClick={() => document.getElementById('id-upload')?.click()}
-                                    className={`aspect-video w-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 overflow-hidden bg-muted/30 transition-all ${kycIDPreview ? 'border-primary/50' : 'border-border hover:border-primary/30'}`}
-                                >
-                                    {kycIDPreview ? (
-                                        <img src={kycIDPreview} alt="ID" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <>
-                                            <ImageIcon size={24} className="text-muted-foreground/30" />
-                                            <span className="text-[8px] font-black uppercase text-muted-foreground/50">Upload ID</span>
-                                        </>
-                                    )}
+            {/* Payout Modal */}
+            {
+                showPayoutModal && (
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/95 backdrop-blur-md animate-in fade-in duration-300">
+                        <div className="bg-card w-full max-w-sm rounded-[2.5rem] border border-border p-10 flex flex-col gap-8 shadow-2xl animate-in zoom-in-95 duration-300">
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-2xl font-black tracking-tight text-foreground uppercase italic">Request Payout</h3>
+                                <button onClick={() => setShowPayoutModal(false)} className="w-10 h-10 bg-muted flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-all">
+                                    <X size={20} />
                                 </button>
-                                <input type="file" id="id-upload" hidden accept="image/*" onChange={handleIDChange} />
                             </div>
 
-                            {/* Selfie Upload */}
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest text-center">Selfie Photo</label>
-                                <button
-                                    onClick={() => document.getElementById('selfie-upload')?.click()}
-                                    className={`aspect-video w-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 overflow-hidden bg-muted/30 transition-all ${kycSelfiePreview ? 'border-primary/50' : 'border-border hover:border-primary/30'}`}
-                                >
-                                    {kycSelfiePreview ? (
-                                        <img src={kycSelfiePreview} alt="Selfie" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <>
-                                            <User size={24} className="text-muted-foreground/30" />
-                                            <span className="text-[8px] font-black uppercase text-muted-foreground/50">Upload Selfie</span>
-                                        </>
-                                    )}
-                                </button>
-                                <input type="file" id="selfie-upload" hidden accept="image/*" onChange={handleSelfieChange} />
+                            <div className="p-6 bg-primary/5 border border-primary/20 rounded-[2rem] flex flex-col items-center">
+                                <p className="text-[10px] font-black uppercase text-primary/50 tracking-widest mb-1">Estimated Value</p>
+                                <div className="text-4xl font-black neon-text mb-2">₱{(profile.tibs_balance / 8).toLocaleString()}</div>
+                                <div className="flex items-center gap-2 px-3 py-1 bg-black/20 rounded-full border border-white/5">
+                                    <span className="text-[11px] text-foreground font-black">{profile.tibs_balance.toLocaleString()}</span>
+                                    <span className="text-[8px] text-muted-foreground font-black uppercase">TIBS</span>
+                                </div>
                             </div>
+
+                            <div className="flex flex-col gap-5">
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">GCash or Bank Details</label>
+                                    <input
+                                        type="text"
+                                        value={gcashNumber}
+                                        onChange={(e) => setGcashNumber(e.target.value)}
+                                        placeholder="Account # (e.g. 0912...)"
+                                        className="w-full h-14 bg-muted/50 border border-border rounded-2xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Account Name</label>
+                                    <input
+                                        type="text"
+                                        value={gcashName}
+                                        onChange={(e) => setGcashName(e.target.value)}
+                                        placeholder="Full Name"
+                                        className="w-full h-14 bg-muted/50 border border-border rounded-2xl px-6 text-sm font-bold focus:border-primary focus:outline-none uppercase text-foreground placeholder:text-muted-foreground/20"
+                                    />
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={handleRequestPayout}
+                                disabled={isSubmitting}
+                                className="w-full h-16 bg-primary text-black font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 neon-border text-sm"
+                            >
+                                {isSubmitting ? 'Processing...' : 'Settle Now'}
+                            </button>
+                            <p className="text-[10px] text-center text-muted-foreground/30 font-medium px-4">
+                                Your TIBS will be converted and sent to your account of choice within 48 hours.
+                            </p>
                         </div>
                     </div>
+                )
+            }
+            {/* KYC Modal */}
+            {
+                showKYCModal && (
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/95 backdrop-blur-md animate-in fade-in duration-300 overflow-auto">
+                        <div className="bg-card w-full max-w-lg rounded-[2.5rem] border border-border p-10 flex flex-col gap-6 shadow-2xl animate-in zoom-in-95 duration-300">
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-2xl font-black tracking-tight text-foreground uppercase italic">Account Verification</h3>
+                                <button onClick={() => setShowKYCModal(false)} className="w-10 h-10 bg-muted flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-all">
+                                    <X size={20} />
+                                </button>
+                            </div>
 
-                    <button
-                        onClick={handleKYCSubmit}
-                        disabled={isSubmittingKYC || !kycIDFile || !kycSelfieFile || !kycForm.fullName}
-                        className="w-full h-16 bg-primary text-black font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 neon-border text-sm mt-4"
-                    >
-                        {isSubmittingKYC ? 'Uploading Photos...' : 'Submit Verification'}
-                    </button>
-                    <p className="text-[9px] text-center text-muted-foreground/40 font-medium px-4 leading-normal">
-                        By submitting, you agree to our host terms. Verification typically takes 2-6 hours. Your data is encrypted and stored securely.
-                    </p>
-                </div>
-            </div>
-        )
-    }
+                            <div className="flex flex-col gap-4">
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Full Legal Name</label>
+                                    <input
+                                        type="text"
+                                        value={kycForm.fullName}
+                                        onChange={(e) => setKycForm(prev => ({ ...prev, fullName: e.target.value }))}
+                                        placeholder="as shown on ID"
+                                        className="w-full h-12 bg-muted/50 border border-border rounded-xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Home Address (Optional)</label>
+                                    <input
+                                        type="text"
+                                        value={kycForm.address}
+                                        onChange={(e) => setKycForm(prev => ({ ...prev, address: e.target.value }))}
+                                        placeholder="Current Residence"
+                                        className="w-full h-12 bg-muted/50 border border-border rounded-xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4 mt-2">
+                                    {/* ID Upload */}
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest text-center">ID Photo</label>
+                                        <button
+                                            onClick={() => document.getElementById('id-upload')?.click()}
+                                            className={`aspect-video w-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 overflow-hidden bg-muted/30 transition-all ${kycIDPreview ? 'border-primary/50' : 'border-border hover:border-primary/30'}`}
+                                        >
+                                            {kycIDPreview ? (
+                                                <img src={kycIDPreview} alt="ID" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <>
+                                                    <ImageIcon size={24} className="text-muted-foreground/30" />
+                                                    <span className="text-[8px] font-black uppercase text-muted-foreground/50">Upload ID</span>
+                                                </>
+                                            )}
+                                        </button>
+                                        <input type="file" id="id-upload" hidden accept="image/*" onChange={handleIDChange} />
+                                    </div>
+
+                                    {/* Selfie Upload */}
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest text-center">Selfie Photo</label>
+                                        <button
+                                            onClick={() => document.getElementById('selfie-upload')?.click()}
+                                            className={`aspect-video w-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 overflow-hidden bg-muted/30 transition-all ${kycSelfiePreview ? 'border-primary/50' : 'border-border hover:border-primary/30'}`}
+                                        >
+                                            {kycSelfiePreview ? (
+                                                <img src={kycSelfiePreview} alt="Selfie" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <>
+                                                    <User size={24} className="text-muted-foreground/30" />
+                                                    <span className="text-[8px] font-black uppercase text-muted-foreground/50">Upload Selfie</span>
+                                                </>
+                                            )}
+                                        </button>
+                                        <input type="file" id="selfie-upload" hidden accept="image/*" onChange={handleSelfieChange} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={handleKYCSubmit}
+                                disabled={isSubmittingKYC || !kycIDFile || !kycSelfieFile || !kycForm.fullName}
+                                className="w-full h-16 bg-primary text-black font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 neon-border text-sm mt-4"
+                            >
+                                {isSubmittingKYC ? 'Uploading Photos...' : 'Submit Verification'}
+                            </button>
+                            <p className="text-[9px] text-center text-muted-foreground/40 font-medium px-4 leading-normal">
+                                By submitting, you agree to our host terms. Verification typically takes 2-6 hours. Your data is encrypted and stored securely.
+                            </p>
+                        </div>
+                    </div>
+                )
+            }
         </div >
     )
 }
