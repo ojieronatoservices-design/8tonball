@@ -362,9 +362,8 @@ export default function ProfilePage() {
 
 
 
-    const threshold = 8000
     const totalSpent = profile?.total_tibs_spent || 0
-    const progress = (totalSpent / threshold) * 100
+    // const progress = (totalSpent / threshold) * 100
     const isAdmin = profile?.is_admin || false
     const isHostEligible = isAdmin || (profile?.is_host_eligible || false)
 
@@ -600,7 +599,15 @@ export default function ProfilePage() {
                         {/* Metrics: Side-by-side */}
                         <div className="flex items-center gap-2 shrink-0">
                             <button
-                                onClick={() => isHostEligible && setShowPayoutModal(true)}
+                                onClick={() => {
+                                    if (!isHostEligible) return
+                                    const hasHosted = hostedEvents.some(e => e.status === 'drawn' || e.status === 'claimed')
+                                    if (!hasHosted && !isAdmin) {
+                                        alert('⚠️ PAYOUT UNAVAILABLE: You must successfully host and draw at least one event before you can request a payout.')
+                                        return
+                                    }
+                                    setShowPayoutModal(true)
+                                }}
                                 disabled={!isHostEligible}
                                 className={`flex flex-col items-center bg-muted/40 rounded-2xl border border-border/50 transition-all text-center ${isFolded ? 'px-3 py-1.5' : 'px-5 py-2.5'} ${isHostEligible ? 'hover:bg-muted/80 active:scale-95 cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
                             >
@@ -633,21 +640,7 @@ export default function ProfilePage() {
                                 </div>
                             )}
 
-                            {/* Only show progress bar if not already eligible and no pending KYC */}
-                            {!isHostEligible && kycStatus === 'unverified' && progress > 5 && (
-                                <>
-                                    <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 mt-1">
-                                        <span>Alt Eligibility (Spent)</span>
-                                        <span className="text-primary font-black italic">{totalSpent.toLocaleString()} / {threshold.toLocaleString()}</span>
-                                    </div>
-                                    <div className="w-full h-1 bg-muted rounded-full overflow-hidden border border-border/50 relative">
-                                        <div
-                                            className="h-full bg-primary transition-all duration-1000 shadow-[0_0_12px_rgba(57,255,20,0.4)]"
-                                            style={{ width: `${Math.min(progress, 100)}%` }}
-                                        />
-                                    </div>
-                                </>
-                            )}
+                            {/* Removed 8000 Tibs spending goal progress bar */}
 
                             <p className="text-[10px] text-muted-foreground/60 font-medium leading-relaxed mt-1">
                                 {isHostEligible

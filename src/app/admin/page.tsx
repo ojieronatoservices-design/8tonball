@@ -13,7 +13,6 @@ const isVideo = (url: string) => {
     return videoExtensions.some(ext => url.toLowerCase().includes(ext)) || url.startsWith('data:video/')
 }
 
-const threshold = 8000;
 
 const CreateEventModal = memo(({
     isAdmin,
@@ -211,11 +210,6 @@ const CreateEventModal = memo(({
                         {isLaunching && <Loader2 size={18} className="animate-spin" />}
                         {isLaunching ? 'Launching...' : (!isAdmin && !isHostEligible) ? 'Eligibility Required' : 'Launch'}
                     </button>
-                    {!isAdmin && !isHostEligible && (
-                        <p className="text-[10px] text-red-500 font-black uppercase tracking-widest text-center">
-                            ⚠️ Spending goal of 8,000 Tibs required to host.
-                        </p>
-                    )}
                 </div>
             </div>
         </div>
