@@ -188,12 +188,7 @@ export default function ProfilePage() {
             return
         }
 
-        // Clerk Phone Check
-        if (!user?.primaryPhoneNumber) {
-            alert('A verified phone number is required to become a host. Please link and verify your mobile number in your Clerk Account Settings first.')
-            window.location.href = '/profile/settings' // Assuming settings handles Clerk user profile
-            return
-        }
+        // REMOVED: Clerk Phone Check (redundant as phone is in kycForm)
 
         const supabaseClient = await getClient()
         if (!supabaseClient) return
