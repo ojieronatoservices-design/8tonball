@@ -35,15 +35,27 @@ export async function POST(req: NextRequest) {
 
             const userId = metadata.user_id
             const tibs = parseInt(metadata.tibs, 10)
+            const paymongoId = resource?.id || attributes?.id || type
+
+            // 0. Idempotency Check: Prevent duplicate processing
+            const { data: existingTx } = await supabase
+                .from('transactions')
+                .select('id')
+                .eq('proof_image_url', `paymongo://${paymongoId}`)
+                .maybeSingle()
+
+            if (existingTx) {
+                console.log(`[Webhook] Already processed transaction: ${paymongoId}`)
+                return NextResponse.json({ received: true, already_processed: true })
+            }
 
             // 1. Log the transaction first for audit trail
-            // We use 'system' or a specific marker to indicate automated fulfillment
             const { data: tx, error: txError } = await supabase.from('transactions').insert({
                 user_id: userId,
                 requested_tibs: tibs,
                 status: 'approved',
                 processed_at: new Date().toISOString(),
-                proof_image_url: `paymongo://${resource?.id || type}`
+                proof_image_url: `paymongo://${paymongoId}`
             }).select().single()
 
             if (txError) {
