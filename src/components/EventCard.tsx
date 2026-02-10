@@ -350,7 +350,7 @@ export const EventCard = React.memo(({
                                     onClick={handleJoinClick}
                                     className="flex-1 h-full bg-primary text-black rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] transition-all duration-200 active:scale-95 neon-border shadow-lg flex items-center justify-center gap-2 hover:brightness-110"
                                 >
-                                    Join Event
+                                    Enter
                                 </button>
                             )}
                             <button

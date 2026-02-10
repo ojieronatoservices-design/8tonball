@@ -55,6 +55,7 @@ export default function ProfilePage() {
 
     // Payout State
     const [showPayoutModal, setShowPayoutModal] = useState(false)
+    const [showPayoutWarning, setShowPayoutWarning] = useState(false)
     const [gcashNumber, setGcashNumber] = useState('')
     const [gcashName, setGcashName] = useState('')
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -598,7 +599,7 @@ export default function ProfilePage() {
                                     if (!isHostEligible) return
                                     const hasHosted = hostedEvents.some(e => e.status === 'drawn' || e.status === 'claimed')
                                     if (!hasHosted && !isAdmin) {
-                                        alert('⚠️ PAYOUT UNAVAILABLE: You must successfully host and draw at least one event before you can request a payout.')
+                                        setShowPayoutWarning(true)
                                         return
                                     }
                                     setShowPayoutModal(true)
@@ -944,6 +945,22 @@ export default function ProfilePage() {
                     </div>
                 )
             }
+            {/* Payout Warning Modal */}
+            {showPayoutWarning && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/95 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-card w-full max-w-xs rounded-[2.5rem] border border-border p-8 flex flex-col items-center gap-6 shadow-2xl animate-in zoom-in-95 duration-300 text-center">
+                        <img src="/cashout-warning.png" alt="Host an event" className="w-40 h-40 object-contain" />
+                        <h3 className="text-lg font-black tracking-tight text-foreground uppercase">Host a successful event now to cashout!</h3>
+                        <button
+                            onClick={() => setShowPayoutWarning(false)}
+                            className="w-full h-14 bg-primary text-black font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all active:scale-95 neon-border text-sm"
+                        >
+                            Got It
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* KYC Modal */}
             {
                 showKYCModal && (
