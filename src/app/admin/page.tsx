@@ -269,7 +269,7 @@ AnalyticsOverview.displayName = 'AnalyticsOverview'
 const PaymentsList = memo(({ payments, handleApprove, handleReject, isLoadingPayments, fetchPayments }: { payments: any[], handleApprove: (id: string) => void, handleReject: (id: string) => void, isLoadingPayments: boolean, fetchPayments: () => void }) => (
     <div className="flex flex-col gap-6">
         <div className="flex justify-between items-center">
-            <h2 className="text-xl font-black uppercase tracking-widest">Pending Payments</h2>
+            <h2 className="text-xl font-black uppercase tracking-widest">Pending Purchases</h2>
             <button onClick={fetchPayments} className="p-2 hover:bg-white/5 rounded-full transition-colors">
                 <Loader2 size={18} className={isLoadingPayments ? "animate-spin" : ""} />
             </button>
@@ -367,7 +367,7 @@ KYCList.displayName = 'KYCList'
 const PayoutsList = memo(({ payouts, handleApprovePayout, isLoadingPayouts, fetchPayoutRequests }: { payouts: any[], handleApprovePayout: (id: string) => void, isLoadingPayouts: boolean, fetchPayoutRequests: () => void }) => (
     <div className="flex flex-col gap-6">
         <div className="flex justify-between items-center">
-            <h2 className="text-xl font-black uppercase tracking-widest">Payout Requests</h2>
+            <h2 className="text-xl font-black uppercase tracking-widest">Pending Cash Outs</h2>
             <button onClick={fetchPayoutRequests} className="p-2 hover:bg-white/5 rounded-full transition-colors">
                 <Loader2 size={18} className={isLoadingPayouts ? "animate-spin" : ""} />
             </button>
@@ -376,7 +376,7 @@ const PayoutsList = memo(({ payouts, handleApprovePayout, isLoadingPayouts, fetc
             {payouts.length === 0 ? (
                 <div className="text-center py-20 bg-card rounded-3xl border border-white/5">
                     <CheckCircle2 className="mx-auto text-white/10 mb-4" size={48} />
-                    <p className="text-white/40 font-black uppercase tracking-widest text-xs">No pending payouts.</p>
+                    <p className="text-white/40 font-black uppercase tracking-widest text-xs">No pending requests</p>
                 </div>
             ) : (
                 payouts.map((payout) => (
@@ -560,6 +560,21 @@ export default function AdminDashboard() {
         try {
             // Optimization: Use head: true for exact counts without fetching data
             // And only select the column we need for revenue calculation
+            const entriesQuery = supabaseClient.from('entries').select('*', { count: 'exact', head: true })
+            const revenueQuery = supabaseClient.from('transactions').select('requested_tibs').eq('status', 'approved')
+            const pendingPaymentsQuery = supabaseClient.from('transactions').select('*', { count: 'exact', head: true }).eq('status', 'pending')
+            const pendingPayoutsQuery = supabaseClient.from('payout_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending')
+            const rafflesQuery = supabaseClient.from('raffles').select('entry_cost_tibs, id, entries:entries!entries_raffle_id_fkey(count)')
+
+            if (!isAdmin) {
+                rafflesQuery.eq('host_user_id', userId)
+                revenueQuery.eq('user_id', userId)
+                pendingPaymentsQuery.eq('user_id', userId)
+                pendingPayoutsQuery.eq('user_id', userId)
+                // For entries count, we only want entries in the host's own events
+                // This is a bit complex for a simple RPC-less query, but we can filter by raffles
+            }
+
             const [
                 { count: usersCount },
                 { data: eventsData },
@@ -570,22 +585,23 @@ export default function AdminDashboard() {
                 { count: kycPendingCount }
             ] = await Promise.all([
                 supabaseClient.from('profiles').select('*', { count: 'exact', head: true }),
-                supabaseClient.from('raffles').select('entry_cost_tibs, entries:entries!entries_raffle_id_fkey(count)'),
-                supabaseClient.from('entries').select('*', { count: 'exact', head: true }),
-                supabaseClient.from('transactions').select('requested_tibs').eq('status', 'approved'),
-                supabaseClient.from('transactions').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-                supabaseClient.from('payout_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-                supabaseClient.from('kyc_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending')
+                rafflesQuery,
+                entriesQuery,
+                revenueQuery,
+                pendingPaymentsQuery,
+                pendingPayoutsQuery,
+                isAdmin ? supabaseClient.from('kyc_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending') : { count: 0 }
             ])
 
+            const entriesCountCalculated = eventsData?.reduce((acc: number, curr: any) => acc + (curr.entries?.[0]?.count || 0), 0) || 0
             const totalTibsInEvents = eventsData?.reduce((acc: number, curr: any) => acc + ((curr.entries?.[0]?.count || 0) * (curr.entry_cost_tibs || 0)), 0) || 0
             const totalTibsSold = revenueData?.reduce((acc: number, curr: any) => acc + (Number(curr.requested_tibs) || 0), 0) || 0
-            const avgEntries = eventsData && eventsData.length > 0 ? (entriesCount || 0) / eventsData.length : 0
+            const avgEntries = eventsData && eventsData.length > 0 ? entriesCountCalculated / eventsData.length : 0
 
             setAnalytics({
                 totalUsers: usersCount || 0,
                 totalEvents: eventsData?.length || 0,
-                totalEntries: entriesCount || 0,
+                totalEntries: entriesCountCalculated,
                 totalTibsSpentInEvents: totalTibsInEvents,
                 totalRevenuePHP: totalTibsSold / 8,
                 avgEntriesPerEvent: Math.round(avgEntries * 10) / 10,
@@ -602,7 +618,9 @@ export default function AdminDashboard() {
         if (!supabaseClient) return
         setIsLoadingPayments(true)
         try {
-            const { data, error } = await supabaseClient.from('transactions').select('*, profiles(email, display_name)').eq('status', 'pending').order('created_at', { ascending: false })
+            let query = supabaseClient.from('transactions').select('*, profiles(email, display_name)').eq('status', 'pending')
+            if (!isAdmin) query = query.eq('user_id', userId)
+            const { data, error } = await query.order('created_at', { ascending: false })
             if (error) throw error
             setPayments(data || [])
         } catch (error) { console.error('Error fetching payments:', error) }
@@ -614,7 +632,9 @@ export default function AdminDashboard() {
         if (!supabaseClient) return
         setIsLoadingPayouts(true)
         try {
-            const { data, error } = await supabaseClient.from('payout_requests').select('*, profiles(email, display_name)').eq('status', 'pending').order('created_at', { ascending: false })
+            let query = supabaseClient.from('payout_requests').select('*, profiles(email, display_name)').eq('status', 'pending')
+            if (!isAdmin) query = query.eq('user_id', userId)
+            const { data, error } = await query.order('created_at', { ascending: false })
             if (error) throw error
             setPayouts(data || [])
         } catch (error) { console.error('Error fetching payouts:', error) }
@@ -1201,7 +1221,7 @@ export default function AdminDashboard() {
                 <div className="max-w-3xl mx-auto flex flex-col gap-3">
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold opacity-30 uppercase tracking-widest">Admin Terminal</span>
+                            <span className="text-[10px] font-bold opacity-30 uppercase tracking-widest">{isAdmin ? 'Admin Terminal' : 'Host Dashboard'}</span>
                             <div className="w-1 h-1 rounded-full bg-green-500/50 animate-pulse" />
                         </div>
                         {(activeTab === 'events' || activeTab === 'archives') && (
@@ -1215,26 +1235,29 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="flex items-center gap-1 overflow-x-auto no-scrollbar -mx-2 px-2">
-                        {(['events', 'archives', 'payments', 'payouts', 'kyc', 'analytics'] as const).map((tab) => {
-                            const count = (tab === 'payments' ? analytics?.pendingPayments :
-                                tab === 'payouts' ? analytics?.pendingPayoutRequests :
-                                    tab === 'kyc' ? analytics?.pendingKYCRequests : 0) || 0
+                        {(['events', 'archives', 'payments', 'payouts', 'kyc', 'analytics'] as const)
+                            .filter(tab => isAdmin || tab !== 'kyc')
+                            .map((tab) => {
+                                const label = tab === 'payments' ? 'Purchases' : tab === 'payouts' ? 'Cash Outs' : tab
+                                const count = (tab === 'payments' ? analytics?.pendingPayments :
+                                    tab === 'payouts' ? analytics?.pendingPayoutRequests :
+                                        tab === 'kyc' ? analytics?.pendingKYCRequests : 0) || 0
 
-                            return (
-                                <button
-                                    key={tab}
-                                    onClick={() => setActiveTab(tab)}
-                                    className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === tab ? 'bg-white/10 text-white' : 'text-white/20 hover:text-white/40 hover:bg-white/5'}`}
-                                >
-                                    {tab}
-                                    {count > 0 && (
-                                        <span className="flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-primary text-black text-[8px] font-black animate-pulse shadow-[0_0_8px_rgba(57,255,20,0.5)]">
-                                            {count}
-                                        </span>
-                                    )}
-                                </button>
-                            )
-                        })}
+                                return (
+                                    <button
+                                        key={tab}
+                                        onClick={() => setActiveTab(tab)}
+                                        className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === tab ? 'bg-white/10 text-white' : 'text-white/20 hover:text-white/40 hover:bg-white/5'}`}
+                                    >
+                                        {label}
+                                        {count > 0 && (
+                                            <span className="flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-primary text-black text-[8px] font-black animate-pulse shadow-[0_0_8px_rgba(57,255,20,0.5)]">
+                                                {count}
+                                            </span>
+                                        )}
+                                    </button>
+                                )
+                            })}
                     </div>
                 </div>
             </div>
@@ -1244,7 +1267,7 @@ export default function AdminDashboard() {
                 {activeTab === 'analytics' ? (
                     <div className="flex flex-col gap-10">
                         <div className="flex justify-between items-center">
-                            <h2 className="text-xl font-black uppercase tracking-widest">Platform Analytics</h2>
+                            <h2 className="text-xl font-black uppercase tracking-widest">{isAdmin ? 'Platform Analytics' : 'My Analytics'}</h2>
                             <button onClick={fetchAnalytics} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-primary transition-colors"><Loader2 size={14} className={isLoadingAnalytics ? "animate-spin" : ""} /> Refresh Data</button>
                         </div>
                         {analytics ? <AnalyticsOverview analytics={analytics} /> : null}
