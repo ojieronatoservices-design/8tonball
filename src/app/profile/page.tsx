@@ -667,29 +667,29 @@ export default function ProfilePage() {
 
             {/* TABS */}
             <div className="px-6 w-full max-w-3xl mx-auto">
-                <div className="flex bg-muted/30 p-1 rounded-2xl border border-border/50">
+                <div className="flex bg-muted/30 p-0.5 rounded-xl border border-border/50">
                     <button
                         onClick={() => setActiveTab('live')}
-                        className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'live' ? 'bg-primary text-black shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
+                        className={`flex-1 py-1.5 text-[8px] font-black uppercase tracking-[0.15em] rounded-lg transition-all flex items-center justify-center gap-1.5 ${activeTab === 'live' ? 'bg-primary text-black shadow-md' : 'text-muted-foreground hover:text-foreground'}`}
                     >
-                        <Clock size={14} />
+                        <Clock size={10} />
                         Live
                     </button>
                     <button
                         onClick={() => setActiveTab('archives')}
-                        className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 relative ${activeTab === 'archives' ? 'bg-primary text-black shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
+                        className={`flex-1 py-1.5 text-[8px] font-black uppercase tracking-[0.15em] rounded-lg transition-all flex items-center justify-center gap-1.5 relative ${activeTab === 'archives' ? 'bg-primary text-black shadow-md' : 'text-muted-foreground hover:text-foreground'}`}
                     >
-                        <Trophy size={14} />
+                        <Trophy size={10} />
                         Archive
                         {archivedGroups.some(g => didWin(g) && !g.event.is_read && !readWinIds.has(g.event.id)) && (
-                            <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                            <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
                         )}
                     </button>
                     <button
                         onClick={() => setActiveTab('activity')}
-                        className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'activity' ? 'bg-primary text-black shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
+                        className={`flex-1 py-1.5 text-[8px] font-black uppercase tracking-[0.15em] rounded-lg transition-all flex items-center justify-center gap-1.5 ${activeTab === 'activity' ? 'bg-primary text-black shadow-md' : 'text-muted-foreground hover:text-foreground'}`}
                     >
-                        <Bell size={14} />
+                        <Bell size={10} />
                         Activity
                     </button>
                 </div>
