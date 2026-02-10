@@ -89,15 +89,20 @@ const CreateEventModal = memo(({
         }
 
         setIsLaunching(true)
+        console.log('[Admin] Launching event:', { title, cost, goal, drawTime })
         try {
             const mediaUrls: string[] = []
             if (eventImages.length > 0) {
+                console.log(`[Admin] Uploading ${eventImages.length} images...`)
                 for (const image of eventImages) {
                     const fileExt = image.name.split('.').pop()
                     const fileName = `${userId}-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
                     const filePath = `raffles/${fileName}`
                     const { error: uploadError } = await supabaseClient.storage.from('media').upload(filePath, image)
-                    if (uploadError) throw uploadError
+                    if (uploadError) {
+                        console.error('[Admin] Upload error:', uploadError)
+                        throw uploadError
+                    }
                     const { data: { publicUrl } } = supabaseClient.storage.from('media').getPublicUrl(filePath)
                     mediaUrls.push(publicUrl)
                 }
@@ -108,23 +113,36 @@ const CreateEventModal = memo(({
             const yearShort = date.getFullYear().toString().slice(-2)
             const displayId = `#${monthLetter}${yearShort}.${existingEventsCount + 1}`
 
+            const entryCost = parseInt(cost)
+            const goalTibs = parseInt(goal) || 0
+
+            if (isNaN(entryCost)) {
+                throw new Error('Invalid cost value. Please enter a number.')
+            }
+
             const { error: insertError } = await supabaseClient.from('raffles').insert([{
                 title,
                 description,
-                entry_cost_tibs: parseInt(cost),
+                entry_cost_tibs: entryCost,
                 ends_at: new Date(drawTime).toISOString(),
                 media_urls: mediaUrls,
                 host_user_id: userId,
                 status: 'open',
-                goal_tibs: parseInt(goal) || 0,
+                goal_tibs: goalTibs,
                 display_id: displayId
             }])
 
-            if (insertError) throw insertError
+            if (insertError) {
+                console.error('[Admin] Insert error:', insertError)
+                throw insertError
+            }
+
+            console.log('[Admin] Event launched successfully!')
             alert('Event launched successfully!')
             onLaunch()
             onClose()
         } catch (error: any) {
+            console.error('[Admin] Launch failed:', error)
             alert(error.message || 'Error launching event.')
         } finally {
             setIsLaunching(false)

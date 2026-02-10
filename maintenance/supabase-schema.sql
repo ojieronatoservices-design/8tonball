@@ -27,7 +27,9 @@ CREATE TABLE raffles (
     host_user_id TEXT REFERENCES profiles(id) NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     ends_at TIMESTAMPTZ,
-    drawn_at TIMESTAMPTZ
+    drawn_at TIMESTAMPTZ,
+    goal_tibs INTEGER DEFAULT 0,
+    display_id TEXT
 );
 
 -- 3. Entries
