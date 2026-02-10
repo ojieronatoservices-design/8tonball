@@ -355,50 +355,50 @@ export function Shell({ children }: ShellProps) {
             <header className={cn(
                 "fixed top-0 w-full max-w-3xl glass z-50 flex flex-col transition-transform duration-300 will-change-transform",
                 !isVisible && "-translate-y-full",
-                pathname === '/' ? "py-3" : "py-4"
+                pathname === '/' ? "py-1.5" : "py-2"
             )}>
-                <div className="w-full px-6 flex justify-between items-center">
+                <div className="w-full px-4 flex justify-between items-center">
                     <Link href="/">
-                        <img src="/logo.png" alt="8TONBALL" className="h-8 object-contain" />
+                        <img src="/logo.png" alt="8TONBALL" className="h-5 object-contain" />
                     </Link>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                         {isLoaded && user ? (
-                            <div className="flex items-center gap-3">
-                                <div className="flex items-center gap-2">
-                                    <div className="flex items-center gap-1.5 bg-muted px-3 py-1 rounded-full border border-border">
-                                        <span className="text-sm font-bold neon-text">{balance.toLocaleString()}</span>
-                                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Tibs</span>
+                            <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1">
+                                    <div className="flex items-center gap-1 bg-muted px-2 py-0.5 rounded-full border border-border">
+                                        <span className="text-xs font-bold neon-text">{balance.toLocaleString()}</span>
+                                        <span className="text-[8px] uppercase tracking-wider text-muted-foreground font-medium">Tibs</span>
                                     </div>
                                     <button
                                         onClick={() => setShowWalletModal(true)}
-                                        className="w-7 h-7 flex items-center justify-center bg-primary rounded-full text-black hover:scale-110 active:scale-95 transition-all shadow-lg"
+                                        className="w-5 h-5 flex items-center justify-center bg-primary rounded-full text-black hover:scale-110 active:scale-95 transition-all shadow-lg"
                                     >
-                                        <Plus size={16} strokeWidth={4} />
+                                        <Plus size={12} strokeWidth={4} />
                                     </button>
                                 </div>
                                 <UserButton afterSignOutUrl="/" />
                             </div>
                         ) : isLoaded ? (
                             <SignInButton mode="modal">
-                                <button className="text-[10px] font-black uppercase tracking-widest bg-primary text-black px-4 py-1.5 rounded-full neon-border transition-transform active:scale-95 shadow-sm">
+                                <button className="text-[8px] font-black uppercase tracking-widest bg-primary text-black px-3 py-1 rounded-full neon-border transition-transform active:scale-95 shadow-sm">
                                     Sign In
                                 </button>
                             </SignInButton>
                         ) : (
-                            <Loader2 className="animate-spin text-muted-foreground" size={18} />
+                            <Loader2 className="animate-spin text-muted-foreground" size={14} />
                         )}
                     </div>
                 </div>
 
                 {/* Search Bar - only on home feed */}
                 {pathname === '/' && (
-                    <div className="w-full px-6 mt-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="w-full px-4 mt-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
                         <div className="relative group">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={14} />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={12} />
                             <input
                                 type="text"
                                 placeholder="Search live events..."
-                                className="w-full bg-muted/40 border border-border hover:border-primary/20 focus:border-primary/50 rounded-xl py-2 pl-9 pr-8 text-xs font-medium focus:outline-none transition-all"
+                                className="w-full bg-muted/40 border border-border hover:border-primary/20 focus:border-primary/50 rounded-lg py-1.5 pl-8 pr-7 text-[11px] font-medium focus:outline-none transition-all"
                                 value={searchQuery}
                                 onChange={(e) => handleSearchChange(e.target.value)}
                             />
@@ -407,7 +407,7 @@ export function Shell({ children }: ShellProps) {
                                     onClick={() => handleSearchChange('')}
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                                 >
-                                    <X size={14} />
+                                    <X size={12} />
                                 </button>
                             )}
                         </div>
@@ -417,15 +417,15 @@ export function Shell({ children }: ShellProps) {
 
             {/* Main Content */}
             <main className={cn(
-                "w-full max-w-3xl pb-32 px-6 transition-all duration-300 animate-in fade-in zoom-in-95 duration-500",
-                pathname === '/' ? "pt-32" : "pt-24"
+                "w-full max-w-3xl pb-24 px-6 transition-all duration-300 animate-in fade-in zoom-in-95 duration-500",
+                pathname === '/' ? "pt-20" : "pt-14"
             )}>
                 {children}
             </main>
 
             {/* Bottom Navigation */}
             <nav className={cn(
-                "fixed bottom-0 w-full max-w-3xl glass z-50 px-6 py-4 transition-transform duration-300",
+                "fixed bottom-0 w-full max-w-3xl glass z-50 px-4 py-2 transition-transform duration-300",
                 !isVisible && "translate-y-full"
             )}>
                 <div className="flex justify-between items-center">
@@ -440,7 +440,7 @@ export function Shell({ children }: ShellProps) {
                                 key={item.href}
                                 href={isDisabled ? '/' : item.href}
                                 className={cn(
-                                    "flex flex-col items-center gap-1 transition-all duration-200 relative",
+                                    "flex flex-col items-center gap-0.5 transition-all duration-200 relative",
                                     isActive ? "neon-text scale-110" : "text-muted-foreground hover:text-foreground",
                                     isDisabled && "opacity-20 cursor-not-allowed"
                                 )}
@@ -452,14 +452,14 @@ export function Shell({ children }: ShellProps) {
                                 }}
                             >
                                 <div className="relative">
-                                    <Icon size={22} strokeWidth={isActive ? 3 : 2} />
+                                    <Icon size={16} strokeWidth={isActive ? 3 : 2} />
                                     {item.label === 'Activity' && unreadCount > 0 && (
-                                        <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full border-2 border-background flex items-center justify-center">
-                                            <span className="text-[10px] font-bold text-white">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                                        <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full border border-background flex items-center justify-center">
+                                            <span className="text-[7px] font-bold text-white">{unreadCount > 9 ? '9+' : unreadCount}</span>
                                         </div>
                                     )}
                                 </div>
-                                <span className="text-[10px] font-bold uppercase tracking-widest">{item.label}</span>
+                                <span className="text-[8px] font-bold uppercase tracking-widest">{item.label}</span>
                             </Link>
                         )
                     })}
