@@ -445,6 +445,7 @@ export default function AdminDashboard() {
         avgEntriesPerEvent: number
         pendingPayments: number
         pendingPayoutRequests: number
+        pendingKYCRequests: number
     } | null>(null)
     const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false)
 
@@ -457,6 +458,7 @@ export default function AdminDashboard() {
             if (error) throw error
             alert('Payment approved and Tibs credited!')
             fetchPayments()
+            fetchAnalytics()
         } catch (error: any) { alert(error.message || 'Error approving payment') }
     }, [userId, getClient])
 
@@ -468,6 +470,7 @@ export default function AdminDashboard() {
             if (error) throw error
             alert('Payment rejected.')
             fetchPayments()
+            fetchAnalytics()
         } catch (error: any) { alert(error.message || 'Error rejecting payment') }
     }, [getClient])
 
@@ -487,6 +490,7 @@ export default function AdminDashboard() {
             await supabaseClient.from('payout_requests').update({ status: 'completed', processed_at: new Date().toISOString(), processed_by: userId }).eq('id', id)
             alert('Payout settled successfully!')
             fetchPayoutRequests()
+            fetchAnalytics()
         } catch (error: any) { alert(error.message || 'Error settling payout') }
     }, [userId, getClient])
 
@@ -560,20 +564,22 @@ export default function AdminDashboard() {
                 { count: usersCount },
                 { data: eventsData },
                 { count: entriesCount },
-                { data: transactionData },
-                { count: pendingCount },
-                { count: pendingPayoutsCount }
+                { data: revenueData },
+                { count: pendingPaymentsCount },
+                { count: pendingPayoutsCount },
+                { count: kycPendingCount }
             ] = await Promise.all([
                 supabaseClient.from('profiles').select('*', { count: 'exact', head: true }),
                 supabaseClient.from('raffles').select('entry_cost_tibs, entries:entries!entries_raffle_id_fkey(count)'),
                 supabaseClient.from('entries').select('*', { count: 'exact', head: true }),
                 supabaseClient.from('transactions').select('requested_tibs').eq('status', 'approved'),
                 supabaseClient.from('transactions').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-                supabaseClient.from('payout_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending')
+                supabaseClient.from('payout_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+                supabaseClient.from('kyc_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending')
             ])
 
             const totalTibsInEvents = eventsData?.reduce((acc: number, curr: any) => acc + ((curr.entries?.[0]?.count || 0) * (curr.entry_cost_tibs || 0)), 0) || 0
-            const totalTibsSold = transactionData?.reduce((acc: number, curr: any) => acc + (Number(curr.requested_tibs) || 0), 0) || 0
+            const totalTibsSold = revenueData?.reduce((acc: number, curr: any) => acc + (Number(curr.requested_tibs) || 0), 0) || 0
             const avgEntries = eventsData && eventsData.length > 0 ? (entriesCount || 0) / eventsData.length : 0
 
             setAnalytics({
@@ -583,8 +589,9 @@ export default function AdminDashboard() {
                 totalTibsSpentInEvents: totalTibsInEvents,
                 totalRevenuePHP: totalTibsSold / 8,
                 avgEntriesPerEvent: Math.round(avgEntries * 10) / 10,
-                pendingPayments: pendingCount || 0,
-                pendingPayoutRequests: pendingPayoutsCount || 0
+                pendingPayments: pendingPaymentsCount || 0,
+                pendingPayoutRequests: pendingPayoutsCount || 0,
+                pendingKYCRequests: kycPendingCount || 0
             })
         } catch (error) { console.error('Error fetching analytics:', error) }
         finally { setIsLoadingAnalytics(false) }
@@ -631,11 +638,11 @@ export default function AdminDashboard() {
     }
 
     useEffect(() => {
+        fetchAnalytics() // Fetch counts for badges on every tab change/mount
         if (activeTab === 'payouts') fetchPayoutRequests()
         else if (activeTab === 'payments') fetchPayments()
         else if (activeTab === 'kyc') fetchKYCRequests()
         else if (activeTab === 'events' || activeTab === 'archives') fetchEvents()
-        else if (activeTab === 'analytics') fetchAnalytics()
     }, [activeTab, userId])
 
     const handleDrawWinner = async (eventId: string, eventTitle: string, eventImage: string, currentTibs: number, goalTibs: number) => {
@@ -694,6 +701,7 @@ export default function AdminDashboard() {
 
             alert('Host approved and verified!')
             fetchKYCRequests()
+            fetchAnalytics()
         } catch (error: any) { alert(error.message || 'Error approving KYC') }
     }
 
@@ -710,6 +718,7 @@ export default function AdminDashboard() {
             if (error) throw error
             alert('Application rejected.')
             fetchKYCRequests()
+            fetchAnalytics()
         } catch (error: any) { alert(error.message || 'Error rejecting KYC') }
     }
 
@@ -1206,15 +1215,26 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="flex items-center gap-1 overflow-x-auto no-scrollbar -mx-2 px-2">
-                        {(['events', 'archives', 'payments', 'payouts', 'kyc', 'analytics'] as const).map((tab) => (
-                            <button
-                                key={tab}
-                                onClick={() => setActiveTab(tab)}
-                                className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab ? 'bg-white/10 text-white' : 'text-white/20 hover:text-white/40 hover:bg-white/5'}`}
-                            >
-                                {tab}
-                            </button>
-                        ))}
+                        {(['events', 'archives', 'payments', 'payouts', 'kyc', 'analytics'] as const).map((tab) => {
+                            const count = (tab === 'payments' ? analytics?.pendingPayments :
+                                tab === 'payouts' ? analytics?.pendingPayoutRequests :
+                                    tab === 'kyc' ? analytics?.pendingKYCRequests : 0) || 0
+
+                            return (
+                                <button
+                                    key={tab}
+                                    onClick={() => setActiveTab(tab)}
+                                    className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === tab ? 'bg-white/10 text-white' : 'text-white/20 hover:text-white/40 hover:bg-white/5'}`}
+                                >
+                                    {tab}
+                                    {count > 0 && (
+                                        <span className="flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-primary text-black text-[8px] font-black animate-pulse shadow-[0_0_8px_rgba(57,255,20,0.5)]">
+                                            {count}
+                                        </span>
+                                    )}
+                                </button>
+                            )
+                        })}
                     </div>
                 </div>
             </div>
