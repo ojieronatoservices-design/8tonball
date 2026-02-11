@@ -78,6 +78,12 @@ export function Shell({ children }: ShellProps) {
     const [isScrolling, setIsScrolling] = useState(false)
     const scrollTimeoutRef = useRef<any>(null)
 
+    // Wallet/Manual Payment state
+    const [selectedPackage, setSelectedPackage] = useState<{ tibs: number, price: number, label: string } | null>(null)
+    const [isVerifyingReceipt, setIsVerifyingReceipt] = useState(false)
+    const [receiptFile, setReceiptFile] = useState<File | null>(null)
+    const [receiptPreview, setReceiptPreview] = useState<string | null>(null)
+
     // Create Event Modal state
     const [showCreateEventModal, setShowCreateEventModal] = useState(false)
 
@@ -210,6 +216,51 @@ export function Shell({ children }: ShellProps) {
         }
     }
 
+
+    const handlePackageSelect = (pkg: { tibs: number, price: number, label: string }) => {
+        setSelectedPackage(pkg)
+    }
+
+    const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file || !selectedPackage || !user) return
+
+        setReceiptFile(file)
+        setReceiptPreview(URL.createObjectURL(file))
+        setIsVerifyingReceipt(true)
+
+        try {
+            const formData = new FormData()
+            formData.append('image', file)
+            formData.append('userId', user.id)
+            formData.append('tibs', selectedPackage.tibs.toString())
+            formData.append('price', selectedPackage.price.toString())
+
+            const res = await fetch('/api/verify-receipt', {
+                method: 'POST',
+                body: formData
+            })
+
+            const data = await res.json()
+
+            if (data.success) {
+                showToast(`SUCCESS! AI verified your ₱${selectedPackage.price} payment.`, 'success')
+                setBalance(prev => prev + selectedPackage.tibs)
+                setShowWalletModal(false)
+                setSelectedPackage(null)
+                setReceiptFile(null)
+                setReceiptPreview(null)
+            } else {
+                showToast(data.message || 'Verification failed. Admin will review manually.', 'info')
+                // Keep modal open but show status
+            }
+        } catch (err) {
+            console.error('Receipt upload error:', err)
+            showToast('Error connecting to AI. Please try again.', 'error')
+        } finally {
+            setIsVerifyingReceipt(false)
+        }
+    }
 
     const handlePayMongoCheckout = async (tibsAmount: number) => {
         if (!user) {
@@ -690,31 +741,93 @@ export function Shell({ children }: ShellProps) {
                             </button>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                            {packages.map((pkg) => (
-                                <button
-                                    key={pkg.tibs}
-                                    onClick={() => handlePayMongoCheckout(pkg.tibs)}
-                                    disabled={isProcessingPaymongo !== null}
-                                    className={cn(
-                                        "p-4 rounded-3xl border border-white/5 bg-card hover:border-primary/30 text-left transition-all active:scale-95 group relative overflow-hidden",
-                                        isProcessingPaymongo === pkg.tibs && "scale-105 border-primary/50",
-                                        isProcessingPaymongo !== null && isProcessingPaymongo !== pkg.tibs && "opacity-50 grayscale"
-                                    )}
-                                >
-                                    {isProcessingPaymongo === pkg.tibs && (
-                                        <div className="absolute inset-0 bg-primary/20 backdrop-blur-[2px] flex items-center justify-center z-10 animate-in fade-in duration-300">
-                                            <Loader2 size={18} className="animate-spin text-black" />
+                        {!selectedPackage ? (
+                            <div className="grid grid-cols-2 gap-3">
+                                {packages.map((pkg) => (
+                                    <button
+                                        key={pkg.tibs}
+                                        onClick={() => handlePackageSelect(pkg)}
+                                        className="p-4 rounded-3xl border border-white/5 bg-card hover:border-primary/30 text-left transition-all active:scale-95 group relative overflow-hidden"
+                                    >
+                                        <div className="text-[8px] uppercase tracking-widest font-black text-primary mb-1">{pkg.label}</div>
+                                        <div className="text-xl font-black">
+                                            <TibsDisplay amount={pkg.tibs} showUnit={false} />
                                         </div>
-                                    )}
-                                    <div className="text-[8px] uppercase tracking-widest font-black text-primary mb-1">{pkg.label}</div>
-                                    <div className="text-xl font-black">
-                                        <TibsDisplay amount={pkg.tibs} showUnit={false} />
+                                        <div className="text-[10px] font-bold text-white/40">{pkg.price} PHP</div>
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-6 animate-in slide-in-from-right duration-300">
+                                <div className="p-4 bg-muted rounded-2xl flex items-center justify-between">
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] uppercase font-bold text-muted-foreground">{selectedPackage.label} Bundle</span>
+                                        <span className="text-xl font-black">{selectedPackage.tibs} Tibs</span>
                                     </div>
-                                    <div className="text-[10px] font-bold text-white/40">{pkg.price} PHP</div>
-                                </button>
-                            ))}
-                        </div>
+                                    <button onClick={() => { setSelectedPackage(null); setReceiptPreview(null); }} className="text-xs font-bold text-primary hover:underline">Change</button>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="flex flex-col items-center gap-4 p-6 bg-white/5 rounded-[2.5rem] border border-dashed border-white/10 ring-1 ring-white/5 relative overflow-hidden group">
+                                        <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        <div className="flex flex-col items-center gap-4 relative z-10 w-full text-center">
+                                            <div className="w-48 h-48 bg-white rounded-2xl p-2 shadow-2xl border border-white/10">
+                                                <img src="/insta_pay_qr.png" alt="InstaPay QR" className="w-full h-full object-contain" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-black uppercase tracking-tight italic">Scan to Pay via GCash, Maya or Bank</p>
+                                                <p className="text-[10px] text-muted-foreground">OR Send <span className="text-foreground font-bold">₱{selectedPackage.price}</span> to:</p>
+                                            </div>
+                                            <div className="bg-foreground text-background px-6 py-2 rounded-xl font-black text-xl tracking-widest shadow-lg">
+                                                09XX-XXX-XXXX
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <p className="text-[10px] uppercase font-black text-primary tracking-widest px-1">2. Upload Receipt</p>
+                                        <div className="relative">
+                                            {receiptPreview ? (
+                                                <div className="relative aspect-[4/3] rounded-2xl overflow-hidden border border-border">
+                                                    <img src={receiptPreview} alt="Receipt" className="w-full h-full object-cover" />
+                                                    {isVerifyingReceipt ? (
+                                                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
+                                                            <Loader2 size={32} className="animate-spin text-primary" />
+                                                            <span className="text-[10px] font-black uppercase tracking-widest text-primary animate-pulse">AI is Reading...</span>
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => { setReceiptPreview(null); setReceiptFile(null); }}
+                                                            className="absolute top-2 right-2 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center blur-none hover:bg-black/80 transition-all"
+                                                        >
+                                                            <X size={16} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <label className="flex flex-col items-center justify-center gap-4 py-10 px-4 bg-muted border-2 border-dashed border-white/5 rounded-[2rem] cursor-pointer hover:bg-white/5 hover:border-primary/20 transition-all active:scale-95 group">
+                                                    <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shadow-inner">
+                                                        <Camera size={32} className="text-primary opacity-60 group-hover:opacity-100 group-hover:drop-shadow-[0_0_10px_rgba(57,255,20,0.5)] transition-all" />
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <p className="text-xs font-black uppercase tracking-tighter">Snap or Upload Screenshot</p>
+                                                        <p className="text-[10px] text-muted-foreground mt-1 font-medium bg-background/50 py-1 px-3 rounded-full">JPG, PNG allowed</p>
+                                                    </div>
+                                                    <input type="file" accept="image/*" className="hidden" onChange={handleReceiptUpload} />
+                                                </label>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10">
+                                    <div className="flex gap-3">
+                                        <div className="mt-0.5"><div className="w-1.5 h-1.5 rounded-full bg-primary" /></div>
+                                        <p className="text-[10px] text-muted-foreground leading-relaxed italic">The AI will instantly credit your Tibs after reading the receipt details. Suspect images will be flagged for manual review.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
