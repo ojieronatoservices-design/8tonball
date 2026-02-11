@@ -859,7 +859,7 @@ export function Shell({ children }: ShellProps) {
 
 // Lightweight Create Event Modal that lives in Shell (for the floating button)
 function CreateEventModalWrapper({ isAdmin, isHostEligible, getClient, userId, onClose, showToast }: {
-    isAdmin: boolean, isHostEligible: boolean, getClient: any, userId: string | null, onClose: () => void, showToast: (msg: string, type: string) => void
+    isAdmin: boolean, isHostEligible: boolean, getClient: any, userId: string | null, onClose: () => void, showToast: (msg: string, type?: 'success' | 'error' | 'info') => void
 }) {
     const [title, setTitle] = useState('')
     const [description, setDescription] = useState('')
