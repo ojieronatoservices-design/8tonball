@@ -1,7 +1,7 @@
 "use client"
 
-import React, { useEffect, useState, useRef, useMemo } from 'react'
-import { Wallet, Trophy, Bell, User, LayoutDashboard, Loader2, LogOut, Search, X, Plus, QrCode, Upload, Camera, Image as ImageIcon } from 'lucide-react'
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react'
+import { Wallet, Trophy, Bell, User, LayoutDashboard, Loader2, LogOut, Search, X, Plus, QrCode, Upload, Camera, Image as ImageIcon, Compass, Menu, Banknote, CreditCard } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
@@ -57,6 +57,29 @@ export function Shell({ children }: ShellProps) {
     const [isVisible, setIsVisible] = useState(true)
     const lastScrollY = useRef(0)
 
+    // Burger menu state
+    const [showBurgerMenu, setShowBurgerMenu] = useState(false)
+
+    // Settle (Payout) modal state
+    const [showSettleModal, setShowSettleModal] = useState(false)
+    const [settleMethod, setSettleMethod] = useState<'gcash' | 'bank' | 'qr'>('gcash')
+    const [settleGcashNumber, setSettleGcashNumber] = useState('')
+    const [settleGcashName, setSettleGcashName] = useState('')
+    const [settleBankName, setSettleBankName] = useState('')
+    const [settleBankAccount, setSettleBankAccount] = useState('')
+    const [settleBankHolder, setSettleBankHolder] = useState('')
+    const [settleQrFile, setSettleQrFile] = useState<File | null>(null)
+    const [settleQrPreview, setSettleQrPreview] = useState<string | null>(null)
+    const [settleQrName, setSettleQrName] = useState('')
+    const [isSubmittingSettle, setIsSubmittingSettle] = useState(false)
+
+    // Floating button scroll transparency
+    const [isScrolling, setIsScrolling] = useState(false)
+    const scrollTimeoutRef = useRef<any>(null)
+
+    // Create Event Modal state
+    const [showCreateEventModal, setShowCreateEventModal] = useState(false)
+
     useEffect(() => {
         let ticking = false
         // Use a local variable to capture scroll state to avoid unnecessary state updates
@@ -81,10 +104,18 @@ export function Shell({ children }: ShellProps) {
                 })
                 ticking = true
             }
+
+            // Floating button scroll transparency
+            setIsScrolling(true)
+            if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current)
+            scrollTimeoutRef.current = setTimeout(() => setIsScrolling(false), 300)
         }
 
         window.addEventListener('scroll', handleScroll, { passive: true })
-        return () => window.removeEventListener('scroll', handleScroll)
+        return () => {
+            window.removeEventListener('scroll', handleScroll)
+            if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current)
+        }
     }, [])
 
     const isAuthPage = pathname === '/login'
@@ -108,8 +139,6 @@ export function Shell({ children }: ShellProps) {
 
             if (fetchError && fetchError.code === 'PGRST116') {
                 // Profile doesn't exist, create it
-                // console.log('[syncProfile] Creating new profile for user:', user.id)
-                // Check current count for "Incoming 10" bonus (5 existing + next 10 = up to 15)
                 const { count } = await supabaseClient
                     .from('profiles')
                     .select('*', { count: 'exact', head: true })
@@ -130,7 +159,6 @@ export function Shell({ children }: ShellProps) {
                     console.error('[syncProfile] Error creating profile')
                     showToast(`Profile sync failed`, 'error')
                 } else {
-                    // console.log('[syncProfile] Profile created successfully')
                     if (registrationBonus > 0) {
                         showToast(`Welcome! You've received a ${registrationBonus} TIBS Early Bird bonus!`, 'success')
                     } else {
@@ -220,6 +248,72 @@ export function Shell({ children }: ShellProps) {
         }
     }
 
+    // Settle (payout) handler
+    const handleSubmitSettle = async () => {
+        if (!user) return
+        const supabaseClient = await getClient()
+        if (!supabaseClient) return
+
+        // Validate based on method
+        if (settleMethod === 'gcash' && (!settleGcashNumber || !settleGcashName)) {
+            showToast('Please fill in GCash details', 'error')
+            return
+        }
+        if (settleMethod === 'bank' && (!settleBankName || !settleBankAccount || !settleBankHolder)) {
+            showToast('Please fill in bank details', 'error')
+            return
+        }
+        if (settleMethod === 'qr' && (!settleQrFile || !settleQrName)) {
+            showToast('Please upload a QR code and enter your name', 'error')
+            return
+        }
+
+        setIsSubmittingSettle(true)
+        try {
+            let payoutDetails: any = { method: settleMethod }
+
+            if (settleMethod === 'gcash') {
+                payoutDetails.gcash_number = settleGcashNumber
+                payoutDetails.gcash_name = settleGcashName
+            } else if (settleMethod === 'bank') {
+                payoutDetails.bank_name = settleBankName
+                payoutDetails.bank_account = settleBankAccount
+                payoutDetails.bank_holder = settleBankHolder
+            } else if (settleMethod === 'qr') {
+                // Upload QR image
+                const fileExt = settleQrFile!.name.split('.').pop()
+                const fileName = `qr-${user.id}-${Date.now()}.${fileExt}`
+                const { error: upErr } = await supabaseClient.storage.from('media').upload(`payouts/${fileName}`, settleQrFile!)
+                if (upErr) throw upErr
+                const { data: { publicUrl } } = supabaseClient.storage.from('media').getPublicUrl(`payouts/${fileName}`)
+                payoutDetails.qr_image_url = publicUrl
+                payoutDetails.qr_name = settleQrName
+            }
+
+            const { error } = await supabaseClient
+                .from('payout_requests')
+                .insert([{
+                    user_id: user.id,
+                    amount_tibs: balance,
+                    gcash_number: settleMethod === 'gcash' ? settleGcashNumber : null,
+                    gcash_name: settleMethod === 'gcash' ? settleGcashName : (settleMethod === 'bank' ? settleBankHolder : settleQrName),
+                    payout_details: payoutDetails
+                }])
+
+            if (error) throw error
+
+            showToast('Settlement request submitted! Please allow 24-48 hours for processing.', 'success')
+            setShowSettleModal(false)
+            // Reset form
+            setSettleGcashNumber(''); setSettleGcashName(''); setSettleBankName(''); setSettleBankAccount(''); setSettleBankHolder(''); setSettleQrFile(null); setSettleQrPreview(null); setSettleQrName('')
+        } catch (error: any) {
+            console.error('Settle error:', error)
+            showToast(error.message || 'Error submitting settlement request', 'error')
+        } finally {
+            setIsSubmittingSettle(false)
+        }
+    }
+
 
     const packages = [
         { tibs: 80, price: 10, label: 'Starter' },
@@ -266,9 +360,11 @@ export function Shell({ children }: ShellProps) {
                         table: 'profiles',
                         filter: `id=eq.${userId}`
                     }, (payload: any) => {
-                        // console.log('[Realtime] Profile update:', payload.new?.tibs_balance)
                         if (payload.new && typeof payload.new.tibs_balance === 'number') {
                             setBalance(payload.new.tibs_balance)
+                        }
+                        if (payload.new && typeof payload.new.is_host_eligible === 'boolean') {
+                            setIsHostEligible(payload.new.is_host_eligible)
                         }
                     })
                     .subscribe()
@@ -284,7 +380,6 @@ export function Shell({ children }: ShellProps) {
                         // Manual Filter for security/correctness (just in case RLS leaks, filtered by user_id)
                         if (payload.new && payload.new.user_id === userId) {
                             if (payload.eventType === 'INSERT') {
-                                // console.log('[Realtime] Notification INSERT:', payload.new)
                                 setUnreadCount(prev => prev + 1)
 
                                 const type = payload.new.type
@@ -331,19 +426,11 @@ export function Shell({ children }: ShellProps) {
 
 
 
-    // Build nav items - Admin tab only for admins, Host tab for eligible hosts
+    // Build nav items - only 2 tabs now: Discover and You
     const navItems = useMemo(() => [
-        { label: 'Feed', href: '/', icon: Trophy },
-        // Unified Admin/Host Tab: Admins see "Admin Hub", everyone else sees "Host Dashboard"
-        ...(user
-            ? [{
-                label: isAdmin ? 'Admin' : 'Host',
-                href: '/admin',
-                icon: LayoutDashboard
-            }]
-            : []),
-        { label: 'Profile', href: '/profile', icon: User },
-    ], [user?.id, isAdmin])
+        { label: 'Discover', href: '/', icon: Compass },
+        { label: 'You', href: '/profile', icon: User },
+    ], [])
 
     if (isAuthPage) {
         return <div className="min-h-screen bg-background">{children}</div>
@@ -369,12 +456,45 @@ export function Shell({ children }: ShellProps) {
                                         <span className="text-xs font-bold neon-text">{balance.toLocaleString()}</span>
                                         <span className="text-[8px] uppercase tracking-wider text-muted-foreground font-medium">Tibs</span>
                                     </div>
-                                    <button
-                                        onClick={() => setShowWalletModal(true)}
-                                        className="w-5 h-5 flex items-center justify-center bg-primary rounded-full text-black hover:scale-110 active:scale-95 transition-all shadow-lg"
-                                    >
-                                        <Plus size={12} strokeWidth={4} />
-                                    </button>
+                                    {/* Burger menu button */}
+                                    <div className="relative">
+                                        <button
+                                            onClick={() => setShowBurgerMenu(!showBurgerMenu)}
+                                            className="w-5 h-5 flex items-center justify-center bg-primary rounded-full text-black hover:scale-110 active:scale-95 transition-all shadow-lg"
+                                        >
+                                            <Menu size={12} strokeWidth={3} />
+                                        </button>
+                                        {/* Dropdown */}
+                                        {showBurgerMenu && (
+                                            <>
+                                                <div className="fixed inset-0 z-[90]" onClick={() => setShowBurgerMenu(false)} />
+                                                <div className="absolute right-0 top-7 z-[91] bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 min-w-[140px]">
+                                                    <button
+                                                        onClick={() => { setShowBurgerMenu(false); setShowWalletModal(true) }}
+                                                        className="w-full flex items-center gap-2.5 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-foreground hover:bg-muted/60 transition-colors"
+                                                    >
+                                                        <Plus size={12} className="text-primary" />
+                                                        Top Up
+                                                    </button>
+                                                    <div className="h-px bg-border" />
+                                                    <button
+                                                        onClick={() => {
+                                                            setShowBurgerMenu(false);
+                                                            if (!isHostEligible && !isAdmin) {
+                                                                showToast('Complete KYC verification to unlock settlements', 'error')
+                                                                return
+                                                            }
+                                                            setShowSettleModal(true)
+                                                        }}
+                                                        className="w-full flex items-center gap-2.5 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-foreground hover:bg-muted/60 transition-colors"
+                                                    >
+                                                        <Banknote size={12} className="text-primary" />
+                                                        Settle
+                                                    </button>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                                 <UserButton afterSignOutUrl="/" />
                             </div>
@@ -423,16 +543,41 @@ export function Shell({ children }: ShellProps) {
                 {children}
             </main>
 
+            {/* Floating Create Event Button */}
+            {isLoaded && user && (isHostEligible || isAdmin) && (
+                <button
+                    onClick={() => setShowCreateEventModal(true)}
+                    className={cn(
+                        "fixed bottom-16 right-3 z-40 w-14 h-14 rounded-full shadow-2xl transition-all duration-300 group overflow-hidden border-2 border-primary/30",
+                        isScrolling ? "opacity-30" : "opacity-100 hover:scale-110 active:scale-95",
+                        "shadow-[0_0_20px_rgba(57,255,20,0.3)]"
+                    )}
+                    style={{ maxWidth: 'calc(50% + 384px - 12px)' }}
+                >
+                    <img src="/create-event-icon.png" alt="Create Event" className="w-full h-full object-cover" />
+                    {/* Circular text around the button */}
+                    <svg className="absolute inset-0 w-full h-full animate-spin-slow" viewBox="0 0 56 56">
+                        <defs>
+                            <path id="circle-path" d="M28,28 m-22,0 a22,22 0 1,1 44,0 a22,22 0 1,1 -44,0" />
+                        </defs>
+                        <text className="fill-primary text-[6px] font-black uppercase tracking-[0.3em]">
+                            <textPath href="#circle-path" startOffset="0%">
+                                CREATE EVENT • CREATE EVENT •
+                            </textPath>
+                        </text>
+                    </svg>
+                </button>
+            )}
+
             {/* Bottom Navigation */}
             <nav className={cn(
                 "fixed bottom-0 w-full max-w-3xl glass z-50 px-4 py-2 transition-transform duration-300",
                 !isVisible && "translate-y-full"
             )}>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-around items-center">
                     {navItems.map((item) => {
                         const Icon = item.icon
-                        const isActive = pathname === item.href
-                        // If not logged in, only allow Home
+                        const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
                         const isDisabled = isLoaded && !user && item.href !== '/'
 
                         return (
@@ -448,15 +593,22 @@ export function Shell({ children }: ShellProps) {
                                     if (isDisabled) {
                                         e.preventDefault()
                                     }
-                                    if (item.label === 'Activity') setUnreadCount(0)
                                 }}
                             >
                                 <div className="relative">
-                                    <Icon size={16} strokeWidth={isActive ? 3 : 2} />
-                                    {item.label === 'Activity' && unreadCount > 0 && (
-                                        <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full border border-background flex items-center justify-center">
-                                            <span className="text-[7px] font-bold text-white">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                                    {item.label === 'You' && user?.imageUrl ? (
+                                        <div className={cn(
+                                            "w-5 h-5 rounded-full overflow-hidden border-2 transition-all",
+                                            isActive ? "border-primary shadow-[0_0_8px_rgba(57,255,20,0.5)]" : "border-transparent"
+                                        )}>
+                                            <img src={user.imageUrl} alt="You" className="w-full h-full object-cover" />
                                         </div>
+                                    ) : (
+                                        <Icon size={16} strokeWidth={isActive ? 3 : 2} />
+                                    )}
+                                    {/* Red dot for You tab when there are notifications */}
+                                    {item.label === 'You' && unreadCount > 0 && (
+                                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-background animate-pulse" />
                                     )}
                                 </div>
                                 <span className="text-[8px] font-bold uppercase tracking-widest">{item.label}</span>
@@ -465,6 +617,7 @@ export function Shell({ children }: ShellProps) {
                     })}
                 </div>
             </nav>
+
             {/* Legal Consent Modal */}
             {showLegalModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
@@ -520,6 +673,7 @@ export function Shell({ children }: ShellProps) {
                     </div>
                 </div>
             )}
+
             {/* Wallet Modal */}
             {showWalletModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
@@ -557,7 +711,332 @@ export function Shell({ children }: ShellProps) {
                     </div>
                 </div>
             )}
+
+            {/* Settle Modal */}
+            {showSettleModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-card w-full max-w-sm rounded-[2.5rem] border border-border p-8 flex flex-col gap-5 shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto custom-scrollbar">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-xl font-black tracking-tight text-foreground uppercase italic underline decoration-primary decoration-4 underline-offset-4">Settle</h3>
+                            <button onClick={() => setShowSettleModal(false)} className="w-8 h-8 bg-muted flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-all">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Balance display */}
+                        <div className="text-center bg-muted/30 rounded-2xl border border-border/50 py-3">
+                            <div className="text-[8px] font-black uppercase tracking-widest text-muted-foreground mb-1">Available Balance</div>
+                            <div className="text-2xl font-black neon-text">{balance.toLocaleString()} <span className="text-xs text-muted-foreground">TIBS</span></div>
+                        </div>
+
+                        {/* Method selector */}
+                        <div className="flex bg-muted/30 p-0.5 rounded-xl border border-border/50">
+                            {(['gcash', 'bank', 'qr'] as const).map(method => (
+                                <button
+                                    key={method}
+                                    onClick={() => setSettleMethod(method)}
+                                    className={cn(
+                                        "flex-1 py-2 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-1",
+                                        settleMethod === method ? 'bg-primary text-black shadow-md' : 'text-muted-foreground hover:text-foreground'
+                                    )}
+                                >
+                                    {method === 'gcash' && <Wallet size={10} />}
+                                    {method === 'bank' && <CreditCard size={10} />}
+                                    {method === 'qr' && <QrCode size={10} />}
+                                    {method === 'gcash' ? 'GCash' : method === 'bank' ? 'Bank' : 'QR'}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* GCash form */}
+                        {settleMethod === 'gcash' && (
+                            <div className="flex flex-col gap-3 animate-in fade-in duration-200">
+                                <input
+                                    type="tel"
+                                    placeholder="GCash Number (09xxxxxxxxx)"
+                                    value={settleGcashNumber}
+                                    onChange={(e) => setSettleGcashNumber(e.target.value)}
+                                    className="w-full bg-muted/40 border border-border rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none transition-all"
+                                />
+                                <input
+                                    type="text"
+                                    placeholder="Account Name"
+                                    value={settleGcashName}
+                                    onChange={(e) => setSettleGcashName(e.target.value)}
+                                    className="w-full bg-muted/40 border border-border rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none transition-all"
+                                />
+                            </div>
+                        )}
+
+                        {/* Bank form */}
+                        {settleMethod === 'bank' && (
+                            <div className="flex flex-col gap-3 animate-in fade-in duration-200">
+                                <input
+                                    type="text"
+                                    placeholder="Bank Name (e.g. BDO, BPI, UnionBank)"
+                                    value={settleBankName}
+                                    onChange={(e) => setSettleBankName(e.target.value)}
+                                    className="w-full bg-muted/40 border border-border rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none transition-all"
+                                />
+                                <input
+                                    type="text"
+                                    placeholder="Account Number"
+                                    value={settleBankAccount}
+                                    onChange={(e) => setSettleBankAccount(e.target.value)}
+                                    className="w-full bg-muted/40 border border-border rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none transition-all"
+                                />
+                                <input
+                                    type="text"
+                                    placeholder="Account Holder Name"
+                                    value={settleBankHolder}
+                                    onChange={(e) => setSettleBankHolder(e.target.value)}
+                                    className="w-full bg-muted/40 border border-border rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none transition-all"
+                                />
+                            </div>
+                        )}
+
+                        {/* QR upload form */}
+                        {settleMethod === 'qr' && (
+                            <div className="flex flex-col gap-3 animate-in fade-in duration-200">
+                                <label className="w-full aspect-video bg-muted/40 border-2 border-dashed border-border rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-primary/40 transition-all relative overflow-hidden">
+                                    <input
+                                        type="file"
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0]
+                                            if (file) {
+                                                setSettleQrFile(file)
+                                                setSettleQrPreview(URL.createObjectURL(file))
+                                            }
+                                        }}
+                                    />
+                                    {settleQrPreview ? (
+                                        <img src={settleQrPreview} alt="QR" className="w-full h-full object-contain" />
+                                    ) : (
+                                        <>
+                                            <QrCode size={24} className="text-muted-foreground mb-2" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Upload QR Code</span>
+                                        </>
+                                    )}
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="Account Name"
+                                    value={settleQrName}
+                                    onChange={(e) => setSettleQrName(e.target.value)}
+                                    className="w-full bg-muted/40 border border-border rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none transition-all"
+                                />
+                            </div>
+                        )}
+
+                        <button
+                            onClick={handleSubmitSettle}
+                            disabled={isSubmittingSettle || balance <= 0}
+                            className="w-full py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isSubmittingSettle && <Loader2 size={16} className="animate-spin" />}
+                            {isSubmittingSettle ? 'Submitting...' : 'Request Settlement'}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Create Event Modal - renders the admin's CreateEventModal */}
+            {showCreateEventModal && (
+                <CreateEventModalWrapper
+                    isAdmin={isAdmin}
+                    isHostEligible={isHostEligible}
+                    getClient={getClient}
+                    userId={user?.id || null}
+                    onClose={() => setShowCreateEventModal(false)}
+                    showToast={showToast}
+                />
+            )}
         </div>
     )
 }
 
+// Lightweight Create Event Modal that lives in Shell (for the floating button)
+function CreateEventModalWrapper({ isAdmin, isHostEligible, getClient, userId, onClose, showToast }: {
+    isAdmin: boolean, isHostEligible: boolean, getClient: any, userId: string | null, onClose: () => void, showToast: (msg: string, type: string) => void
+}) {
+    const [title, setTitle] = useState('')
+    const [description, setDescription] = useState('')
+    const [cost, setCost] = useState('')
+    const [goal, setGoal] = useState('')
+    const [drawTime, setDrawTime] = useState('')
+    const [eventImages, setEventImages] = useState<File[]>([])
+    const [eventPreviews, setEventPreviews] = useState<string[]>([])
+    const [isLaunching, setIsLaunching] = useState(false)
+
+    function isVideo(url: string) {
+        return /\.(mp4|webm|ogg|mov)$/i.test(url)
+    }
+
+    useEffect(() => {
+        return () => { eventPreviews.forEach(url => URL.revokeObjectURL(url)) }
+    }, [eventPreviews])
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files
+        if (files && files.length > 0) {
+            const newFiles = Array.from(files)
+            const LIMIT = 200 * 1024 * 1024
+            const oversized = newFiles.filter(f => f.size > LIMIT)
+            if (oversized.length > 0) {
+                alert('⚠️ FILE TOO LARGE: One or more files exceed the 200MB limit.')
+                return
+            }
+            setEventImages(prev => [...prev, ...newFiles])
+            const newPreviews = newFiles.map(file => URL.createObjectURL(file))
+            setEventPreviews(prev => [...prev, ...newPreviews])
+        }
+        e.target.value = ''
+    }
+
+    const removeImage = (index: number) => {
+        setEventImages(prev => prev.filter((_, i) => i !== index))
+        setEventPreviews(prev => {
+            const url = prev[index]
+            if (url) URL.revokeObjectURL(url)
+            return prev.filter((_, i) => i !== index)
+        })
+    }
+
+    const handleLaunchEvent = async () => {
+        if (isLaunching) return
+        if (!title || !cost || !drawTime) {
+            alert('Please fill in all required fields (Title, Cost, Draw Time)')
+            return
+        }
+
+        const supabaseClient = await getClient()
+        if (!supabaseClient || !userId) {
+            alert('You must be logged in to launch an event.')
+            return
+        }
+
+        setIsLaunching(true)
+        try {
+            const mediaUrls: string[] = []
+            if (eventImages.length > 0) {
+                for (const image of eventImages) {
+                    const fileExt = image.name.split('.').pop()
+                    const fileName = `${userId}-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+                    const filePath = `raffles/${fileName}`
+                    const { error: uploadError } = await supabaseClient.storage.from('media').upload(filePath, image)
+                    if (uploadError) throw uploadError
+                    const { data: { publicUrl } } = supabaseClient.storage.from('media').getPublicUrl(filePath)
+                    mediaUrls.push(publicUrl)
+                }
+            }
+
+            // Get existing event count for display ID
+            const { count: existingCount } = await supabaseClient
+                .from('raffles')
+                .select('*', { count: 'exact', head: true })
+
+            const date = new Date()
+            const monthLetter = date.toLocaleString('default', { month: 'short' })[0].toUpperCase()
+            const yearShort = date.getFullYear().toString().slice(-2)
+            const displayId = `#${monthLetter}${yearShort}.${(existingCount || 0) + 1}`
+
+            const entryCost = parseInt(cost)
+            const goalTibs = parseInt(goal) || 0
+
+            if (isNaN(entryCost)) {
+                throw new Error('Invalid cost value. Please enter a number.')
+            }
+
+            const { error: insertError } = await supabaseClient.from('raffles').insert([{
+                title,
+                description,
+                entry_cost_tibs: entryCost,
+                ends_at: new Date(drawTime).toISOString(),
+                media_urls: mediaUrls,
+                host_user_id: userId,
+                status: 'open',
+                goal_tibs: goalTibs,
+                display_id: displayId
+            }])
+
+            if (insertError) throw insertError
+
+            showToast('Event launched successfully!', 'success')
+            onClose()
+        } catch (error: any) {
+            console.error('[CreateEvent] Launch failed:', error)
+            alert(error.message || 'Error launching event.')
+        } finally {
+            setIsLaunching(false)
+        }
+    }
+
+    return (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
+            <div className="bg-card w-full max-w-lg rounded-3xl border border-white/10 overflow-auto max-h-[90vh] shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col">
+                <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+                    <h3 className="text-xl font-bold flex items-center gap-2">
+                        <Plus className="text-primary" size={20} /> New Event
+                    </h3>
+                    <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors"><X size={20} /></button>
+                </div>
+                <div className="p-8 flex flex-col gap-6">
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Prize Title</label>
+                        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. iPhone 15 Pro"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Description</label>
+                        <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Prize details..."
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none min-h-[100px]" />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Draw Time</label>
+                        <input type="datetime-local" value={drawTime} onChange={(e) => setDrawTime(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none [color-scheme:dark]" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Cost (Tibs)</label>
+                            <input type="number" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="100"
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Goal (Tibs)</label>
+                            <input type="number" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="5000"
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+                        </div>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Media (Multiple allowed)</label>
+                        <div className="grid grid-cols-4 gap-2">
+                            {eventPreviews.map((preview: string, index: number) => (
+                                <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-white/10 group">
+                                    {isVideo(preview) ? <video src={preview} className="w-full h-full object-cover" /> : <img src={preview} alt="Preview" className="w-full h-full object-cover" />}
+                                    <button onClick={() => removeImage(index)} className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <X size={14} className="text-white" />
+                                    </button>
+                                </div>
+                            ))}
+                            <label className="aspect-square bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-white/20 hover:text-white/40 cursor-pointer transition-colors group">
+                                <input type="file" className="hidden" accept="image/*,video/*" multiple onChange={handleFileChange} />
+                                <ImageIcon size={24} className="group-hover:scale-110 transition-transform" />
+                            </label>
+                        </div>
+                    </div>
+                    <button
+                        onClick={handleLaunchEvent}
+                        disabled={isLaunching || (!isAdmin && !isHostEligible)}
+                        className="w-full py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 mt-2 transition-transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isLaunching && <Loader2 size={18} className="animate-spin" />}
+                        {isLaunching ? 'Launching...' : 'Launch'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    )
+}
