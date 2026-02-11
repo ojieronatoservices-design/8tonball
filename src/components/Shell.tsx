@@ -553,19 +553,19 @@ export function Shell({ children }: ShellProps) {
                 <button
                     onClick={() => setShowCreateEventModal(true)}
                     className={cn(
-                        "fixed bottom-16 right-3 z-40 w-14 h-14 rounded-full shadow-2xl transition-all duration-300 group overflow-hidden border-2 border-primary/30",
-                        isScrolling ? "opacity-30" : "opacity-100 hover:scale-110 active:scale-95",
-                        "shadow-[0_0_20px_rgba(57,255,20,0.3)]"
+                        "fixed bottom-20 right-4 z-40 w-20 h-20 rounded-full shadow-2xl transition-all duration-300 group overflow-hidden border-2 border-primary/50 bg-black/40 backdrop-blur-sm",
+                        isScrolling ? "opacity-30 translate-y-4 scale-90" : "opacity-100 hover:scale-110 active:scale-95",
+                        "shadow-[0_0_30px_rgba(57,255,20,0.4)]"
                     )}
-                    style={{ maxWidth: 'calc(50% + 384px - 12px)' }}
+                    style={{ maxWidth: 'calc(50% + 384px - 16px)' }}
                 >
-                    <img src="/create-event-icon.png" alt="Create Event" className="w-full h-full object-cover" />
+                    <img src="/logo-8t.png" alt="Create Event" className="w-full h-full object-cover p-2" />
                     {/* Circular text around the button */}
-                    <svg className="absolute inset-0 w-full h-full animate-spin-slow" viewBox="0 0 56 56">
+                    <svg className="absolute inset-0 w-full h-full animate-spin-slow" viewBox="0 0 80 80">
                         <defs>
-                            <path id="circle-path" d="M28,28 m-22,0 a22,22 0 1,1 44,0 a22,22 0 1,1 -44,0" />
+                            <path id="circle-path" d="M40,40 m-34,0 a34,34 0 1,1 68,0 a34,34 0 1,1 -68,0" />
                         </defs>
-                        <text className="fill-primary text-[6px] font-black uppercase tracking-[0.3em]">
+                        <text className="fill-primary text-[6px] font-black uppercase tracking-[0.5em]">
                             <textPath href="#circle-path" startOffset="0%">
                                 CREATE EVENT • CREATE EVENT •
                             </textPath>

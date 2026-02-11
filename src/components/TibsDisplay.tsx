@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
@@ -16,24 +16,33 @@ interface TibsDisplayProps {
 
 /**
  * TibsDisplay component that shows Tibs by default, 
- * but switches to PHP value (1:8 ratio) when held.
+ * but switches to PHP value (1:8 ratio) for 1 second when tapped.
  */
 export function TibsDisplay({ amount, className, showUnit = true }: TibsDisplayProps) {
-    const [isHeld, setIsHeld] = useState(false)
-    const holdTimer = useRef<NodeJS.Timeout | null>(null)
+    const [isConverted, setIsConverted] = useState(false)
+    const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-    const startHold = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-        // Delay to prevent accidental triggers on quick clicks
-        holdTimer.current = setTimeout(() => {
-            setIsHeld(true)
-        }, 150)
+    const handleTap = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+
+        setIsConverted(true)
+
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current)
+        }
+
+        timeoutRef.current = setTimeout(() => {
+            setIsConverted(false)
+        }, 1000)
     }, [])
 
-    const endHold = useCallback(() => {
-        if (holdTimer.current) {
-            clearTimeout(holdTimer.current)
+    useEffect(() => {
+        return () => {
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current)
+            }
         }
-        setIsHeld(false)
     }, [])
 
     const phpValue = amount / 8
@@ -49,17 +58,13 @@ export function TibsDisplay({ amount, className, showUnit = true }: TibsDisplayP
     return (
         <span
             className={cn(
-                "cursor-help transition-all duration-200 select-none",
-                isHeld ? "text-primary animate-pulse scale-105" : "",
+                "cursor-pointer transition-all duration-200 select-none",
                 className
             )}
-            onMouseDown={startHold}
-            onMouseUp={endHold}
-            onMouseLeave={endHold}
-            onTouchStart={startHold}
-            onTouchEnd={endHold}
+            onClick={handleTap}
+            onTouchEnd={handleTap}
         >
-            {isHeld ? (
+            {isConverted ? (
                 formattedPhp
             ) : (
                 <>
