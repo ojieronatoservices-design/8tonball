@@ -11,6 +11,7 @@ import { useUser, SignInButton, UserButton, useClerk } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
 import { useToast } from '@/components/Toast'
 import { Trophy as TrophyIcon } from 'lucide-react'
+import { TibsDisplay } from '@/components/TibsDisplay'
 
 function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs))
@@ -453,7 +454,11 @@ export function Shell({ children }: ShellProps) {
                             <div className="flex items-center gap-2">
                                 <div className="flex items-center gap-1">
                                     <div className="flex items-center gap-1 bg-muted px-2 py-0.5 rounded-full border border-border">
-                                        <span className="text-xs font-bold neon-text">{balance.toLocaleString()}</span>
+                                        <TibsDisplay
+                                            amount={balance}
+                                            className="text-xs font-bold neon-text"
+                                            showUnit={false}
+                                        />
                                         <span className="text-[8px] uppercase tracking-wider text-muted-foreground font-medium">Tibs</span>
                                     </div>
                                     {/* Burger menu button */}
@@ -703,7 +708,9 @@ export function Shell({ children }: ShellProps) {
                                         </div>
                                     )}
                                     <div className="text-[8px] uppercase tracking-widest font-black text-primary mb-1">{pkg.label}</div>
-                                    <div className="text-xl font-black">{pkg.tibs}</div>
+                                    <div className="text-xl font-black">
+                                        <TibsDisplay amount={pkg.tibs} showUnit={false} />
+                                    </div>
                                     <div className="text-[10px] font-bold text-white/40">{pkg.price} PHP</div>
                                 </button>
                             ))}
@@ -726,7 +733,10 @@ export function Shell({ children }: ShellProps) {
                         {/* Balance display */}
                         <div className="text-center bg-muted/30 rounded-2xl border border-border/50 py-3">
                             <div className="text-[8px] font-black uppercase tracking-widest text-muted-foreground mb-1">Available Balance</div>
-                            <div className="text-2xl font-black neon-text">{balance.toLocaleString()} <span className="text-xs text-muted-foreground">TIBS</span></div>
+                            <div className="text-2xl font-black neon-text">
+                                <TibsDisplay amount={balance} showUnit={false} />
+                                <span className="text-xs text-muted-foreground ml-1">TIBS</span>
+                            </div>
                         </div>
 
                         {/* Method selector */}

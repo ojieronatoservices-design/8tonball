@@ -1,72 +1,79 @@
+"use client"
+
+import React, { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { TibsDisplay } from '@/components/TibsDisplay'
+import { Loader2 } from 'lucide-react'
 
 const getSupabase = () => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
     return createClient(supabaseUrl, supabaseKey)
 }
 
 type Props = {
-    params: Promise<{ id: string }>
+    params: any
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-    const { id } = await params
+export default function EventPage({ params }: Props) {
+    const [event, setEvent] = useState<any>(null)
+    const [entryCount, setEntryCount] = useState(0)
+    const [isLoading, setIsLoading] = useState(true)
+    const [id, setId] = useState<string | null>(null)
 
-    const supabase = getSupabase()
-    const { data: event } = await supabase
-        .from('raffles')
-        .select('*')
-        .eq('id', id)
-        .single()
+    useEffect(() => {
+        params.then((p: any) => setId(p.id))
+    }, [params])
 
-    if (!event) {
-        return { title: 'Event Not Found' }
+    useEffect(() => {
+        if (!id) return
+
+        const fetchData = async () => {
+            const supabase = getSupabase()
+            const { data: eventData } = await supabase
+                .from('raffles')
+                .select('*')
+                .eq('id', id)
+                .single()
+
+            if (!eventData) {
+                setIsLoading(false)
+                return
+            }
+
+            const { data: entries } = await supabase
+                .from('entries')
+                .select('id', { count: 'exact', head: true })
+                .eq('raffle_id', id)
+
+            const { count } = await supabase
+                .from('entries')
+                .select('*', { count: 'exact', head: true })
+                .eq('raffle_id', id)
+
+            setEvent(eventData)
+            setEntryCount(count || 0)
+            setIsLoading(false)
+        }
+
+        fetchData()
+    }, [id])
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 pb-24">
+                <Loader2 className="animate-spin text-primary mb-4" size={40} />
+                <p className="text-muted-foreground font-black uppercase tracking-widest text-xs">Loading Event...</p>
+            </div>
+        )
     }
-
-    const imageUrl = event.media_urls?.[0] || 'https://8tonball.vercel.app/og-default.png'
-
-    return {
-        title: `${event.title} | 8TONBALL`,
-        description: event.description || 'Enter to win this exclusive prize!',
-        openGraph: {
-            title: event.title,
-            description: event.description || 'Enter to win this exclusive prize!',
-            images: [{ url: imageUrl, width: 1200, height: 630 }],
-            type: 'website',
-        },
-        twitter: {
-            card: 'summary_large_image',
-            title: event.title,
-            description: event.description || 'Enter to win this exclusive prize!',
-            images: [imageUrl],
-        },
-    }
-}
-
-export default async function EventPage({ params }: Props) {
-    const { id } = await params
-
-    const supabase = getSupabase()
-    const { data: event } = await supabase
-        .from('raffles')
-        .select('*')
-        .eq('id', id)
-        .single()
 
     if (!event) {
         notFound()
+        return null
     }
-
-    const { data: entries } = await supabase
-        .from('entries')
-        .select('id')
-        .eq('raffle_id', id)
-
-    const entryCount = entries?.length || 0
 
     return (
         <div className="min-h-screen bg-background text-foreground p-6 pb-24">
@@ -95,7 +102,9 @@ export default async function EventPage({ params }: Props) {
                 <div className="flex gap-4">
                     <div className="flex-1 bg-muted px-4 py-3 rounded-2xl border border-border flex flex-col gap-1">
                         <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-black">Entry Cost</span>
-                        <span className="font-bold neon-text text-lg">{event.entry_cost_tibs.toLocaleString()} Tibs</span>
+                        <div className="font-bold neon-text text-lg">
+                            <TibsDisplay amount={event.entry_cost_tibs} />
+                        </div>
                     </div>
                     <div className="flex-1 bg-muted px-4 py-3 rounded-2xl border border-border flex flex-col gap-1">
                         <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-black">Total Entries</span>

@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { Trophy, Clock, Users, Loader2, Share2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Coins, XCircle, Ticket } from 'lucide-react'
 import { CountdownTimer } from '@/components/CountdownTimer'
 import { ImageLightbox } from '@/components/ImageLightbox'
+import { TibsDisplay } from '@/components/TibsDisplay'
 
 interface EventCardProps {
     event: any
@@ -187,7 +188,11 @@ export const EventCard = React.memo(({
                     {/* Left: Tibs & Entries */}
                     <div className="flex flex-col items-start leading-none">
                         <div className="flex items-baseline gap-1">
-                            <span className="text-3xl font-black font-sans tracking-tighter">{event.entry_cost_tibs}</span>
+                            <TibsDisplay
+                                amount={event.entry_cost_tibs}
+                                className="text-3xl font-black font-sans tracking-tighter"
+                                showUnit={false}
+                            />
                             <span className="text-sm font-black font-sans uppercase opacity-80">Tibs</span>
                         </div>
                         <div className="flex items-center gap-1 opacity-70 mt-0.5">
@@ -340,7 +345,7 @@ export const EventCard = React.memo(({
                                             <Loader2 className="animate-spin" size={20} />
                                         ) : (
                                             <div className="flex items-center gap-2">
-                                                <span>CONFIRM ({event.entry_cost_tibs} Tibs)</span>
+                                                <span>CONFIRM (<TibsDisplay amount={event.entry_cost_tibs} />)</span>
                                             </div>
                                         )}
                                     </button>
