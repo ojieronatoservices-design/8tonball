@@ -191,9 +191,9 @@ export const EventCard = React.memo(({
                             <TibsDisplay
                                 amount={event.entry_cost_tibs}
                                 className="text-3xl font-black font-sans tracking-tighter"
-                                showUnit={false}
+                                showUnit={true}
+                                unitClassName="text-sm font-black font-sans uppercase opacity-80"
                             />
-                            <span className="text-sm font-black font-sans uppercase opacity-80">Tibs</span>
                         </div>
                         <div className="flex items-center gap-1 opacity-70 mt-0.5">
                             <Ticket size={10} fill="currentColor" />

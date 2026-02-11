@@ -12,13 +12,14 @@ interface TibsDisplayProps {
     amount: number
     className?: string
     showUnit?: boolean
+    unitClassName?: string
 }
 
 /**
  * TibsDisplay component that shows Tibs by default, 
  * but switches to PHP value (1:8 ratio) for 1 second when tapped.
  */
-export function TibsDisplay({ amount, className, showUnit = true }: TibsDisplayProps) {
+export function TibsDisplay({ amount, className, showUnit = true, unitClassName }: TibsDisplayProps) {
     const [isConverted, setIsConverted] = useState(false)
     const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -69,7 +70,7 @@ export function TibsDisplay({ amount, className, showUnit = true }: TibsDisplayP
             ) : (
                 <>
                     {amount.toLocaleString()}
-                    {showUnit && <span className="ml-1 opacity-80">Tibs</span>}
+                    {showUnit && <span className={cn("ml-1 opacity-80", unitClassName)}>Tibs</span>}
                 </>
             )}
         </span>

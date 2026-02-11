@@ -457,9 +457,9 @@ export function Shell({ children }: ShellProps) {
                                         <TibsDisplay
                                             amount={balance}
                                             className="text-xs font-bold neon-text"
-                                            showUnit={false}
+                                            showUnit={true}
+                                            unitClassName="text-[8px] uppercase tracking-wider text-muted-foreground font-medium"
                                         />
-                                        <span className="text-[8px] uppercase tracking-wider text-muted-foreground font-medium">Tibs</span>
                                     </div>
                                     {/* Burger menu button */}
                                     <div className="relative">
@@ -734,8 +734,11 @@ export function Shell({ children }: ShellProps) {
                         <div className="text-center bg-muted/30 rounded-2xl border border-border/50 py-3">
                             <div className="text-[8px] font-black uppercase tracking-widest text-muted-foreground mb-1">Available Balance</div>
                             <div className="text-2xl font-black neon-text">
-                                <TibsDisplay amount={balance} showUnit={false} />
-                                <span className="text-xs text-muted-foreground ml-1">TIBS</span>
+                                <TibsDisplay
+                                    amount={balance}
+                                    showUnit={true}
+                                    unitClassName="text-xs text-muted-foreground ml-1 uppercase"
+                                />
                             </div>
                         </div>
 
