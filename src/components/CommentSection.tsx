@@ -20,6 +20,11 @@ interface Comment {
     replies?: Comment[]
 }
 
+interface CommentSectionProps {
+    raffleId: string
+    hostId?: string
+}
+
 const formatRelativeTime = (dateString: string) => {
     const now = new Date()
     const past = new Date(dateString)
