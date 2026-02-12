@@ -99,7 +99,7 @@ export default function ProfilePage() {
                         ticket_number, 
                         raffles:raffles!entries_raffle_id_fkey(
                             *,
-                            host:profiles!host_user_id(email, display_name),
+                            host:profiles!host_user_id(email, display_name, is_host_eligible),
                             all_entries:entries!entries_raffle_id_fkey(count)
                         )
                     `)

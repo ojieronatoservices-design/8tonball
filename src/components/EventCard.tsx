@@ -2,10 +2,13 @@
 
 import React, { useEffect, useState, useRef } from 'react'
 import Image from 'next/image'
-import { Trophy, Clock, Users, Loader2, Share2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Coins, XCircle, Ticket } from 'lucide-react'
+import { Trophy, Clock, Users, Loader2, Share2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Coins, XCircle, Ticket, User, CheckCircle2, MessageSquare } from 'lucide-react'
 import { CountdownTimer } from '@/components/CountdownTimer'
 import { ImageLightbox } from '@/components/ImageLightbox'
 import { TibsDisplay } from '@/components/TibsDisplay'
+import Link from 'next/link'
+import { CommentSection } from '@/components/CommentSection'
+import { useSupabase } from '@/hooks/useSupabase'
 
 interface EventCardProps {
     event: any
@@ -37,6 +40,9 @@ export const EventCard = React.memo(({
     const [currentImageIndex, setCurrentImageIndex] = useState(0)
     const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
     const [showLightbox, setShowLightbox] = useState(false)
+    const [showComments, setShowComments] = useState(false)
+    const [commentCount, setCommentCount] = useState(0)
+    const { getClient } = useSupabase()
 
     // UX States
     const [isConfirming, setIsConfirming] = useState(false)
@@ -60,6 +66,20 @@ export const EventCard = React.memo(({
     useEffect(() => {
         if (!justJoined) setLocalEntryCount(entryCount)
     }, [entryCount, justJoined])
+
+    // Fetch comment count
+    useEffect(() => {
+        const fetchCount = async () => {
+            const supabaseClient = await getClient()
+            if (!supabaseClient || !event.id) return
+            const { count } = await supabaseClient
+                .from('comments')
+                .select('*', { count: 'exact', head: true })
+                .eq('raffle_id', event.id)
+            setCommentCount(count || 0)
+        }
+        fetchCount()
+    }, [event.id, showComments])
 
     const handleJoinClick = (e: React.MouseEvent) => {
         e.stopPropagation()
@@ -118,6 +138,30 @@ export const EventCard = React.memo(({
     return (
         <>
             <div className="group relative bg-card overflow-hidden border-b border-border transition-all duration-300">
+                {/* Host Identity Section */}
+                <div className="px-4 py-3 flex items-center justify-between bg-white/[0.02]">
+                    <Link
+                        href={`/profile/${event.host_user_id}`}
+                        className="flex items-center gap-2 group/host"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="w-8 h-8 rounded-xl bg-muted border border-border flex items-center justify-center overflow-hidden shrink-0 group-hover/host:border-primary/50 transition-colors">
+                            <User size={16} className="text-muted-foreground/50" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                            <div className="flex items-center gap-1">
+                                <span className="text-[10px] font-black uppercase tracking-tight truncate group-hover/host:text-primary transition-colors">
+                                    {event.host?.display_name || 'Anonymous Host'}
+                                </span>
+                                {event.host?.is_host_eligible && (
+                                    <CheckCircle2 size={10} className="text-primary shrink-0" />
+                                )}
+                            </div>
+                            <span className="text-[8px] font-bold text-muted-foreground/40 uppercase tracking-widest">Post Author</span>
+                        </div>
+                    </Link>
+                </div>
+
                 {/* Image Section */}
                 <div className="relative aspect-square">
                     <div
@@ -359,6 +403,20 @@ export const EventCard = React.memo(({
                                 </button>
                             )}
                             <button
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    setShowComments(true)
+                                }}
+                                className="aspect-square h-full flex items-center justify-center bg-muted hover:bg-foreground/5 rounded-2xl border border-border transition-colors text-muted-foreground hover:text-primary relative"
+                            >
+                                <MessageSquare size={18} />
+                                {commentCount > 0 && (
+                                    <span className="absolute -top-1 -right-1 bg-primary text-black text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-lg ring-2 ring-background">
+                                        {commentCount}
+                                    </span>
+                                )}
+                            </button>
+                            <button
                                 onClick={() => onShare(event)}
                                 className="aspect-square h-full flex items-center justify-center bg-muted hover:bg-foreground/5 rounded-2xl border border-border transition-colors text-muted-foreground hover:text-primary"
                             >
@@ -368,6 +426,22 @@ export const EventCard = React.memo(({
                     )}
                 </div>
             </div>
+
+            {/* Comments Drawer Overlay */}
+            {showComments && (
+                <div className="fixed inset-0 z-[100] flex items-end justify-center animate-in fade-in duration-300">
+                    <div
+                        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                        onClick={() => setShowComments(false)}
+                    />
+                    <div className="relative w-full max-w-lg bg-card rounded-t-[3rem] border-t border-white/10 shadow-2xl h-[80vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300">
+                        <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-muted-foreground/20 rounded-full" />
+                        <div className="flex-1 overflow-hidden mt-6">
+                            <CommentSection raffleId={event.id} />
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Image Lightbox */}
             {showLightbox && (
