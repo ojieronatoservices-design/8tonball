@@ -309,6 +309,12 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col pb-8 -mx-6">
+      {/* TEMP DEBUG: Verify deep link state on mobile */}
+      <div className="fixed top-0 left-0 right-0 bg-black/90 text-[10px] text-green-400 z-[9999] p-2 font-mono break-all">
+        PARAMS: {searchParams.toString()} <br />
+        STATE: {JSON.stringify(deepLink)} <br />
+        CACHE: {JSON.stringify(cachedDeepLink)}
+      </div>
 
       <div className="flex flex-col">
         {isLoading ? (
