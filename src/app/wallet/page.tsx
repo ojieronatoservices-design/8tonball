@@ -120,13 +120,7 @@ export default function WalletPage() {
                             </div>
                             <div className="text-center space-y-2 relative z-10">
                                 <h4 className="text-xl font-black uppercase italic tracking-tight">Step 1: Send Payment</h4>
-                                <p className="text-xs text-white/40 px-4">Scan QR code OR send exactly <span className="text-foreground font-bold italic underline">₱{selectedPackage.price}</span> to the details below.</p>
-                            </div>
-                            <div className="flex flex-col items-center gap-2 mt-2 relative z-10">
-                                <div className="bg-foreground text-background px-8 py-3 rounded-2xl font-black text-2xl tracking-widest shadow-xl">
-                                    09XX-XXX-XXXX
-                                </div>
-                                <span className="text-[10px] font-black uppercase text-white/20 tracking-tighter">Admin Account Number</span>
+                                <p className="text-xs text-white/40 px-4">Scan QR code and send exactly <span className="text-foreground font-bold italic underline">₱{selectedPackage.price}</span>.</p>
                             </div>
                         </div>
 

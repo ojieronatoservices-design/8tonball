@@ -771,15 +771,12 @@ export function Shell({ children }: ShellProps) {
                                     <div className="flex flex-col items-center gap-4 p-6 bg-white/5 rounded-[2.5rem] border border-dashed border-white/10 ring-1 ring-white/5 relative overflow-hidden group">
                                         <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                                         <div className="flex flex-col items-center gap-4 relative z-10 w-full text-center">
-                                            <div className="w-48 h-48 bg-white rounded-2xl p-2 shadow-2xl border border-white/10">
+                                            <div className="w-56 h-56 bg-white rounded-3xl p-2 shadow-2xl border border-white/10">
                                                 <img src="/insta_pay_qr.png" alt="InstaPay QR" className="w-full h-full object-contain" />
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-xs font-black uppercase tracking-tight italic">Scan to Pay via GCash, Maya or Bank</p>
-                                                <p className="text-[10px] text-muted-foreground">OR Send <span className="text-foreground font-bold">₱{selectedPackage.price}</span> to:</p>
-                                            </div>
-                                            <div className="bg-foreground text-background px-6 py-2 rounded-xl font-black text-xl tracking-widest shadow-lg">
-                                                09XX-XXX-XXXX
+                                                <p className="text-[10px] text-muted-foreground">Please send exactly <span className="text-foreground font-bold">₱{selectedPackage.price}</span></p>
                                             </div>
                                         </div>
                                     </div>
