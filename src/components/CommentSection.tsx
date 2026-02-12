@@ -1,9 +1,9 @@
 "use client"
 
 import React, { useState, useEffect, useRef, useMemo } from 'react'
-import { Send, Loader2, User, MessageSquare, Trash2, Reply, X } from 'lucide-react'
+import { Send, Loader2, User, MessageSquare, Trash2, Reply, X, ChevronUp, ChevronDown, Clock } from 'lucide-react'
 import { useSupabase } from '@/hooks/useSupabase'
-import { useAuth, useUser } from '@clerk/nextjs'
+import { useAuth } from '@clerk/nextjs'
 
 interface Comment {
     id: string
@@ -14,11 +14,31 @@ interface Comment {
     profile: {
         display_name: string
     }
+    upvotes: number
+    downvotes: number
+    user_vote: number | null
+    replies?: Comment[]
 }
 
 interface CommentSectionProps {
     raffleId: string
     hostId?: string
+}
+
+const formatRelativeTime = (dateString: string) => {
+    const now = new Date()
+    const past = new Date(dateString)
+    const diffInMs = now.getTime() - past.getTime()
+    const diffInSecs = Math.floor(diffInMs / 1000)
+    const diffInMins = Math.floor(diffInSecs / 60)
+    const diffInHours = Math.floor(diffInMins / 60)
+    const diffInDays = Math.floor(diffInHours / 24)
+
+    if (diffInSecs < 60) return 'now'
+    if (diffInMins < 60) return `${diffInMins}m`
+    if (diffInHours < 24) return `${diffInHours}h`
+    if (diffInDays < 7) return `${diffInDays}d`
+    return past.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
 export function CommentSection({ raffleId, hostId }: CommentSectionProps) {
@@ -37,6 +57,7 @@ export function CommentSection({ raffleId, hostId }: CommentSectionProps) {
 
         if (!silent) setIsLoading(true)
         try {
+            // Fetch comments with joined profiles and aggregated vote counts
             const { data, error } = await supabaseClient
                 .from('comments')
                 .select(`
@@ -51,7 +72,25 @@ export function CommentSection({ raffleId, hostId }: CommentSectionProps) {
                 .order('created_at', { ascending: true })
 
             if (error) throw error
-            setComments(data || [])
+
+            // Fetch votes separately to compute counts (Supabase limited aggregation in single select)
+            const { data: votes, error: votesError } = await supabaseClient
+                .from('comment_votes')
+                .select('comment_id, vote_type, user_id')
+
+            if (votesError) console.error('Error fetching votes:', votesError)
+
+            const processedData = (data as any[]).map(comment => {
+                const commentVotes = votes?.filter(v => v.comment_id === comment.id) || []
+                return {
+                    ...comment,
+                    upvotes: commentVotes.filter(v => v.vote_type === 1).length,
+                    downvotes: commentVotes.filter(v => v.vote_type === -1).length,
+                    user_vote: commentVotes.find(v => v.user_id === userId)?.vote_type || null
+                }
+            })
+
+            setComments(processedData)
         } catch (error) {
             console.error('Error fetching comments:', error)
         } finally {
@@ -67,37 +106,26 @@ export function CommentSection({ raffleId, hostId }: CommentSectionProps) {
             const supabaseClient = await getClient()
             if (!supabaseClient) return
 
-            console.log('[Realtime] Subscribing to comments for raffle:', raffleId)
-
             channel = supabaseClient
-                .channel(`raffle_comments_${raffleId}`)
-                .on('postgres_changes', {
-                    event: '*',
-                    schema: 'public',
-                    table: 'comments',
-                }, (payload: any) => {
-                    console.log('[Realtime] Event received:', payload)
-                    const payloadRaffleId = payload.new?.raffle_id || payload.old?.raffle_id
-                    if (payloadRaffleId === raffleId) {
-                        fetchComments(true)
-                    }
+                .channel(`raffle_social_${raffleId}`)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, () => {
+                    fetchComments(true)
                 })
-                .subscribe((status: string) => {
-                    console.log(`[Realtime] Subscription status: ${status}`)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'comment_votes' }, () => {
+                    fetchComments(true)
                 })
+                .subscribe()
         }
 
         setupRealtime()
 
-        const polling = setInterval(() => {
-            fetchComments(true)
-        }, 10000)
+        const polling = setInterval(() => fetchComments(true), 15000)
 
         return () => {
             if (channel) channel.unsubscribe()
             clearInterval(polling)
         }
-    }, [raffleId])
+    }, [raffleId, userId])
 
     useEffect(() => {
         if (scrollRef.current && !replyTo) {
@@ -123,18 +151,47 @@ export function CommentSection({ raffleId, hostId }: CommentSectionProps) {
                     parent_id: replyTo?.id || null
                 }])
 
-            if (error) {
-                console.error('Supabase Error details:', error)
-                throw error
-            }
+            if (error) throw error
 
             setNewComment('')
             setReplyTo(null)
         } catch (error: any) {
             console.error('Error posting comment:', error)
-            alert(`Failed to post comment: ${error.message || 'Unknown error'}`)
+            alert(`Failed: ${error.message}`)
         } finally {
             setIsPosting(false)
+        }
+    }
+
+    const handleVote = async (commentId: string, type: 1 | -1) => {
+        if (!userId) return
+        const supabaseClient = await getClient()
+        if (!supabaseClient) return
+
+        const comment = comments.find(c => c.id === commentId)
+        if (!comment) return
+
+        const isReversing = comment.user_vote === type
+
+        try {
+            if (isReversing) {
+                await supabaseClient
+                    .from('comment_votes')
+                    .delete()
+                    .eq('comment_id', commentId)
+                    .eq('user_id', userId)
+            } else {
+                await supabaseClient
+                    .from('comment_votes')
+                    .upsert({
+                        comment_id: commentId,
+                        user_id: userId,
+                        vote_type: type
+                    })
+            }
+            // Realtime will trigger refresh
+        } catch (error) {
+            console.error('Vote error:', error)
         }
     }
 
@@ -144,167 +201,193 @@ export function CommentSection({ raffleId, hostId }: CommentSectionProps) {
         if (!supabaseClient) return
 
         try {
-            const { error } = await supabaseClient
-                .from('comments')
-                .delete()
-                .eq('id', id)
-
-            if (error) throw error
+            await supabaseClient.from('comments').delete().eq('id', id)
         } catch (error) {
-            console.error('Error deleting comment:', error)
+            console.error('Delete error:', error)
         }
     }
 
-    const processedComments = useMemo(() => {
-        const parents = comments.filter(c => !c.parent_id)
-        const children = comments.filter(c => c.parent_id)
+    // Build recursive tree
+    const commentTree = useMemo(() => {
+        const map = new Map<string, Comment>()
+        comments.forEach(c => map.set(c.id, { ...c, replies: [] }))
 
-        return parents.map(p => ({
-            ...p,
-            replies: children.filter(c => c.parent_id === p.id)
-        }))
+        const roots: Comment[] = []
+        map.forEach(c => {
+            if (c.parent_id && map.has(c.parent_id)) {
+                map.get(c.parent_id)!.replies!.push(c)
+            } else {
+                roots.push(c)
+            }
+        })
+        return roots
     }, [comments])
 
-    const CommentItem = ({ comment, isReply = false }: { comment: any, isReply?: boolean }) => {
+    const CommentItem = ({ comment, depth = 0 }: { comment: Comment, depth?: number }) => {
         const isHost = hostId && comment.user_id === hostId
         const isSelf = userId && comment.user_id === userId
+        const [showReplies, setShowReplies] = useState(true)
+
+        // Only indent the first level of replies. 
+        // Subsequent levels stay at the same level as depth 1 but keep the tag context.
+        const leftSpacing = depth > 0 ? (depth === 1 ? 'ml-6' : 'ml-6 border-l border-primary/10 pl-2') : ''
 
         return (
-            <div className={`flex flex-col gap-2 ${isReply ? 'ml-8 mt-1 border-l-2 border-primary/10 pl-4 py-1' : ''} animate-in slide-in-from-bottom-2 duration-300`}>
-                <div className="flex gap-3 group">
-                    <div className={`w-8 h-8 rounded-lg ${isHost ? 'bg-primary/20 border-primary/30' : 'bg-muted border-border'} flex items-center justify-center shrink-0 overflow-hidden border`}>
-                        <User size={16} className={isHost ? 'text-primary' : 'text-muted-foreground/50'} />
+            <div className={`flex flex-col gap-2 ${leftSpacing} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+                <div className="flex gap-2 group">
+                    <div className={`w-6 h-6 rounded-md ${isHost ? 'bg-primary/20 border-primary/30' : 'bg-muted border-border'} flex items-center justify-center shrink-0 border mt-1`}>
+                        <User size={12} className={isHost ? 'text-primary' : 'text-muted-foreground/50'} />
                     </div>
+
                     <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <span className={`text-[10px] font-black uppercase tracking-tight ${isHost ? 'text-primary' : isSelf ? 'text-foreground' : 'text-muted-foreground'}`}>
-                                    {comment.profile?.display_name || 'Anonymous'}
-                                </span>
-                                {isHost && (
-                                    <span className="text-[7px] font-black bg-primary text-black px-1 rounded-sm uppercase tracking-widest">Host</span>
-                                )}
-                                {isSelf && (
-                                    <button
-                                        onClick={(e) => handleDeleteComment(comment.id, e)}
-                                        className="text-muted-foreground/30 hover:text-red-500 transition-colors"
-                                    >
-                                        <Trash2 size={10} />
-                                    </button>
-                                )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-[8px] text-muted-foreground/30 uppercase font-bold mt-1 block">
-                                    {new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                                {!isReply && (
-                                    <button
-                                        onClick={() => {
-                                            setReplyTo(comment)
-                                            setNewComment(`@${comment.profile?.display_name} `)
-                                        }}
-                                        className="text-primary/40 hover:text-primary transition-all p-1 flex items-center gap-1 mt-0.5"
-                                    >
-                                        <Reply size={10} />
-                                        <span className="text-[8px] font-black uppercase tracking-widest">Reply</span>
-                                    </button>
-                                )}
-                            </div>
+                        {/* Header: [Name] [Time] */}
+                        <div className="flex items-center gap-2">
+                            <span className={`text-[10px] font-black uppercase tracking-tight ${isHost ? 'text-primary font-black italic' : isSelf ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                {comment.profile?.display_name || 'Anonymous'}
+                            </span>
+                            {isHost && <span className="text-[7px] font-black bg-primary text-black px-1 rounded-sm uppercase tracking-tighter">Host</span>}
+                            <span className="text-[9px] text-muted-foreground/30 font-bold flex items-center gap-0.5">
+                                • {formatRelativeTime(comment.created_at)}
+                            </span>
+
+                            {isSelf && (
+                                <button onClick={(e) => handleDeleteComment(comment.id, e)} className="text-muted-foreground/20 hover:text-red-500 transition-colors p-1 -ml-1">
+                                    <Trash2 size={10} />
+                                </button>
+                            )}
                         </div>
-                        <p className={`text-xs leading-relaxed mt-1 break-words ${isHost ? 'text-foreground italic font-medium' : 'text-muted-foreground'}`}>
-                            {comment.content.split(/(@\w+)/g).map((part: string, i: number) =>
+
+                        {/* Body: (Content Body) */}
+                        <p className={`text-[11px] leading-relaxed mt-0.5 break-words ${isHost ? 'text-foreground font-medium' : 'text-muted-foreground/90'}`}>
+                            {comment.content.split(/(@\w+)/g).map((part, i) =>
                                 part.startsWith('@') ? (
                                     <span key={i} className="text-primary font-black">{part}</span>
                                 ) : part
                             )}
                         </p>
+
+                        {/* Footer: [reply] [downvote icons] [upvote icons] */}
+                        <div className="flex items-center gap-3 mt-1.5 touch-manipulation">
+                            <button
+                                onClick={() => {
+                                    setReplyTo(comment)
+                                    setNewComment(`@${comment.profile?.display_name} `)
+                                }}
+                                className="text-[9px] font-black uppercase tracking-widest text-primary/60 hover:text-primary transition-colors py-1 pr-2"
+                            >
+                                Reply
+                            </button>
+
+                            <div className="flex items-center bg-muted/30 rounded-full px-1 py-0.5 border border-border/50">
+                                <button
+                                    onClick={() => handleVote(comment.id, 1)}
+                                    className={`p-1 transition-all rounded-full ${comment.user_vote === 1 ? 'text-primary bg-primary/10' : 'text-muted-foreground/40 hover:text-primary'}`}
+                                >
+                                    <ChevronUp size={14} />
+                                </button>
+                                <span className="text-[9px] font-black min-w-[12px] text-center mx-0.5 tracking-tighter">
+                                    {(comment.upvotes - comment.downvotes) || 0}
+                                </span>
+                                <button
+                                    onClick={() => handleVote(comment.id, -1)}
+                                    className={`p-1 transition-all rounded-full ${comment.user_vote === -1 ? 'text-red-500 bg-red-500/10' : 'text-muted-foreground/40 hover:text-red-500'}`}
+                                >
+                                    <ChevronDown size={14} />
+                                </button>
+                            </div>
+
+                            {comment.replies && comment.replies.length > 0 && depth === 0 && (
+                                <button onClick={() => setShowReplies(!showReplies)} className="text-[8px] font-bold text-muted-foreground/40 uppercase tracking-tighter hover:text-foreground">
+                                    {showReplies ? `Hide ${comment.replies.length}` : `View ${comment.replies.length} replies`}
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                {comment.replies?.map((reply: any) => (
-                    <CommentItem key={reply.id} comment={reply} isReply={true} />
+                {/* Recursive Replies */}
+                {showReplies && comment.replies?.map(reply => (
+                    <CommentItem key={reply.id} comment={reply} depth={depth + 1} />
                 ))}
             </div>
         )
     }
 
     return (
-        <div className="flex flex-col h-full bg-card text-foreground">
-            <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+        <div className="flex flex-col h-full bg-card text-foreground select-none">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-card/50 backdrop-blur-sm sticky top-0 z-10">
                 <div className="flex items-center gap-2">
-                    <MessageSquare size={18} className="text-primary" />
-                    <h3 className="text-sm font-black uppercase tracking-widest italic">Live Conversation</h3>
+                    <MessageSquare size={16} className="text-primary" />
+                    <h3 className="text-xs font-black uppercase tracking-[0.2em] italic text-primary/80">Social Feed</h3>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => fetchComments()}
-                        className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 group"
-                        title="Refresh manually"
-                    >
-                        <span className="text-[9px] font-black uppercase opacity-0 group-hover:opacity-100 transition-opacity">Sync</span>
+                    <button onClick={() => fetchComments()} className="text-muted-foreground hover:text-primary p-2">
                         <Loader2 size={14} className={isLoading ? "animate-spin" : ""} />
                     </button>
-                    <div className="bg-primary/10 text-primary text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter animate-pulse">
-                        Real-time Active
+                    <div className="bg-primary text-black text-[7px] font-black px-1.5 py-0.5 rounded-sm uppercase tracking-tighter animate-pulse">
+                        Live
                     </div>
                 </div>
             </div>
 
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar scroll-smooth">
-                {isLoading ? (
+            {/* List */}
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 flex flex-col gap-6 custom-scrollbar scroll-smooth bg-gradient-to-b from-transparent to-muted/5">
+                {isLoading && comments.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 gap-3">
-                        <Loader2 className="animate-spin text-primary" size={24} />
-                        <span className="text-[10px] font-black uppercase text-muted-foreground/50 tracking-widest">Connecting...</span>
+                        <Loader2 className="animate-spin text-primary" size={20} />
+                        <span className="text-[8px] font-black uppercase text-muted-foreground/30 tracking-widest">Warping in...</span>
                     </div>
-                ) : processedComments.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/20">
-                        <MessageSquare size={48} strokeWidth={1} />
-                        <p className="text-xs font-black uppercase tracking-widest mt-4">Start the excitement!</p>
+                ) : comments.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/10">
+                        <MessageSquare size={40} strokeWidth={1} />
+                        <p className="text-[10px] font-black uppercase tracking-widest mt-4 italic">No one is talking yet.</p>
                     </div>
                 ) : (
-                    processedComments.map((comment) => (
+                    commentTree.map((comment) => (
                         <CommentItem key={comment.id} comment={comment} />
                     ))
                 )}
             </div>
 
+            {/* Reply Indicator */}
             {replyTo && (
-                <div className="px-6 py-2 bg-primary/5 border-t border-primary/20 flex items-center justify-between animate-in slide-in-from-bottom-1 fade-in">
-                    <div className="flex items-center gap-2 truncate">
-                        <Reply size={12} className="text-primary shrink-0" />
-                        <span className="text-[9px] font-bold text-muted-foreground truncate">
-                            Replying to <span className="text-primary">{replyTo.profile?.display_name}</span>
+                <div className="px-6 py-2 bg-primary/10 border-t border-primary/20 flex items-center justify-between animate-in slide-in-from-bottom duration-200">
+                    <div className="flex items-center gap-2">
+                        <Reply size={10} className="text-primary" />
+                        <span className="text-[9px] font-black uppercase text-muted-foreground tracking-tight">
+                            Replying context: <span className="text-primary">{replyTo.profile?.display_name}</span>
                         </span>
                     </div>
-                    <button onClick={() => { setReplyTo(null); if (newComment.startsWith('@')) setNewComment('') }} className="text-muted-foreground hover:text-foreground">
+                    <button onClick={() => { setReplyTo(null); if (newComment.startsWith('@')) setNewComment('') }} className="p-1 hover:bg-black/10 rounded">
                         <X size={14} />
                     </button>
                 </div>
             )}
 
+            {/* Input */}
             {userId ? (
-                <form onSubmit={handlePostComment} className="p-4 bg-muted/30 border-t border-border flex gap-2">
+                <form onSubmit={handlePostComment} className="p-4 bg-muted/20 border-t border-border flex gap-2 backdrop-blur-lg">
                     <input
                         type="text"
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
-                        placeholder={replyTo ? `Reply to ${replyTo.profile?.display_name}...` : "Say something live..."}
-                        className="flex-1 bg-background border border-border rounded-xl px-4 py-2.5 text-xs font-bold focus:border-primary focus:outline-none placeholder:text-muted-foreground/30 shadow-inner"
+                        placeholder={replyTo ? `Reply...` : "Say something..."}
+                        className="flex-1 bg-background/50 border border-border/50 rounded-xl px-4 py-3 text-[11px] font-bold focus:border-primary focus:outline-none placeholder:text-muted-foreground/20 shadow-inner"
                         disabled={isPosting}
+                        autoFocus
                     />
                     <button
                         type="submit"
                         disabled={!newComment.trim() || isPosting}
-                        className="w-11 h-11 bg-primary text-black rounded-xl flex items-center justify-center disabled:opacity-50 hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20 shrink-0"
+                        className="w-12 h-12 bg-primary text-black rounded-xl flex items-center justify-center disabled:opacity-30 hover:scale-105 active:scale-95 transition-all shadow-xl shadow-primary/10 shrink-0"
                     >
-                        {isPosting ? <Loader2 size={18} className="animate-spin" /> : <Send size={20} />}
+                        {isPosting ? <Loader2 size={16} className="animate-spin" /> : <Send size={18} />}
                     </button>
                 </form>
             ) : (
-                <div className="p-6 bg-muted/30 border-t border-border text-center">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 italic">
-                        Join the community to chat
-                    </p>
+                <div className="p-6 text-center border-t border-border">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/30">Auth required to comment</p>
                 </div>
             )}
         </div>
