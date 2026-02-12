@@ -21,6 +21,7 @@ export default function HomePage() {
   const { getClient } = useSupabase()
   const searchParams = useSearchParams()
   const searchQuery = searchParams.get('q')?.toLowerCase() || ''
+  const raffleIdFromUrl = searchParams.get('raffleId')
   const [showInsufficientModal, setShowInsufficientModal] = useState(false)
 
   const fetchEvents = async () => {
@@ -260,6 +261,9 @@ export default function HomePage() {
 
   const filteredEvents = useMemo(() => {
     return events.filter(event => {
+      // If deep-linked, ALWAYS show it
+      if (raffleIdFromUrl === event.id) return true;
+
       const matchesSearch = !searchQuery ||
         event.title?.toLowerCase().includes(searchQuery) ||
         event.description?.toLowerCase().includes(searchQuery);
@@ -268,7 +272,7 @@ export default function HomePage() {
 
       return matchesSearch && !alreadyJoined;
     });
-  }, [events, searchQuery, userEntryIds]);
+  }, [events, searchQuery, userEntryIds, raffleIdFromUrl]);
 
   return (
     <div className="flex flex-col pb-8 -mx-6">
@@ -306,6 +310,7 @@ export default function HomePage() {
                 onShare={handleShareFacebook}
                 userId={userId}
                 isAdmin={isAdmin}
+                autoOpenComments={event.id === raffleIdFromUrl}
               />
             </div>
           ))

@@ -425,31 +425,45 @@ export function Shell({ children }: ShellProps) {
                 notificationChannel = supabaseClient
                     .channel(`shell-notifications-${userId}`)
                     .on('postgres_changes', {
-                        event: '*', // Listen to ALL, filter locally
+                        event: '*', // Listen to ALL (INSERT, UPDATE, DELETE)
                         schema: 'public',
                         table: 'notifications'
                     }, (payload: any) => {
                         // Manual Filter for security/correctness (just in case RLS leaks, filtered by user_id)
-                        if (payload.new && payload.new.user_id === userId) {
-                            if (payload.eventType === 'INSERT') {
+                        const isRelevant = (payload.new && payload.new.user_id === userId) ||
+                            (payload.old && payload.old.user_id === userId);
+
+                        if (!isRelevant) return;
+
+                        if (payload.eventType === 'INSERT' && !payload.new.is_read) {
+                            setUnreadCount(prev => prev + 1)
+
+                            const type = payload.new.type
+                            const msg = payload.new.message
+
+                            if (type === 'win') {
+                                showToast(`🎉 WINNER ALERT: ${msg}`, 'success')
+                            } else if (type === 'payment') {
+                                showToast(`💰 ${msg}`, 'success')
+                            } else {
+                                showToast(`🔔 ${msg}`, 'info')
+                            }
+                        } else if (payload.eventType === 'UPDATE') {
+                            // If it was unread and now it's read
+                            if (payload.old.is_read === false && payload.new.is_read === true) {
+                                setUnreadCount(prev => Math.max(0, prev - 1))
+                            }
+                            // If it was read and now it's unread (rare but possible)
+                            else if (payload.old.is_read === true && payload.new.is_read === false) {
                                 setUnreadCount(prev => prev + 1)
-
-                                const type = payload.new.type
-                                const msg = payload.new.message
-
-                                if (type === 'win') {
-                                    showToast(`🎉 WINNER ALERT: ${msg}`, 'success')
-                                } else if (type === 'payment') {
-                                    showToast(`💰 ${msg}`, 'success')
-                                } else {
-                                    showToast(`🔔 ${msg}`, 'info')
-                                }
+                            }
+                        } else if (payload.eventType === 'DELETE') {
+                            if (payload.old.is_read === false) {
+                                setUnreadCount(prev => Math.max(0, prev - 1))
                             }
                         }
                     })
-                    .subscribe((status: string) => {
-                        // console.log('[Realtime] Shell Notification Status:', status)
-                    })
+                    .subscribe()
 
             } else if (isLoaded && !user) {
                 setBalance(0)
@@ -481,6 +495,7 @@ export function Shell({ children }: ShellProps) {
     // Build nav items - only 2 tabs now: Discover and You
     const navItems = useMemo(() => [
         { label: 'Discover', href: '/', icon: Compass },
+        { label: 'Activity', href: '/notifications', icon: Bell },
         { label: 'You', href: '/profile', icon: User },
     ], [])
 
@@ -662,8 +677,8 @@ export function Shell({ children }: ShellProps) {
                                     ) : (
                                         <Icon size={16} strokeWidth={isActive ? 3 : 2} />
                                     )}
-                                    {/* Red dot for You tab when there are notifications */}
-                                    {item.label === 'You' && unreadCount > 0 && (
+                                    {/* Red dot for Activity tag when there are notifications */}
+                                    {item.label === 'Activity' && unreadCount > 0 && (
                                         <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-background animate-pulse" />
                                     )}
                                 </div>

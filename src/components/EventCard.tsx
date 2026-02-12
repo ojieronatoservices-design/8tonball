@@ -22,6 +22,7 @@ interface EventCardProps {
     isRefunded?: boolean
     entryNumbers?: string[]
     onClaim?: (id: string) => Promise<void>
+    autoOpenComments?: boolean
 }
 
 export const EventCard = React.memo(({
@@ -35,14 +36,20 @@ export const EventCard = React.memo(({
     isWinner = false,
     isRefunded = false,
     entryNumbers = [],
-    onClaim
+    onClaim,
+    autoOpenComments = false
 }: EventCardProps) => {
     const [currentImageIndex, setCurrentImageIndex] = useState(0)
     const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
     const [showLightbox, setShowLightbox] = useState(false)
-    const [showComments, setShowComments] = useState(false)
+    const [showComments, setShowComments] = useState(autoOpenComments)
     const [commentCount, setCommentCount] = useState(0)
     const { getClient } = useSupabase()
+
+    // Auto-open comments if deep linked
+    useEffect(() => {
+        if (autoOpenComments) setShowComments(true)
+    }, [autoOpenComments])
 
     // UX States
     const [isConfirming, setIsConfirming] = useState(false)
