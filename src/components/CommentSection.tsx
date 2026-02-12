@@ -81,12 +81,12 @@ export function CommentSection({ raffleId, hostId }: CommentSectionProps) {
             if (votesError) console.error('Error fetching votes:', votesError)
 
             const processedData = (data as any[]).map(comment => {
-                const commentVotes = votes?.filter(v => v.comment_id === comment.id) || []
+                const commentVotes = (votes as any[])?.filter((v: any) => v.comment_id === comment.id) || []
                 return {
                     ...comment,
-                    upvotes: commentVotes.filter(v => v.vote_type === 1).length,
-                    downvotes: commentVotes.filter(v => v.vote_type === -1).length,
-                    user_vote: commentVotes.find(v => v.user_id === userId)?.vote_type || null
+                    upvotes: commentVotes.filter((v: any) => v.vote_type === 1).length,
+                    downvotes: commentVotes.filter((v: any) => v.vote_type === -1).length,
+                    user_vote: commentVotes.find((v: any) => v.user_id === userId)?.vote_type || null
                 }
             })
 
@@ -213,7 +213,7 @@ export function CommentSection({ raffleId, hostId }: CommentSectionProps) {
         comments.forEach(c => map.set(c.id, { ...c, replies: [] }))
 
         const roots: Comment[] = []
-        map.forEach(c => {
+        map.forEach((c: Comment) => {
             if (c.parent_id && map.has(c.parent_id)) {
                 map.get(c.parent_id)!.replies!.push(c)
             } else {
@@ -259,7 +259,7 @@ export function CommentSection({ raffleId, hostId }: CommentSectionProps) {
 
                         {/* Body: (Content Body) */}
                         <p className={`text-[11px] leading-relaxed mt-0.5 break-words ${isHost ? 'text-foreground font-medium' : 'text-muted-foreground/90'}`}>
-                            {comment.content.split(/(@\w+)/g).map((part, i) =>
+                            {comment.content.split(/(@\w+)/g).map((part: string, i: number) =>
                                 part.startsWith('@') ? (
                                     <span key={i} className="text-primary font-black">{part}</span>
                                 ) : part
