@@ -23,19 +23,25 @@ export default function HomePage() {
   const searchQuery = searchParams.get('q')?.toLowerCase() || ''
   const raffleIdFromUrl = searchParams.get('raffleId')
   const commentIdFromUrl = searchParams.get('commentId')
+  const [deepLink, setDeepLink] = useState<{ raffleId: string | null, commentId: string | null }>({
+    raffleId: null,
+    commentId: null
+  })
   const [showInsufficientModal, setShowInsufficientModal] = useState(false)
   const router = useRouter()
 
-  // Clear raffleId and commentId from URL after initial load to prevent sticky views on refresh
+  // Capture deep link once on mount or when params change, then clear URL
   useEffect(() => {
-    if (raffleIdFromUrl || commentIdFromUrl) {
+    if (raffleIdFromUrl) {
+      setDeepLink({ raffleId: raffleIdFromUrl, commentId: commentIdFromUrl })
+
       const params = new URLSearchParams(searchParams.toString())
       params.delete('raffleId')
       params.delete('commentId')
       const newPath = params.toString() ? `/?${params.toString()}` : '/'
       router.replace(newPath, { scroll: false })
     }
-  }, [raffleIdFromUrl, commentIdFromUrl, router, searchParams])
+  }, [raffleIdFromUrl, commentIdFromUrl, router])
 
   const fetchEvents = async () => {
     const supabaseClient = await getClient()
@@ -274,8 +280,8 @@ export default function HomePage() {
 
   const filteredEvents = useMemo(() => {
     return events.filter(event => {
-      // If deep-linked, ALWAYS show it
-      if (raffleIdFromUrl === event.id) return true;
+      // If deep-linked, ALWAYS show it (even if already joined)
+      if (deepLink.raffleId === event.id) return true;
 
       const matchesSearch = !searchQuery ||
         event.title?.toLowerCase().includes(searchQuery) ||
@@ -285,7 +291,7 @@ export default function HomePage() {
 
       return matchesSearch && !alreadyJoined;
     });
-  }, [events, searchQuery, userEntryIds, raffleIdFromUrl]);
+  }, [events, searchQuery, userEntryIds, deepLink.raffleId]);
 
   return (
     <div className="flex flex-col pb-8 -mx-6">
@@ -323,8 +329,8 @@ export default function HomePage() {
                 onShare={handleShareFacebook}
                 userId={userId}
                 isAdmin={isAdmin}
-                autoOpenComments={event.id === raffleIdFromUrl}
-                focusedCommentId={event.id === raffleIdFromUrl ? commentIdFromUrl : null}
+                autoOpenComments={event.id === deepLink.raffleId}
+                focusedCommentId={event.id === deepLink.raffleId ? deepLink.commentId : null}
               />
             </div>
           ))

@@ -304,15 +304,19 @@ export function CommentSection({ raffleId, hostId, focusedCommentId = null }: Co
     }, [raffleId, userId, fetchComments])
 
     useEffect(() => {
-        if (focusedCommentId) {
-            const el = document.getElementById(`comment-${focusedCommentId}`)
-            if (el) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            }
-        } else if (scrollRef.current && !replyTo) {
+        if (focusedCommentId && !isLoading && comments.length > 0) {
+            // Use a small timeout to ensure DOM has updated
+            const timer = setTimeout(() => {
+                const el = document.getElementById(`comment-${focusedCommentId}`)
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }
+            }, 100)
+            return () => clearTimeout(timer)
+        } else if (scrollRef.current && !replyTo && !isLoading) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight
         }
-    }, [comments, replyTo, focusedCommentId])
+    }, [comments, replyTo, focusedCommentId, isLoading])
 
     const handlePostComment = async (content: string) => {
         if (!userId) return

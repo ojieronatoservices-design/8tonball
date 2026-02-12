@@ -88,7 +88,7 @@ BEGIN
             v_host_id,
             'comment',
             NEW.raffle_id,
-            NULL,
+            NEW.id,
             NEW.user_id,
             'commented on your event'
         );
@@ -114,7 +114,7 @@ BEGIN
                 v_parent_user_id,
                 'reply',
                 NEW.raffle_id,
-                NEW.parent_id,
+                NEW.id,
                 NEW.user_id,
                 'replied to your comment'
             );
