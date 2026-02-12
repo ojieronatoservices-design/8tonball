@@ -1,4 +1,4 @@
--- Social Features: Comments & Public Profiles (DEBUG & PATCH)
+-- Social Features: Comments & Public Profiles (ROBUST REALTIME PATCH)
 
 -- 1. Helper Function (Ensures Clerk ID integration is active)
 CREATE OR REPLACE FUNCTION auth_uid_text() 
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS comments (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Add parent_id if it doesn't exist (for replies)
+-- 3. Add parent_id if it doesn't exist
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='comments' AND column_name='parent_id') THEN
@@ -25,20 +25,29 @@ BEGIN
 END
 $$;
 
--- 4. Enable Realtime
--- If this fails, ignore (might already be added)
+-- 4. Set Replica Identity (CRITICAL for Realtime updates)
+ALTER TABLE comments REPLICA IDENTITY FULL;
+
+-- 5. Robust Realtime Publication Setup
 DO $$
 BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE comments;
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'Table already in publication or publication not found';
-END
-$$;
+    -- Create publication if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+        CREATE PUBLICATION supabase_realtime;
+    END IF;
+    
+    -- Try to add table, ignore if already exists
+    BEGIN
+        ALTER PUBLICATION supabase_realtime ADD TABLE comments;
+    EXCEPTION WHEN OTHERS THEN
+        NULL;
+    END;
+END $$;
 
--- 5. Enable RLS
+-- 6. Enable RLS
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 
--- 6. Comments Policies (Drop first to ensure clean state)
+-- 7. Comments Policies
 DROP POLICY IF EXISTS "Everyone can view comments" ON comments;
 DROP POLICY IF EXISTS "Authenticated users can post comments" ON comments;
 DROP POLICY IF EXISTS "Users can edit/delete their own comments" ON comments;
@@ -52,7 +61,7 @@ CREATE POLICY "Authenticated users can post comments" ON comments
 CREATE POLICY "Users can edit/delete their own comments" ON comments
     FOR ALL USING (auth_uid_text() = user_id);
 
--- 7. Update Profile RLS to allow public visibility
+-- 8. Profiles: Ensure public visibility for stats
 DROP POLICY IF EXISTS "Everyone can view profiles" ON profiles;
 CREATE POLICY "Everyone can view profiles" ON profiles
     FOR SELECT USING (TRUE);

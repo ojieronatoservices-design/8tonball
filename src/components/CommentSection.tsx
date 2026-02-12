@@ -67,33 +67,34 @@ export function CommentSection({ raffleId, hostId }: CommentSectionProps) {
             const supabaseClient = await getClient()
             if (!supabaseClient) return
 
-            // FIXED: Using a more generic filter or no filter to ensure delivery
-            // and checking if the channel name is unique
+            console.log('[Realtime] Subscribing to comments for raffle:', raffleId)
+
             channel = supabaseClient
                 .channel(`raffle_comments_${raffleId}`)
                 .on('postgres_changes', {
                     event: '*',
                     schema: 'public',
                     table: 'comments',
-                    filter: `raffle_id=eq.${raffleId}`
+                    // Removed filter temporarily to rule out UUID matching issues
                 }, (payload: any) => {
-                    console.log('Realtime Payload:', payload)
-                    if (payload.eventType === 'INSERT') {
-                        fetchComments(true) // Silent refresh to get joined profile data
-                    } else if (payload.eventType === 'DELETE') {
-                        setComments(prev => prev.filter(c => c.id !== payload.old.id))
-                    } else if (payload.eventType === 'UPDATE') {
+                    console.log('[Realtime] Event received:', payload)
+                    // Only update if the comment belongs to this raffle
+                    const payloadRaffleId = payload.new?.raffle_id || payload.old?.raffle_id
+                    if (payloadRaffleId === raffleId) {
                         fetchComments(true)
                     }
                 })
                 .subscribe((status: string) => {
-                    console.log('Channel Status:', status)
+                    console.log(`[Realtime] Subscription status: ${status}`)
                 })
         }
 
         setupRealtime()
         return () => {
-            if (channel) channel.unsubscribe()
+            if (channel) {
+                console.log('[Realtime] Unsubscribing')
+                channel.unsubscribe()
+            }
         }
     }, [raffleId])
 
@@ -229,8 +230,18 @@ export function CommentSection({ raffleId, hostId }: CommentSectionProps) {
                     <MessageSquare size={18} className="text-primary" />
                     <h3 className="text-sm font-black uppercase tracking-widest italic">Live Conversation</h3>
                 </div>
-                <div className="bg-primary/10 text-primary text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter animate-pulse">
-                    Real-time Active
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => fetchComments()}
+                        className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 group"
+                        title="Refresh manually"
+                    >
+                        <span className="text-[9px] font-black uppercase opacity-0 group-hover:opacity-100 transition-opacity">Sync</span>
+                        <Loader2 size={14} className={isLoading ? "animate-spin" : ""} />
+                    </button>
+                    <div className="bg-primary/10 text-primary text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter animate-pulse">
+                        Real-time Active
+                    </div>
                 </div>
             </div>
 
