@@ -55,8 +55,19 @@ export const EventCard = React.memo(({
     const [commentCount, setCommentCount] = useState(0)
     const { getClient } = useSupabase()
     const searchParams = useSearchParams()
+    const [isFlashActive, setIsFlashActive] = useState(false)
 
-    // Auto-open comments if deep linked
+    // Trigger flash highlight if focused (persistent local state)
+    useEffect(() => {
+        // We check for raffleId in URL to trigger the INITIAL flash
+        if (autoOpenComments && !focusedCommentId) {
+            setIsFlashActive(true)
+            const timer = setTimeout(() => setIsFlashActive(false), 4000)
+            return () => clearTimeout(timer)
+        }
+    }, [autoOpenComments, focusedCommentId])
+
+    // Sync autoOpenComments prop to state
     useEffect(() => {
         if (autoOpenComments) setShowComments(true)
     }, [autoOpenComments])
@@ -190,7 +201,7 @@ export const EventCard = React.memo(({
         <>
             <div className={cn(
                 "group relative bg-card overflow-hidden border-b border-border transition-all duration-300",
-                (event.id === searchParams.get('raffleId') && !focusedCommentId) && "animate-flash-highlight"
+                isFlashActive && "animate-flash-highlight"
             )}>
                 {/* Host Identity Section */}
                 <div className="px-4 py-3 flex items-center justify-between bg-white/[0.02]">

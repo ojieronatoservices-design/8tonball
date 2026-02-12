@@ -323,7 +323,7 @@ export default function HomePage() {
                 onShare={handleShareFacebook}
                 userId={userId}
                 isAdmin={isAdmin}
-                autoOpenComments={event.id === raffleIdFromUrl && !!commentIdFromUrl}
+                autoOpenComments={event.id === raffleIdFromUrl}
                 focusedCommentId={event.id === raffleIdFromUrl ? commentIdFromUrl : null}
               />
             </div>

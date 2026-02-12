@@ -65,6 +65,15 @@ const CommentItem = React.memo(({
     const isHost = hostId && comment.user_id === hostId
     const isSelf = userId && comment.user_id === userId
     const [showReplies, setShowReplies] = useState(true)
+    const [isFlashActive, setIsFlashActive] = useState(false)
+
+    useEffect(() => {
+        if (focusedCommentId === comment.id) {
+            setIsFlashActive(true)
+            const timer = setTimeout(() => setIsFlashActive(false), 4000)
+            return () => clearTimeout(timer)
+        }
+    }, [focusedCommentId, comment.id])
 
     const leftSpacing = depth > 0 ? (depth === 1 ? 'ml-6' : 'ml-6 border-l border-primary/10 pl-2') : ''
     const isFocused = focusedCommentId === comment.id
@@ -72,7 +81,7 @@ const CommentItem = React.memo(({
     return (
         <div
             id={`comment-${comment.id}`}
-            className={`flex flex-col gap-2 ${leftSpacing} animate-in fade-in slide-in-from-bottom-2 duration-300 rounded-xl transition-all ${isFocused ? 'animate-flash-highlight p-2 -m-2 z-10' : ''}`}
+            className={`flex flex-col gap-2 ${leftSpacing} animate-in fade-in slide-in-from-bottom-2 duration-300 rounded-xl transition-all ${isFlashActive ? 'animate-flash-highlight p-2 -m-2 z-10' : ''}`}
         >
             <div className="flex gap-2 group">
                 <div className={`w-6 h-6 rounded-md ${isHost ? 'bg-primary/20 border-primary/30' : 'bg-muted border-border'} flex items-center justify-center shrink-0 border mt-1`}>
