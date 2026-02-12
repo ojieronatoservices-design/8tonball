@@ -51,6 +51,9 @@ BEGIN
         UPDATE notifications 
         SET 
             message = v_new_message,
+            raffle_id = COALESCE(p_raffle_id, raffle_id),
+            comment_id = COALESCE(p_comment_id, comment_id),
+            actor_id = p_actor_id,
             metadata = jsonb_build_object(
                 'total_actors', v_total_actors,
                 'last_actor_name', v_actor_name

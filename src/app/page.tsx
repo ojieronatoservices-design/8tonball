@@ -32,32 +32,30 @@ export default function HomePage() {
   const [showInsufficientModal, setShowInsufficientModal] = useState(false)
   const router = useRouter()
 
-  // Capture deep link once on mount
+  // Capture deep link and clear URL
   useEffect(() => {
-    // If already cached, don't look at URL again
-    if (cachedDeepLink) return
-
     const rId = searchParams.get('raffleId')
     const cId = searchParams.get('commentId')
-    if (rId) {
-      cachedDeepLink = { raffleId: rId, commentId: cId }
-      setDeepLink(cachedDeepLink)
-    }
-  }, []) // Only run once on mount
 
-  // Clear URL params only after initial load is done and we've captured them
-  useEffect(() => {
-    if (!isLoading && deepLink.raffleId) {
+    if (rId) {
+      // Capture into state and module cache
+      const newDeepLink = { raffleId: rId, commentId: cId }
+      cachedDeepLink = newDeepLink
+      setDeepLink(newDeepLink)
+
+      // Cleanup URL after a delay to ensure components see the state
       const timer = setTimeout(() => {
         const params = new URLSearchParams(searchParams.toString())
-        params.delete('raffleId')
-        params.delete('commentId')
-        const newPath = params.toString() ? `/?${params.toString()}` : '/'
-        router.replace(newPath, { scroll: false })
-      }, 2000) // 2s buffer for mobile layout stability
+        if (params.has('raffleId') || params.has('commentId')) {
+          params.delete('raffleId')
+          params.delete('commentId')
+          const newPath = params.toString() ? `/?${params.toString()}` : '/'
+          router.replace(newPath, { scroll: false })
+        }
+      }, 2000)
       return () => clearTimeout(timer)
     }
-  }, [isLoading, deepLink.raffleId, router, searchParams])
+  }, [searchParams, router])
 
   const fetchEvents = async () => {
     const supabaseClient = await getClient()
