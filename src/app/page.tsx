@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { Trophy, Clock, Users, ArrowRight, Loader2, Share2, Facebook, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Coins, Search } from 'lucide-react'
 import { useAuth, useUser } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { CountdownTimer } from '@/components/CountdownTimer'
 import { ImageLightbox } from '@/components/ImageLightbox'
 
@@ -23,6 +23,17 @@ export default function HomePage() {
   const searchQuery = searchParams.get('q')?.toLowerCase() || ''
   const raffleIdFromUrl = searchParams.get('raffleId')
   const [showInsufficientModal, setShowInsufficientModal] = useState(false)
+  const router = useRouter()
+
+  // Clear raffleId from URL after initial load to prevent sticky comments on refresh
+  useEffect(() => {
+    if (raffleIdFromUrl) {
+      const params = new URLSearchParams(searchParams.toString())
+      params.delete('raffleId')
+      const newPath = params.toString() ? `/?${params.toString()}` : '/'
+      router.replace(newPath, { scroll: false })
+    }
+  }, [raffleIdFromUrl, router, searchParams])
 
   const fetchEvents = async () => {
     const supabaseClient = await getClient()
