@@ -10,6 +10,9 @@ import { ImageLightbox } from '@/components/ImageLightbox'
 
 import { EventCard } from '@/components/EventCard'
 
+// Cache deep link outside component to survive mobile re-mounts during router.replace
+let cachedDeepLink: { raffleId: string | null, commentId: string | null } | null = null
+
 export default function HomePage() {
   const [events, setEvents] = useState<any[]>([])
   const [entryCounts, setEntryCounts] = useState<Record<string, number>>({})
@@ -23,25 +26,38 @@ export default function HomePage() {
   const searchQuery = searchParams.get('q')?.toLowerCase() || ''
   const raffleIdFromUrl = searchParams.get('raffleId')
   const commentIdFromUrl = searchParams.get('commentId')
-  const [deepLink, setDeepLink] = useState<{ raffleId: string | null, commentId: string | null }>({
-    raffleId: null,
-    commentId: null
-  })
+  const [deepLink, setDeepLink] = useState<{ raffleId: string | null, commentId: string | null }>(
+    cachedDeepLink || { raffleId: null, commentId: null }
+  )
   const [showInsufficientModal, setShowInsufficientModal] = useState(false)
   const router = useRouter()
 
-  // Capture deep link once on mount or when params change, then clear URL
+  // Capture deep link once on mount
   useEffect(() => {
-    if (raffleIdFromUrl) {
-      setDeepLink({ raffleId: raffleIdFromUrl, commentId: commentIdFromUrl })
+    // If already cached, don't look at URL again
+    if (cachedDeepLink) return
 
-      const params = new URLSearchParams(searchParams.toString())
-      params.delete('raffleId')
-      params.delete('commentId')
-      const newPath = params.toString() ? `/?${params.toString()}` : '/'
-      router.replace(newPath, { scroll: false })
+    const rId = searchParams.get('raffleId')
+    const cId = searchParams.get('commentId')
+    if (rId) {
+      cachedDeepLink = { raffleId: rId, commentId: cId }
+      setDeepLink(cachedDeepLink)
     }
-  }, [raffleIdFromUrl, commentIdFromUrl, router])
+  }, []) // Only run once on mount
+
+  // Clear URL params only after initial load is done and we've captured them
+  useEffect(() => {
+    if (!isLoading && deepLink.raffleId) {
+      const timer = setTimeout(() => {
+        const params = new URLSearchParams(searchParams.toString())
+        params.delete('raffleId')
+        params.delete('commentId')
+        const newPath = params.toString() ? `/?${params.toString()}` : '/'
+        router.replace(newPath, { scroll: false })
+      }, 2000) // 2s buffer for mobile layout stability
+      return () => clearTimeout(timer)
+    }
+  }, [isLoading, deepLink.raffleId, router, searchParams])
 
   const fetchEvents = async () => {
     const supabaseClient = await getClient()

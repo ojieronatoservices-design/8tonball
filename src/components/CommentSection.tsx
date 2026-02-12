@@ -305,14 +305,20 @@ export function CommentSection({ raffleId, hostId, focusedCommentId = null }: Co
 
     useEffect(() => {
         if (focusedCommentId && !isLoading && comments.length > 0) {
-            // Use a small timeout to ensure DOM has updated
-            const timer = setTimeout(() => {
+            // Mobile reliability: Try scrolling immediately, then again after a delay
+            const attemptScroll = () => {
                 const el = document.getElementById(`comment-${focusedCommentId}`)
                 if (el) {
                     el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                    return true
                 }
-            }, 100)
-            return () => clearTimeout(timer)
+                return false
+            }
+
+            if (!attemptScroll()) {
+                const timer = setTimeout(attemptScroll, 500) // Longer delay for mobile layout shifts
+                return () => clearTimeout(timer)
+            }
         } else if (scrollRef.current && !replyTo && !isLoading) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight
         }
