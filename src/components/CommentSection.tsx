@@ -121,13 +121,17 @@ export function CommentSection({ raffleId, hostId }: CommentSectionProps) {
                     parent_id: replyTo?.id || null
                 }])
 
-            if (error) throw error
+            if (error) {
+                console.error('Supabase Error details:', error)
+                throw error
+            }
+
             setNewComment('')
             setReplyTo(null)
             // No need to fetch here, Realtime will handle it
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error posting comment:', error)
-            alert('Failed to post comment.')
+            alert(`Failed to post comment: ${error.message || 'Unknown error'}`)
         } finally {
             setIsPosting(false)
         }
