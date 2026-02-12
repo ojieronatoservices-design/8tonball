@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS comments (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     raffle_id UUID REFERENCES raffles(id) ON DELETE CASCADE NOT NULL,
     user_id TEXT REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+    parent_id UUID REFERENCES comments(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()

@@ -51,6 +51,40 @@ export const EventCard = React.memo(({
     const [justJoined, setJustJoined] = useState(false)
     const scrollRef = useRef<HTMLDivElement>(null)
 
+    // Swipe down to close states
+    const [touchStart, setTouchStart] = useState<number | null>(null)
+    const [touchEnd, setTouchEnd] = useState<number | null>(null)
+    const [translateY, setTranslateY] = useState(0)
+    const minSwipeDistance = 100
+
+    const onTouchStart = (e: React.TouchEvent) => {
+        setTouchEnd(null)
+        setTouchStart(e.targetTouches[0].clientY)
+    }
+
+    const onTouchMove = (e: React.TouchEvent) => {
+        if (!touchStart) return
+        const currentTouch = e.targetTouches[0].clientY
+        setTouchEnd(currentTouch)
+        const diff = currentTouch - touchStart
+        if (diff > 0) {
+            setTranslateY(diff)
+        }
+    }
+
+    const onTouchEnd = () => {
+        if (!touchStart || !touchEnd) {
+            setTranslateY(0)
+            return
+        }
+        const distance = touchEnd - touchStart
+        const isSwipeDown = distance > minSwipeDistance
+        if (isSwipeDown) {
+            setShowComments(false)
+        }
+        setTranslateY(0)
+    }
+
     // Throttled scroll handler
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
         const target = e.currentTarget
@@ -434,10 +468,16 @@ export const EventCard = React.memo(({
                         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
                         onClick={() => setShowComments(false)}
                     />
-                    <div className="relative w-full max-w-lg bg-card rounded-t-[3rem] border-t border-white/10 shadow-2xl h-[80vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300">
+                    <div
+                        className="relative w-full max-w-lg bg-card rounded-t-[3rem] border-t border-white/10 shadow-2xl h-[85vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300"
+                        style={{ transform: `translateY(${translateY}px)`, transition: translateY === 0 ? 'transform 0.3s ease-out' : 'none' }}
+                        onTouchStart={onTouchStart}
+                        onTouchMove={onTouchMove}
+                        onTouchEnd={onTouchEnd}
+                    >
                         <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-muted-foreground/20 rounded-full" />
                         <div className="flex-1 overflow-hidden mt-6">
-                            <CommentSection raffleId={event.id} />
+                            <CommentSection raffleId={event.id} hostId={event.host_user_id} />
                         </div>
                     </div>
                 </div>
