@@ -23,6 +23,7 @@ interface Comment {
 interface CommentSectionProps {
     raffleId: string
     hostId?: string
+    focusedCommentId?: string | null
 }
 
 const formatRelativeTime = (dateString: string) => {
@@ -49,7 +50,8 @@ const CommentItem = React.memo(({
     depth = 0,
     onReply,
     onVote,
-    onDelete
+    onDelete,
+    focusedCommentId = null
 }: {
     comment: Comment,
     hostId?: string,
@@ -57,16 +59,21 @@ const CommentItem = React.memo(({
     depth?: number,
     onReply: (comment: Comment) => void,
     onVote: (commentId: string, type: 1 | -1) => void,
-    onDelete: (id: string, e: React.MouseEvent) => void
+    onDelete: (id: string, e: React.MouseEvent) => void,
+    focusedCommentId?: string | null
 }) => {
     const isHost = hostId && comment.user_id === hostId
     const isSelf = userId && comment.user_id === userId
     const [showReplies, setShowReplies] = useState(true)
 
     const leftSpacing = depth > 0 ? (depth === 1 ? 'ml-6' : 'ml-6 border-l border-primary/10 pl-2') : ''
+    const isFocused = focusedCommentId === comment.id
 
     return (
-        <div className={`flex flex-col gap-2 ${leftSpacing} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+        <div
+            id={`comment-${comment.id}`}
+            className={`flex flex-col gap-2 ${leftSpacing} animate-in fade-in slide-in-from-bottom-2 duration-300 rounded-xl transition-all ${isFocused ? 'animate-flash-highlight p-2 -m-2 z-10' : ''}`}
+        >
             <div className="flex gap-2 group">
                 <div className={`w-6 h-6 rounded-md ${isHost ? 'bg-primary/20 border-primary/30' : 'bg-muted border-border'} flex items-center justify-center shrink-0 border mt-1`}>
                     <User size={12} className={isHost ? 'text-primary' : 'text-muted-foreground/50'} />
@@ -142,6 +149,7 @@ const CommentItem = React.memo(({
                     onReply={onReply}
                     onVote={onVote}
                     onDelete={onDelete}
+                    focusedCommentId={focusedCommentId}
                 />
             ))}
         </div>
@@ -203,7 +211,7 @@ const CommentInput = ({
     )
 }
 
-export function CommentSection({ raffleId, hostId }: CommentSectionProps) {
+export function CommentSection({ raffleId, hostId, focusedCommentId = null }: CommentSectionProps) {
     const [comments, setComments] = useState<Comment[]>([])
     const [replyTo, setReplyTo] = useState<Comment | null>(null)
     const [isLoading, setIsLoading] = useState(true)
@@ -287,10 +295,15 @@ export function CommentSection({ raffleId, hostId }: CommentSectionProps) {
     }, [raffleId, userId, fetchComments])
 
     useEffect(() => {
-        if (scrollRef.current && !replyTo) {
+        if (focusedCommentId) {
+            const el = document.getElementById(`comment-${focusedCommentId}`)
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            }
+        } else if (scrollRef.current && !replyTo) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight
         }
-    }, [comments, replyTo])
+    }, [comments, replyTo, focusedCommentId])
 
     const handlePostComment = async (content: string) => {
         if (!userId) return
@@ -446,6 +459,7 @@ export function CommentSection({ raffleId, hostId }: CommentSectionProps) {
                             onReply={handleReply}
                             onVote={handleVote}
                             onDelete={handleDeleteComment}
+                            focusedCommentId={focusedCommentId}
                         />
                     ))
                 )}

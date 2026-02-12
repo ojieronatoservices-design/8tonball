@@ -22,18 +22,20 @@ export default function HomePage() {
   const searchParams = useSearchParams()
   const searchQuery = searchParams.get('q')?.toLowerCase() || ''
   const raffleIdFromUrl = searchParams.get('raffleId')
+  const commentIdFromUrl = searchParams.get('commentId')
   const [showInsufficientModal, setShowInsufficientModal] = useState(false)
   const router = useRouter()
 
-  // Clear raffleId from URL after initial load to prevent sticky comments on refresh
+  // Clear raffleId and commentId from URL after initial load to prevent sticky views on refresh
   useEffect(() => {
-    if (raffleIdFromUrl) {
+    if (raffleIdFromUrl || commentIdFromUrl) {
       const params = new URLSearchParams(searchParams.toString())
       params.delete('raffleId')
+      params.delete('commentId')
       const newPath = params.toString() ? `/?${params.toString()}` : '/'
       router.replace(newPath, { scroll: false })
     }
-  }, [raffleIdFromUrl, router, searchParams])
+  }, [raffleIdFromUrl, commentIdFromUrl, router, searchParams])
 
   const fetchEvents = async () => {
     const supabaseClient = await getClient()
@@ -321,7 +323,8 @@ export default function HomePage() {
                 onShare={handleShareFacebook}
                 userId={userId}
                 isAdmin={isAdmin}
-                autoOpenComments={event.id === raffleIdFromUrl}
+                autoOpenComments={event.id === raffleIdFromUrl && !!commentIdFromUrl}
+                focusedCommentId={event.id === raffleIdFromUrl ? commentIdFromUrl : null}
               />
             </div>
           ))

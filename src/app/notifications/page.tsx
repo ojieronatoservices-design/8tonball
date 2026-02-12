@@ -91,7 +91,9 @@ export default function NotificationsPage() {
     const handleNotificationClick = async (notif: Notification) => {
         // Social types or Entry types -> Redirect to raffle on home page
         if (['comment', 'reply', 'entry', 'vote_up', 'vote_down'].includes(notif.type) && notif.raffle_id) {
-            router.push(`/?raffleId=${notif.raffle_id}`)
+            let url = `/?raffleId=${notif.raffle_id}`
+            if (notif.comment_id) url += `&commentId=${notif.comment_id}`
+            router.push(url)
             return
         }
 

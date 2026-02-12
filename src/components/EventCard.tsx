@@ -9,6 +9,13 @@ import { TibsDisplay } from '@/components/TibsDisplay'
 import Link from 'next/link'
 import { CommentSection } from '@/components/CommentSection'
 import { useSupabase } from '@/hooks/useSupabase'
+import { useSearchParams } from 'next/navigation'
+import { clsx, type ClassValue } from 'clsx'
+import { twMerge } from 'tailwind-merge'
+
+function cn(...inputs: ClassValue[]) {
+    return twMerge(clsx(inputs))
+}
 
 interface EventCardProps {
     event: any
@@ -23,6 +30,7 @@ interface EventCardProps {
     entryNumbers?: string[]
     onClaim?: (id: string) => Promise<void>
     autoOpenComments?: boolean
+    focusedCommentId?: string | null
 }
 
 export const EventCard = React.memo(({
@@ -37,7 +45,8 @@ export const EventCard = React.memo(({
     isRefunded = false,
     entryNumbers = [],
     onClaim,
-    autoOpenComments = false
+    autoOpenComments = false,
+    focusedCommentId = null
 }: EventCardProps) => {
     const [currentImageIndex, setCurrentImageIndex] = useState(0)
     const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
@@ -45,6 +54,7 @@ export const EventCard = React.memo(({
     const [showComments, setShowComments] = useState(autoOpenComments)
     const [commentCount, setCommentCount] = useState(0)
     const { getClient } = useSupabase()
+    const searchParams = useSearchParams()
 
     // Auto-open comments if deep linked
     useEffect(() => {
@@ -178,7 +188,10 @@ export const EventCard = React.memo(({
 
     return (
         <>
-            <div className="group relative bg-card overflow-hidden border-b border-border transition-all duration-300">
+            <div className={cn(
+                "group relative bg-card overflow-hidden border-b border-border transition-all duration-300",
+                (event.id === searchParams.get('raffleId') && !focusedCommentId) && "animate-flash-highlight"
+            )}>
                 {/* Host Identity Section */}
                 <div className="px-4 py-3 flex items-center justify-between bg-white/[0.02]">
                     <Link
@@ -484,7 +497,11 @@ export const EventCard = React.memo(({
                     >
                         <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-muted-foreground/20 rounded-full" />
                         <div className="flex-1 overflow-hidden mt-6">
-                            <CommentSection raffleId={event.id} hostId={event.host_user_id} />
+                            <CommentSection
+                                raffleId={event.id}
+                                hostId={event.host_user_id}
+                                focusedCommentId={focusedCommentId}
+                            />
                         </div>
                     </div>
                 </div>
