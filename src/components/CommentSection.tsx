@@ -75,10 +75,8 @@ export function CommentSection({ raffleId, hostId }: CommentSectionProps) {
                     event: '*',
                     schema: 'public',
                     table: 'comments',
-                    // Removed filter temporarily to rule out UUID matching issues
                 }, (payload: any) => {
                     console.log('[Realtime] Event received:', payload)
-                    // Only update if the comment belongs to this raffle
                     const payloadRaffleId = payload.new?.raffle_id || payload.old?.raffle_id
                     if (payloadRaffleId === raffleId) {
                         fetchComments(true)
@@ -90,11 +88,14 @@ export function CommentSection({ raffleId, hostId }: CommentSectionProps) {
         }
 
         setupRealtime()
+
+        const polling = setInterval(() => {
+            fetchComments(true)
+        }, 10000)
+
         return () => {
-            if (channel) {
-                console.log('[Realtime] Unsubscribing')
-                channel.unsubscribe()
-            }
+            if (channel) channel.unsubscribe()
+            clearInterval(polling)
         }
     }, [raffleId])
 
@@ -129,7 +130,6 @@ export function CommentSection({ raffleId, hostId }: CommentSectionProps) {
 
             setNewComment('')
             setReplyTo(null)
-            // No need to fetch here, Realtime will handle it
         } catch (error: any) {
             console.error('Error posting comment:', error)
             alert(`Failed to post comment: ${error.message || 'Unknown error'}`)
@@ -155,7 +155,6 @@ export function CommentSection({ raffleId, hostId }: CommentSectionProps) {
         }
     }
 
-    // Process comments into tree structure
     const processedComments = useMemo(() => {
         const parents = comments.filter(c => !c.parent_id)
         const children = comments.filter(c => c.parent_id)
@@ -185,36 +184,43 @@ export function CommentSection({ raffleId, hostId }: CommentSectionProps) {
                                 {isHost && (
                                     <span className="text-[7px] font-black bg-primary text-black px-1 rounded-sm uppercase tracking-widest">Host</span>
                                 )}
-                            </div>
-                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                {!isReply && (
-                                    <button
-                                        onClick={() => setReplyTo(comment)}
-                                        className="text-muted-foreground hover:text-primary transition-colors p-1"
-                                    >
-                                        <Reply size={12} />
-                                    </button>
-                                )}
                                 {isSelf && (
                                     <button
                                         onClick={(e) => handleDeleteComment(comment.id, e)}
-                                        className="text-muted-foreground hover:text-red-500 transition-colors p-1"
+                                        className="text-muted-foreground/30 hover:text-red-500 transition-colors"
                                     >
-                                        <Trash2 size={12} />
+                                        <Trash2 size={10} />
+                                    </button>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[8px] text-muted-foreground/30 uppercase font-bold mt-1 block">
+                                    {new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                                {!isReply && (
+                                    <button
+                                        onClick={() => {
+                                            setReplyTo(comment)
+                                            setNewComment(`@${comment.profile?.display_name} `)
+                                        }}
+                                        className="text-primary/40 hover:text-primary transition-all p-1 flex items-center gap-1 mt-0.5"
+                                    >
+                                        <Reply size={10} />
+                                        <span className="text-[8px] font-black uppercase tracking-widest">Reply</span>
                                     </button>
                                 )}
                             </div>
                         </div>
-                        <p className={`text-xs leading-relaxed mt-0.5 break-words ${isHost ? 'text-foreground' : 'text-muted-foreground'}`}>
-                            {comment.content}
+                        <p className={`text-xs leading-relaxed mt-1 break-words ${isHost ? 'text-foreground italic font-medium' : 'text-muted-foreground'}`}>
+                            {comment.content.split(/(@\w+)/g).map((part: string, i: number) =>
+                                part.startsWith('@') ? (
+                                    <span key={i} className="text-primary font-black">{part}</span>
+                                ) : part
+                            )}
                         </p>
-                        <span className="text-[8px] text-muted-foreground/30 uppercase font-bold mt-1 block">
-                            {new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
                     </div>
                 </div>
 
-                {/* Render Replies */}
                 {comment.replies?.map((reply: any) => (
                     <CommentItem key={reply.id} comment={reply} isReply={true} />
                 ))}
@@ -224,7 +230,6 @@ export function CommentSection({ raffleId, hostId }: CommentSectionProps) {
 
     return (
         <div className="flex flex-col h-full bg-card text-foreground">
-            {/* Header */}
             <div className="px-6 py-4 border-b border-border flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <MessageSquare size={18} className="text-primary" />
@@ -245,11 +250,7 @@ export function CommentSection({ raffleId, hostId }: CommentSectionProps) {
                 </div>
             </div>
 
-            {/* Comments List */}
-            <div
-                ref={scrollRef}
-                className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar scroll-smooth"
-            >
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar scroll-smooth">
                 {isLoading ? (
                     <div className="flex flex-col items-center justify-center py-20 gap-3">
                         <Loader2 className="animate-spin text-primary" size={24} />
@@ -267,7 +268,6 @@ export function CommentSection({ raffleId, hostId }: CommentSectionProps) {
                 )}
             </div>
 
-            {/* Reply Bar */}
             {replyTo && (
                 <div className="px-6 py-2 bg-primary/5 border-t border-primary/20 flex items-center justify-between animate-in slide-in-from-bottom-1 fade-in">
                     <div className="flex items-center gap-2 truncate">
@@ -276,13 +276,12 @@ export function CommentSection({ raffleId, hostId }: CommentSectionProps) {
                             Replying to <span className="text-primary">{replyTo.profile?.display_name}</span>
                         </span>
                     </div>
-                    <button onClick={() => setReplyTo(null)} className="text-muted-foreground hover:text-foreground">
+                    <button onClick={() => { setReplyTo(null); if (newComment.startsWith('@')) setNewComment('') }} className="text-muted-foreground hover:text-foreground">
                         <X size={14} />
                     </button>
                 </div>
             )}
 
-            {/* Input Area */}
             {userId ? (
                 <form onSubmit={handlePostComment} className="p-4 bg-muted/30 border-t border-border flex gap-2">
                     <input
