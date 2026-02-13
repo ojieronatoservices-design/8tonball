@@ -621,10 +621,10 @@ export default function ProfilePage() {
                                 })
                             )
                         ) : activeTab === 'archives' ? (
-                            <div className="flex flex-col gap-4">
+                            <div className="flex flex-col">
                                 {Object.values(groupedEntries).filter(g => g.event?.status !== 'open').length > 0 && (
-                                    <div className="relative group">
-                                        <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                                    <div className="relative group px-6 mb-4">
+                                        <Search size={14} className="absolute left-10 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
                                         <input
                                             type="text"
                                             placeholder="Search by raffle title or ticket number..."
@@ -635,7 +635,7 @@ export default function ProfilePage() {
                                         {archiveSearch && (
                                             <button
                                                 onClick={() => setArchiveSearch('')}
-                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                                className="absolute right-8 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                                             >
                                                 <X size={14} />
                                             </button>
@@ -655,8 +655,8 @@ export default function ProfilePage() {
                                         const currentTibs = totalEntries * group.event.entry_cost_tibs
                                         const goalMet = group.event.goal_tibs > 0 ? currentTibs >= group.event.goal_tibs : true
                                         return (
-                                            <div key={group.event.id} className="w-full mb-2">
-                                                <div className={`flex flex-col bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 ${isExpanded ? 'ring-1 ring-primary/20 shadow-lg' : 'hover:bg-muted/30'}`}>
+                                            <div key={group.event.id} className="w-full">
+                                                <div className={`flex flex-col bg-card border-b border-border transition-all duration-300 ${isExpanded ? 'bg-muted/30' : 'hover:bg-muted/10'}`}>
                                                     {/* Collapsed Bar */}
                                                     <button
                                                         onClick={() => {
@@ -668,25 +668,25 @@ export default function ProfilePage() {
                                                         }}
                                                         className="flex items-center justify-between p-4 text-left group"
                                                     >
-                                                        <div className="flex items-center gap-3 min-w-0">
-                                                            <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-border grayscale-[0.5]">
+                                                        <div className="flex items-center gap-4 min-w-0">
+                                                            <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-border grayscale-[0.5] bg-muted/20">
                                                                 <img src={group.event.media_urls?.[0]} alt="" className="w-full h-full object-cover" />
                                                             </div>
-                                                            <div className="flex flex-col min-w-0">
-                                                                <h4 className="text-sm font-black truncate uppercase tracking-tight text-muted-foreground/80">{group.event.title}</h4>
+                                                            <div className="flex flex-col min-w-0 gap-0.5">
+                                                                <h4 className="text-sm font-black truncate uppercase tracking-tight text-muted-foreground/80 leading-none">{group.event.title}</h4>
                                                                 <div className="flex items-center gap-2">
                                                                     <span className="text-[10px] font-bold text-muted-foreground uppercase">x{group.entries.length} Entries</span>
-                                                                    <span className="w-1 h-1 rounded-full bg-border" />
+                                                                    <span className="w-0.5 h-0.5 rounded-full bg-border" />
                                                                     {won && goalMet ? (
-                                                                        <div className="flex items-center gap-1 text-[10px] font-black bg-green-500 text-black px-2 py-0.5 rounded-md uppercase">
+                                                                        <div className="flex items-center gap-1 text-[9px] font-black bg-green-500 text-black px-2 py-0.5 rounded-md uppercase">
                                                                             <Trophy size={10} /> Won
                                                                         </div>
                                                                     ) : won && !goalMet ? (
-                                                                        <div className="flex items-center gap-1 text-[10px] font-black bg-orange-500 text-black px-2 py-0.5 rounded-md uppercase">
+                                                                        <div className="flex items-center gap-1 text-[9px] font-black bg-orange-500 text-black px-2 py-0.5 rounded-md uppercase">
                                                                             <Coins size={10} /> Tibs Refunded
                                                                         </div>
                                                                     ) : (
-                                                                        <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground/40 uppercase">
+                                                                        <div className="flex items-center gap-1 text-[9px] font-bold text-muted-foreground/40 uppercase">
                                                                             <XCircle size={10} /> Missed
                                                                         </div>
                                                                     )}
@@ -698,14 +698,14 @@ export default function ProfilePage() {
                                                                 <div className="w-2 h-2 bg-red-500 rounded-full" />
                                                             )}
                                                             <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-                                                                <ChevronDown size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                                                                <ChevronDown size={16} className="text-muted-foreground/50 group-hover:text-primary transition-colors" />
                                                             </div>
                                                         </div>
                                                     </button>
 
                                                     {/* Expanded Content */}
                                                     {isExpanded && (
-                                                        <div className="animate-in slide-in-from-top-4 fade-in duration-300 border-t border-border/50">
+                                                        <div className="animate-in slide-in-from-top-2 fade-in duration-300 border-t border-border/50 bg-black/20">
                                                             <EventCard
                                                                 event={group.event}
                                                                 entryCount={entryCounts[group.event.id] || 0}
