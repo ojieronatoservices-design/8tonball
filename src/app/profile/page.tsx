@@ -177,7 +177,7 @@ export default function ProfilePage() {
         const { data } = await supabaseClient.from('notifications').select('type').eq('user_id', userId).eq('is_read', false)
         if (data) {
             let host = 0, participant = 0
-            data.forEach(n => {
+            data.forEach((n: any) => {
                 if (n.type === 'entry') host++
                 else participant++
             })
