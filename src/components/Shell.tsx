@@ -74,9 +74,7 @@ export function Shell({ children }: ShellProps) {
     const [settleQrName, setSettleQrName] = useState('')
     const [isSubmittingSettle, setIsSubmittingSettle] = useState(false)
 
-    // Floating button scroll transparency
-    const [isScrolling, setIsScrolling] = useState(false)
-    const scrollTimeoutRef = useRef<any>(null)
+    // Floating button scroll transparency removed
 
     // Wallet/Manual Payment state
     const [selectedPackage, setSelectedPackage] = useState<{ tibs: number, price: number, label: string } | null>(null)
@@ -112,16 +110,11 @@ export function Shell({ children }: ShellProps) {
                 ticking = true
             }
 
-            // Floating button scroll transparency
-            setIsScrolling(true)
-            if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current)
-            scrollTimeoutRef.current = setTimeout(() => setIsScrolling(false), 300)
         }
 
         window.addEventListener('scroll', handleScroll, { passive: true })
         return () => {
             window.removeEventListener('scroll', handleScroll)
-            if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current)
         }
     }, [])
 
@@ -492,10 +485,9 @@ export function Shell({ children }: ShellProps) {
 
 
 
-    // Build nav items - only 2 tabs now: Discover and You
+    // Build nav items - Simplifed to Discover and You (Activity moved to bell/other or replaced)
     const navItems = useMemo(() => [
         { label: 'Discover', href: '/', icon: Compass },
-        { label: 'Activity', href: '/notifications', icon: Bell },
         { label: 'You', href: '/profile', icon: User },
     ], [])
 
@@ -614,16 +606,15 @@ export function Shell({ children }: ShellProps) {
                 {children}
             </main>
 
-            {/* Floating Create Event Button */}
+            {/* Floating Create Event Button - Centered and Peeking */}
             {isLoaded && user && (isHostEligible || isAdmin) && (
                 <button
                     onClick={() => setShowCreateEventModal(true)}
                     className={cn(
-                        "fixed bottom-20 right-4 z-40 w-20 h-20 rounded-full shadow-2xl transition-all duration-300 group overflow-hidden border-2 border-primary/50 bg-black/40 backdrop-blur-sm",
-                        isScrolling ? "opacity-30 translate-y-4 scale-90" : "opacity-100 hover:scale-110 active:scale-95",
+                        "fixed left-1/2 -translate-x-1/2 z-[60] w-20 h-20 rounded-full shadow-2xl transition-all duration-300 group overflow-hidden border-2 border-primary/50 bg-black/40 backdrop-blur-sm",
+                        isVisible ? "bottom-4 scale-100 opacity-100" : "-bottom-10 scale-90 hover:scale-100 hover:bottom-4 opacity-100", // Peeking logic
                         "shadow-[0_0_30px_rgba(57,255,20,0.4)]"
                     )}
-                    style={{ maxWidth: 'calc(50% + 384px - 16px)' }}
                 >
                     <img src="/logo-8t.png" alt="Create Event" className="w-full h-full object-cover p-2" />
                     {/* Circular text around the button */}
