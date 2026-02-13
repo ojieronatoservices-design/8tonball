@@ -612,7 +612,7 @@ export function Shell({ children }: ShellProps) {
                     onClick={() => setShowCreateEventModal(true)}
                     className={cn(
                         "fixed left-1/2 -translate-x-1/2 z-[60] w-20 h-20 rounded-full shadow-2xl transition-all duration-300 group overflow-hidden border-2 border-primary/50 bg-black/40 backdrop-blur-sm",
-                        isVisible ? "bottom-4 scale-100 opacity-100" : "-bottom-10 scale-90 hover:scale-100 hover:bottom-4 opacity-100", // Peeking logic
+                        isVisible ? "bottom-4 scale-100 opacity-100" : "-bottom-14 scale-90 hover:scale-100 hover:bottom-4 opacity-100", // Peeking logic: only 30% visible
                         "shadow-[0_0_30px_rgba(57,255,20,0.4)]"
                     )}
                 >
