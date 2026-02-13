@@ -636,7 +636,7 @@ export function Shell({ children }: ShellProps) {
                 "fixed bottom-0 w-full max-w-3xl glass z-50 px-4 py-2 transition-transform duration-300",
                 !isVisible && "translate-y-full"
             )}>
-                <div className="flex justify-around items-center">
+                <div className="grid grid-cols-2 w-full">
                     {navItems.map((item) => {
                         const Icon = item.icon
                         const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
