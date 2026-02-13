@@ -1079,11 +1079,14 @@ export default function AdminDashboard() {
                     }}
                     className="flex items-center gap-4 p-4 cursor-pointer hover:bg-white/[0.02] transition-colors"
                 >
-                    <div className="w-12 h-12 rounded-xl bg-white/5 overflow-hidden flex-shrink-0 border border-white/5">
+                    <div className="w-12 h-12 rounded-xl bg-white/5 overflow-hidden flex-shrink-0 border border-white/5 relative">
                         {event.media_urls?.[0] ? (
                             isVideo(event.media_urls[0]) ? <video src={event.media_urls[0]} className="w-full h-full object-cover" />
                                 : <img src={event.media_urls[0]} alt="" className="w-full h-full object-cover" />
                         ) : <ImageIcon className="w-full h-full p-3 text-white/10" />}
+                        {unreadCount > 0 && (
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-card animate-pulse shadow-[0_0_6px_rgba(239,68,68,0.5)]" />
+                        )}
                     </div>
 
                     <div className="flex-1 min-w-0">
