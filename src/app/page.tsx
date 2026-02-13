@@ -11,7 +11,7 @@ import { ImageLightbox } from '@/components/ImageLightbox'
 import { EventCard } from '@/components/EventCard'
 
 // Cache deep link outside component to survive mobile re-mounts during router.replace
-let cachedDeepLink: { raffleId: string | null, commentId: string | null } | null = null
+let cachedDeepLink: { raffleId: string | null } | null = null
 
 export default function HomePage() {
   const [events, setEvents] = useState<any[]>([])
@@ -25,9 +25,8 @@ export default function HomePage() {
   const searchParams = useSearchParams()
   const searchQuery = searchParams.get('q')?.toLowerCase() || ''
   const raffleIdFromUrl = searchParams.get('raffleId')
-  const commentIdFromUrl = searchParams.get('commentId')
-  const [deepLink, setDeepLink] = useState<{ raffleId: string | null, commentId: string | null }>(
-    cachedDeepLink || { raffleId: null, commentId: null }
+  const [deepLink, setDeepLink] = useState<{ raffleId: string | null }>(
+    cachedDeepLink || { raffleId: null }
   )
   const [showInsufficientModal, setShowInsufficientModal] = useState(false)
   const router = useRouter()
@@ -35,24 +34,24 @@ export default function HomePage() {
   // Capture deep link and clear URL
   useEffect(() => {
     const rId = searchParams.get('raffleId')
-    const cId = searchParams.get('commentId')
 
     if (rId) {
       // Capture into state and module cache
-      const newDeepLink = { raffleId: rId, commentId: cId }
+      const newDeepLink = { raffleId: rId }
       cachedDeepLink = newDeepLink
       setDeepLink(newDeepLink)
 
       // Cleanup URL after a delay to ensure components see the state
       const timer = setTimeout(() => {
         const params = new URLSearchParams(searchParams.toString())
-        if (params.has('raffleId') || params.has('commentId')) {
+        if (params.has('raffleId')) {
           params.delete('raffleId')
-          params.delete('commentId')
+          // params.delete('commentId') // No longer tracking
           const newPath = params.toString() ? `/?${params.toString()}` : '/'
           router.replace(newPath, { scroll: false })
         }
-      }, 2000)
+      }, 500)
+
       return () => clearTimeout(timer)
     }
   }, [searchParams, router])
@@ -309,12 +308,7 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col pb-8 -mx-6">
-      {/* TEMP DEBUG: Verify deep link state on mobile */}
-      <div className="fixed top-0 left-0 right-0 bg-black/90 text-[10px] text-green-400 z-[9999] p-2 font-mono break-all">
-        PARAMS: {searchParams.toString()} <br />
-        STATE: {JSON.stringify(deepLink)} <br />
-        CACHE: {JSON.stringify(cachedDeepLink)}
-      </div>
+      {/* Debug banner removed */}
 
       <div className="flex flex-col">
         {isLoading ? (
@@ -349,8 +343,6 @@ export default function HomePage() {
                 onShare={handleShareFacebook}
                 userId={userId}
                 isAdmin={isAdmin}
-                autoOpenComments={event.id === deepLink.raffleId}
-                focusedCommentId={event.id === deepLink.raffleId ? deepLink.commentId : null}
               />
             </div>
           ))

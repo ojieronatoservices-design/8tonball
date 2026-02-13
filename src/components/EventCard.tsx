@@ -7,7 +7,6 @@ import { CountdownTimer } from '@/components/CountdownTimer'
 import { ImageLightbox } from '@/components/ImageLightbox'
 import { TibsDisplay } from '@/components/TibsDisplay'
 import Link from 'next/link'
-import { CommentSection } from '@/components/CommentSection'
 import { useSupabase } from '@/hooks/useSupabase'
 import { useSearchParams } from 'next/navigation'
 import { clsx, type ClassValue } from 'clsx'
@@ -29,8 +28,6 @@ interface EventCardProps {
     isRefunded?: boolean
     entryNumbers?: string[]
     onClaim?: (id: string) => Promise<void>
-    autoOpenComments?: boolean
-    focusedCommentId?: string | null
 }
 
 export const EventCard = React.memo(({
@@ -45,32 +42,24 @@ export const EventCard = React.memo(({
     isRefunded = false,
     entryNumbers = [],
     onClaim,
-    autoOpenComments = false,
-    focusedCommentId = null
 }: EventCardProps) => {
     const [currentImageIndex, setCurrentImageIndex] = useState(0)
     const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
     const [showLightbox, setShowLightbox] = useState(false)
-    const [showComments, setShowComments] = useState(autoOpenComments)
-    const [commentCount, setCommentCount] = useState(0)
     const { getClient } = useSupabase()
     const searchParams = useSearchParams()
     const [isFlashActive, setIsFlashActive] = useState(false)
 
-    // Trigger flash highlight if focused (persistent local state)
+    // Trigger flash highlight if focusing on this raffle (from deep link)
+    // We can just check raffleId, no need for comment logic anymore
     useEffect(() => {
-        // We check for raffleId in URL to trigger the INITIAL flash
-        if (autoOpenComments && !focusedCommentId) {
+        const rId = searchParams.get('raffleId')
+        if (event.id === rId) {
             setIsFlashActive(true)
             const timer = setTimeout(() => setIsFlashActive(false), 4000)
             return () => clearTimeout(timer)
         }
-    }, [autoOpenComments, focusedCommentId])
-
-    // Sync autoOpenComments prop to state
-    useEffect(() => {
-        if (autoOpenComments) setShowComments(true)
-    }, [autoOpenComments])
+    }, [searchParams, event.id])
 
     // UX States
     const [isConfirming, setIsConfirming] = useState(false)
@@ -80,38 +69,7 @@ export const EventCard = React.memo(({
     const scrollRef = useRef<HTMLDivElement>(null)
 
     // Swipe down to close states
-    const [touchStart, setTouchStart] = useState<number | null>(null)
-    const [touchEnd, setTouchEnd] = useState<number | null>(null)
-    const [translateY, setTranslateY] = useState(0)
-    const minSwipeDistance = 100
-
-    const onTouchStart = (e: React.TouchEvent) => {
-        setTouchEnd(null)
-        setTouchStart(e.targetTouches[0].clientY)
-    }
-
-    const onTouchMove = (e: React.TouchEvent) => {
-        if (!touchStart) return
-        const currentTouch = e.targetTouches[0].clientY
-        setTouchEnd(currentTouch)
-        const diff = currentTouch - touchStart
-        if (diff > 0) {
-            setTranslateY(diff)
-        }
-    }
-
-    const onTouchEnd = () => {
-        if (!touchStart || !touchEnd) {
-            setTranslateY(0)
-            return
-        }
-        const distance = touchEnd - touchStart
-        const isSwipeDown = distance > minSwipeDistance
-        if (isSwipeDown) {
-            setShowComments(false)
-        }
-        setTranslateY(0)
-    }
+    // Swipe handlers removed
 
     // Throttled scroll handler
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -130,18 +88,7 @@ export const EventCard = React.memo(({
     }, [entryCount, justJoined])
 
     // Fetch comment count
-    useEffect(() => {
-        const fetchCount = async () => {
-            const supabaseClient = await getClient()
-            if (!supabaseClient || !event.id) return
-            const { count } = await supabaseClient
-                .from('comments')
-                .select('*', { count: 'exact', head: true })
-                .eq('raffle_id', event.id)
-            setCommentCount(count || 0)
-        }
-        fetchCount()
-    }, [event.id, showComments])
+    // Comment count fetch removed
 
     const handleJoinClick = (e: React.MouseEvent) => {
         e.stopPropagation()
@@ -468,20 +415,6 @@ export const EventCard = React.memo(({
                                 </button>
                             )}
                             <button
-                                onClick={(e) => {
-                                    e.stopPropagation()
-                                    setShowComments(true)
-                                }}
-                                className="aspect-square h-full flex items-center justify-center bg-muted hover:bg-foreground/5 rounded-2xl border border-border transition-colors text-muted-foreground hover:text-primary relative"
-                            >
-                                <MessageSquare size={18} />
-                                {commentCount > 0 && (
-                                    <span className="absolute -top-1 -right-1 bg-primary text-black text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-lg ring-2 ring-background">
-                                        {commentCount}
-                                    </span>
-                                )}
-                            </button>
-                            <button
                                 onClick={() => onShare(event)}
                                 className="aspect-square h-full flex items-center justify-center bg-muted hover:bg-foreground/5 rounded-2xl border border-border transition-colors text-muted-foreground hover:text-primary"
                             >
@@ -492,31 +425,7 @@ export const EventCard = React.memo(({
                 </div>
             </div>
 
-            {/* Comments Drawer Overlay */}
-            {showComments && (
-                <div className="fixed inset-0 z-[100] flex items-end justify-center animate-in fade-in duration-300">
-                    <div
-                        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-                        onClick={() => setShowComments(false)}
-                    />
-                    <div
-                        className="relative w-full max-w-lg bg-card rounded-t-[3rem] border-t border-white/10 shadow-2xl h-[85vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300"
-                        style={{ transform: `translateY(${translateY}px)`, transition: translateY === 0 ? 'transform 0.3s ease-out' : 'none' }}
-                        onTouchStart={onTouchStart}
-                        onTouchMove={onTouchMove}
-                        onTouchEnd={onTouchEnd}
-                    >
-                        <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-muted-foreground/20 rounded-full" />
-                        <div className="flex-1 overflow-hidden mt-6">
-                            <CommentSection
-                                raffleId={event.id}
-                                hostId={event.host_user_id}
-                                focusedCommentId={focusedCommentId}
-                            />
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Comments Drawer Removed */}
 
             {/* Image Lightbox */}
             {showLightbox && (
