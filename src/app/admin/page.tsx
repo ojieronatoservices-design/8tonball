@@ -476,6 +476,9 @@ export default function AdminDashboard() {
     const [kycRequests, setKycRequests] = useState<any[]>([])
     const [isLoadingKYC, setIsLoadingKYC] = useState(false)
 
+    // Unread Notifications State (Red Dot Logic)
+    const [unreadNotifications, setUnreadNotifications] = useState<Record<string, number>>({})
+
     // Manage Events State
     const [existingEvents, setExistingEvents] = useState<any[]>([])
     const [isLoadingEvents, setIsLoadingEvents] = useState(false)
@@ -661,6 +664,33 @@ export default function AdminDashboard() {
         finally { setIsLoadingAnalytics(false) }
     }
 
+    const fetchUnreadNotifications = async () => {
+        const supabaseClient = await getClient()
+        if (!supabaseClient || !userId) return
+
+        try {
+            // Fetch all unread notifications for this user that have a raffle_id
+            const { data, error } = await supabaseClient
+                .from('notifications')
+                .select('raffle_id')
+                .eq('user_id', userId)
+                .eq('is_read', false)
+                .not('raffle_id', 'is', null)
+
+            if (error) throw error
+
+            // Group by raffle_id
+            const counts: Record<string, number> = {}
+            data?.forEach((n: any) => {
+                const rId = n.raffle_id
+                counts[rId] = (counts[rId] || 0) + 1
+            })
+            setUnreadNotifications(counts)
+        } catch (err) {
+            console.error('Error fetching unread notifications:', err)
+        }
+    }
+
     const fetchPayments = async () => {
         const supabaseClient = await getClient()
         if (!supabaseClient) return
@@ -710,7 +740,10 @@ export default function AdminDashboard() {
         if (activeTab === 'payouts') fetchPayoutRequests()
         else if (activeTab === 'payments') fetchPayments()
         else if (activeTab === 'kyc') fetchKYCRequests()
-        else if (activeTab === 'events' || activeTab === 'archives') fetchEvents()
+        else if (activeTab === 'events' || activeTab === 'archives') {
+            fetchEvents()
+            fetchUnreadNotifications() // Fetch red dots
+        }
     }, [activeTab, userId])
 
     const handleDrawWinner = async (eventId: string, eventTitle: string, eventImage: string, currentTibs: number, goalTibs: number) => {
@@ -993,14 +1026,18 @@ export default function AdminDashboard() {
         userId,
         onSelectEvent,
         onEditEvent,
-        onDeleteEvent
+        onDeleteEvent,
+        unreadCount,
+        onMarkRead
     }: {
         event: any,
         isAdmin: boolean,
         userId: string | null | undefined,
         onSelectEvent: (e: any) => void,
         onEditEvent: (e: any) => void,
-        onDeleteEvent: (id: string) => void
+        onDeleteEvent: (id: string) => void,
+        unreadCount: number,
+        onMarkRead: (id: string) => void
     }) => {
         const [isExpanded, setIsExpanded] = useState(false)
         const entryCount = event.entries?.[0]?.count || 0
@@ -1012,7 +1049,12 @@ export default function AdminDashboard() {
             <div className="bg-card rounded-2xl border border-white/5 overflow-hidden transition-all duration-300">
                 {/* Bar Header */}
                 <div
-                    onClick={() => setIsExpanded(!isExpanded)}
+                    onClick={() => {
+                        setIsExpanded(!isExpanded)
+                        if (!isExpanded && unreadCount > 0) {
+                            onMarkRead(event.id)
+                        }
+                    }}
                     className="flex items-center gap-4 p-4 cursor-pointer hover:bg-white/[0.02] transition-colors"
                 >
                     <div className="w-12 h-12 rounded-xl bg-white/5 overflow-hidden flex-shrink-0 border border-white/5">
@@ -1029,6 +1071,11 @@ export default function AdminDashboard() {
                                 }`}>
                                 {event.status}
                             </span>
+                            {unreadCount > 0 && (
+                                <span className="ml-2 px-2 py-0.5 rounded-full bg-red-500 text-white text-[9px] font-black uppercase tracking-widest animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.5)]">
+                                    Participants +{unreadCount}
+                                </span>
+                            )}
                         </div>
                         <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-white/20">
                             <span>X{entryCount} ENTRIES</span>
@@ -1108,7 +1155,9 @@ export default function AdminDashboard() {
         fetchEvents,
         onSelectEvent,
         onEditEvent,
-        onDeleteEvent
+        onDeleteEvent,
+        unreadNotifications,
+        handleMarkRead
     }: {
         activeTab: string,
         existingEvents: any[],
@@ -1118,7 +1167,9 @@ export default function AdminDashboard() {
         fetchEvents: () => void,
         onSelectEvent: (e: any) => void,
         onEditEvent: (e: any) => void,
-        onDeleteEvent: (id: string) => void
+        onDeleteEvent: (id: string) => void,
+        unreadNotifications: Record<string, number>,
+        handleMarkRead: (id: string) => void
     }) => {
         const [dateFilter, setDateFilter] = useState('')
         const [searchQuery, setSearchQuery] = useState('')
@@ -1200,6 +1251,8 @@ export default function AdminDashboard() {
                                 onSelectEvent={onSelectEvent}
                                 onEditEvent={onEditEvent}
                                 onDeleteEvent={onDeleteEvent}
+                                unreadCount={unreadNotifications[event.id] || 0}
+                                onMarkRead={handleMarkRead}
                             />
                         ))}
                     </div>
@@ -1213,6 +1266,29 @@ export default function AdminDashboard() {
     })
 
     ExistingEventsSection.displayName = 'ExistingEventsSection'
+
+    const handleMarkRead = async (raffleId: string) => {
+        // Optimistic update
+        setUnreadNotifications(prev => {
+            const next = { ...prev }
+            delete next[raffleId]
+            return next
+        })
+
+        const supabaseClient = await getClient()
+        if (!supabaseClient || !userId) return
+
+        try {
+            await supabaseClient
+                .from('notifications')
+                .update({ is_read: true })
+                .eq('user_id', userId)
+                .eq('raffle_id', raffleId)
+                .eq('is_read', false)
+        } catch (err) {
+            console.error('Error marking notifications as read:', err)
+        }
+    }
 
     if (isCheckingPermissions) return (
         <div className="min-h-screen flex items-center justify-center bg-background">
@@ -1343,6 +1419,8 @@ export default function AdminDashboard() {
                             onSelectEvent={setSelectedEvent}
                             onEditEvent={setEditingEvent}
                             onDeleteEvent={handleDeleteEvent}
+                            unreadNotifications={unreadNotifications}
+                            handleMarkRead={handleMarkRead}
                         />
                     </div>
                 ) : activeTab === 'payments' ? (

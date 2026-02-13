@@ -52,10 +52,13 @@ export default function ProfilePage() {
     const [activeMainTab, setActiveMainTab] = useState<'participant' | 'host'>('participant')
 
     // Participant Sub-tabs
-    const [activeTab, setActiveTab] = useState<'live' | 'archives' | 'activity'>('live')
+    const [activeTab, setActiveTab] = useState<'live' | 'archives'>('live')
 
     const [notifications, setNotifications] = useState<any[]>([])
     const [isLoadingNotifs, setIsLoadingNotifs] = useState(false)
+    const [unreadHostCount, setUnreadHostCount] = useState(0)
+    const [unreadParticipantCount, setUnreadParticipantCount] = useState(0)
+
     const [archiveSearch, setArchiveSearch] = useState('')
     const deferredArchiveSearch = React.useDeferredValue(archiveSearch)
 
@@ -162,10 +165,26 @@ export default function ProfilePage() {
     useEffect(() => {
         if (isAuthLoaded && userId) {
             fetchProfile()
+            fetchUnreadCounts()
         } else if (isAuthLoaded && !userId) {
             setIsLoading(false)
         }
     }, [isAuthLoaded, userId])
+
+    const fetchUnreadCounts = async () => {
+        const supabaseClient = await getClient()
+        if (!supabaseClient || !userId) return
+        const { data } = await supabaseClient.from('notifications').select('type').eq('user_id', userId).eq('is_read', false)
+        if (data) {
+            let host = 0, participant = 0
+            data.forEach(n => {
+                if (n.type === 'entry') host++
+                else participant++
+            })
+            setUnreadHostCount(host)
+            setUnreadParticipantCount(participant)
+        }
+    }
 
     const handleKYCSubmit = async () => {
         if (!userId || !kycIDFile || !kycSelfieFile || !kycForm.fullName || !kycForm.address || !kycForm.phoneNumber) {
@@ -490,17 +509,23 @@ export default function ProfilePage() {
                     <div className="flex bg-muted/30 p-1 rounded-2xl border border-border/50">
                         <button
                             onClick={() => setActiveMainTab('participant')}
-                            className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 ${activeMainTab === 'participant' ? 'bg-white text-black shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
+                            className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 relative ${activeMainTab === 'participant' ? 'bg-white text-black shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             <User size={14} strokeWidth={3} />
                             Participant
+                            {unreadParticipantCount > 0 && (
+                                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                            )}
                         </button>
                         <button
                             onClick={() => setActiveMainTab('host')}
-                            className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 ${activeMainTab === 'host' ? 'bg-primary text-black shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
+                            className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 relative ${activeMainTab === 'host' ? 'bg-primary text-black shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             <LayoutDashboard size={14} strokeWidth={3} />
                             Host
+                            {unreadHostCount > 0 && (
+                                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+                            )}
                         </button>
                     </div>
                 </div>
@@ -533,12 +558,6 @@ export default function ProfilePage() {
                                 {archivedGroups.some(g => didWin(g) && !g.event.is_read && !readWinIds.has(g.event.id)) && (
                                     <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
                                 )}
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('activity')}
-                                className={`flex-1 py-2 text-[9px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'activity' ? 'bg-white/10 text-white shadow-sm ring-1 ring-white/10' : 'text-muted-foreground hover:text-foreground'}`}
-                            >
-                                <Bell size={12} /> Activity
                             </button>
                         </div>
                     </div>
@@ -735,7 +754,8 @@ export default function ProfilePage() {
                         )}
                     </div>
                 </div>
-            )}
+            )
+            }
 
             {/* KYC Modal */}
             {
