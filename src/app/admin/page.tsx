@@ -870,6 +870,23 @@ export default function AdminDashboard() {
         const goalMet = event.goal_tibs > 0 ? totalTibs >= event.goal_tibs : true
         const progress = event.goal_tibs > 0 ? Math.min((totalTibs / event.goal_tibs) * 100, 100) : 100
 
+        // +X New Participants Badge
+        const currentCount = event.entries?.[0]?.count || 0
+        const storageKey = `lastSeenCount_${event.id}`
+        const lastSeen = typeof window !== 'undefined' ? parseInt(localStorage.getItem(storageKey) || '0', 10) : 0
+        const newParticipants = Math.max(0, currentCount - lastSeen)
+        const [showNewBadge, setShowNewBadge] = useState(newParticipants > 0)
+
+        useEffect(() => {
+            // Save current count to localStorage on modal open
+            localStorage.setItem(storageKey, String(currentCount))
+            // Auto-fade the badge after 3 seconds
+            if (newParticipants > 0) {
+                const timer = setTimeout(() => setShowNewBadge(false), 3000)
+                return () => clearTimeout(timer)
+            }
+        }, [storageKey, currentCount, newParticipants])
+
         return (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
                 <div className="bg-card w-full max-w-lg rounded-3xl border border-white/10 overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
@@ -894,10 +911,15 @@ export default function AdminDashboard() {
                                 <div className="text-xl font-black text-primary">₱{totalPeso.toLocaleString()}</div>
                                 <p className="text-[10px] text-white/20">{totalTibs.toLocaleString()} TIBS</p>
                             </div>
-                            <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                            <div className="bg-white/5 p-4 rounded-2xl border border-white/5 relative">
                                 <p className="text-[10px] uppercase font-black text-white/30 mb-1">Participants</p>
-                                <div className="text-xl font-black">{event.entries?.[0]?.count || 0}</div>
+                                <div className="text-xl font-black">{currentCount}</div>
                                 <p className="text-[10px] text-white/20">Entries</p>
+                                {showNewBadge && newParticipants > 0 && (
+                                    <div className="absolute -top-2 -right-2 bg-green-500 text-black text-xs font-black px-2 py-0.5 rounded-full shadow-lg shadow-green-500/30 animate-in zoom-in-50 fade-in duration-300" style={{ animation: 'fadeInOut 3s ease-in-out forwards' }}>
+                                        +{newParticipants}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -1071,11 +1093,7 @@ export default function AdminDashboard() {
                                 }`}>
                                 {event.status}
                             </span>
-                            {unreadCount > 0 && (
-                                <span className="ml-2 px-2 py-0.5 rounded-full bg-red-500 text-white text-[9px] font-black uppercase tracking-widest animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.5)]">
-                                    Participants +{unreadCount}
-                                </span>
-                            )}
+
                         </div>
                         <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-white/20">
                             <span>X{entryCount} ENTRIES</span>
