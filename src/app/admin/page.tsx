@@ -1068,7 +1068,7 @@ export default function AdminDashboard() {
         const progress = event.goal_tibs > 0 ? Math.min((totalTibs / event.goal_tibs) * 100, 100) : 100
 
         return (
-            <div className="bg-card rounded-2xl border border-white/5 overflow-hidden transition-all duration-300">
+            <div className={`bg-card border-b border-white/5 transition-all duration-300 ${isExpanded ? 'bg-white/[0.02]' : 'hover:bg-white/[0.01]'}`}>
                 {/* Bar Header */}
                 <div
                     onClick={() => {
@@ -1077,7 +1077,7 @@ export default function AdminDashboard() {
                             onMarkRead(event.id)
                         }
                     }}
-                    className="flex items-center gap-4 p-4 cursor-pointer hover:bg-white/[0.02] transition-colors"
+                    className="flex items-center gap-4 p-4 cursor-pointer"
                 >
                     <div className="w-12 h-12 rounded-xl bg-white/5 overflow-hidden flex-shrink-0 border border-white/5 relative">
                         {event.media_urls?.[0] ? (
@@ -1262,7 +1262,7 @@ export default function AdminDashboard() {
                         <span className="text-[10px] font-black uppercase tracking-widest animate-pulse">Syncing Database...</span>
                     </div>
                 ) : filteredEvents.length > 0 ? (
-                    <div className="flex flex-col gap-3">
+                    <div className="flex flex-col">
                         {filteredEvents.map((event) => (
                             <AdminEventBar
                                 key={event.id}

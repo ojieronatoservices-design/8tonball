@@ -563,7 +563,7 @@ export default function ProfilePage() {
                     </div>
 
                     {/* EVENT MINI FEED */}
-                    <div className="flex flex-col gap-2 px-6 pb-24">
+                    <div className="flex flex-col pb-24">
                         {activeTab === 'live' ? (
                             liveGroups.length === 0 ? (
                                 <div className="py-20 text-center text-muted-foreground/20 font-black uppercase tracking-[0.2em] text-xs">
@@ -574,35 +574,35 @@ export default function ProfilePage() {
                                     const isExpanded = expandedId === group.event.id;
                                     return (
                                         <div key={group.event.id} className="w-full">
-                                            <div className={`flex flex-col bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 ${isExpanded ? 'ring-1 ring-primary/20 shadow-lg' : 'hover:bg-muted/30'}`}>
+                                            <div className={`flex flex-col bg-card border-b border-border transition-all duration-300 ${isExpanded ? 'bg-muted/30' : 'hover:bg-muted/10'}`}>
                                                 {/* Collapsed Bar */}
                                                 <button
                                                     onClick={() => setExpandedId(isExpanded ? null : group.event.id)}
                                                     className="flex items-center justify-between p-4 text-left group"
                                                 >
-                                                    <div className="flex items-center gap-3 min-w-0">
-                                                        <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-border">
+                                                    <div className="flex items-center gap-4 min-w-0">
+                                                        <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-border bg-muted/20">
                                                             <img src={group.event.media_urls?.[0]} alt="" className="w-full h-full object-cover" />
                                                         </div>
-                                                        <div className="flex flex-col min-w-0">
-                                                            <h4 className="text-sm font-black truncate uppercase tracking-tight">{group.event.title}</h4>
+                                                        <div className="flex flex-col min-w-0 gap-0.5">
+                                                            <h4 className="text-sm font-black truncate uppercase tracking-tight leading-none">{group.event.title}</h4>
                                                             <div className="flex items-center gap-2">
                                                                 <span className="text-[10px] font-bold text-muted-foreground uppercase">x{group.entries.length} Entries</span>
-                                                                <span className="w-1 h-1 rounded-full bg-primary/30" />
-                                                                <div className="flex items-center gap-1 text-[10px] font-black bg-primary text-black px-2 py-0.5 rounded-md uppercase animate-pulse">
+                                                                <span className="w-0.5 h-0.5 rounded-full bg-border" />
+                                                                <div className="flex items-center gap-1 text-[9px] font-black text-primary uppercase animate-pulse">
                                                                     <Clock size={10} /> Live
                                                                 </div>
                                                             </div>
                                                         </div>
                                                     </div>
                                                     <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-                                                        <ChevronDown size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                                                        <ChevronDown size={16} className="text-muted-foreground/50 group-hover:text-primary transition-colors" />
                                                     </div>
                                                 </button>
 
                                                 {/* Expanded Content */}
                                                 {isExpanded && (
-                                                    <div className="animate-in slide-in-from-top-4 fade-in duration-300 border-t border-border/50">
+                                                    <div className="animate-in slide-in-from-top-2 fade-in duration-300 border-t border-border/50 bg-black/20">
                                                         <EventCard
                                                             event={group.event}
                                                             entryCount={entryCounts[group.event.id] || 0}
