@@ -85,10 +85,22 @@ export default function PublicProfilePage() {
         <div className="flex flex-col gap-8 pb-24 -mx-6">
             {/* Profile Header */}
             <div className="relative pt-12 pb-8 px-6 overflow-hidden">
-                <div className="absolute inset-0 bg-primary/5 -skew-y-3 origin-top-left -mt-20 h-64" />
-                <div className="relative z-10 flex flex-col items-center text-center gap-4">
-                    <div className="w-24 h-24 rounded-[2rem] bg-muted border-4 border-background shadow-2xl flex items-center justify-center overflow-hidden">
-                        <User size={48} className="text-muted-foreground/50" />
+                {profile.cover_photo_url ? (
+                    <div className="absolute inset-0 z-0">
+                        <img src={profile.cover_photo_url} alt="" className="w-full h-full object-cover opacity-80" />
+                        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/60 to-background" />
+                    </div>
+                ) : (
+                    <div className="absolute inset-0 bg-primary/5 -skew-y-3 origin-top-left -mt-20 h-64 z-0" />
+                )}
+
+                <div className="relative z-10 flex flex-col items-center text-center gap-4 mt-8">
+                    <div className="w-24 h-24 rounded-[2rem] bg-muted border-4 border-background shadow-2xl flex items-center justify-center overflow-hidden shrink-0 relative">
+                        {profile.avatar_url ? (
+                            <img src={profile.avatar_url} alt={profile.display_name} className="w-full h-full object-cover" />
+                        ) : (
+                            <User size={48} className="text-muted-foreground/50" />
+                        )}
                     </div>
                     <div>
                         <h1 className="text-3xl font-black italic uppercase tracking-tighter mb-1">
