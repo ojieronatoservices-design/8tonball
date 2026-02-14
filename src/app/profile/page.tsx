@@ -553,20 +553,9 @@ export default function ProfilePage() {
                 {/* PROFILE HEADER (Editable) */}
                 <div className="relative group/header">
                     {/* Cover Photo */}
-                    <div className="h-48 w-full bg-muted/30 relative overflow-hidden group/cover">
-                        {profile?.cover_photo_url ? (
-                            <img src={profile.cover_photo_url} alt="Cover" className="w-full h-full object-cover" />
-                        ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-primary/5 via-background to-primary/5" />
-                        )}
-
-                        <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/cover:opacity-100 transition-opacity cursor-pointer z-10">
-                            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleProfileImageUpload(e, 'cover')} disabled={isUploadingImage} />
-                            <div className="bg-black/50 backdrop-blur-md px-4 py-2 rounded-full flex items-center gap-2 text-white border border-white/20 hover:scale-105 transition-transform">
-                                {isUploadingImage ? <Loader2 className="animate-spin" size={16} /> : <Camera size={16} />}
-                                <span className="text-xs font-bold uppercase tracking-widest">Change Cover</span>
-                            </div>
-                        </label>
+                    {/* Cover Photo / Header Background */}
+                    <div className="h-32 w-full bg-gradient-to-br from-primary/10 via-background to-primary/5 relative overflow-hidden">
+                        <div className="absolute inset-0 bg-grid-white/[0.02]" />
                     </div>
 
                     {/* Avatar & Info */}

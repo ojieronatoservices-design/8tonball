@@ -152,17 +152,16 @@ export const EventCard = React.memo(({
             )}>
                 {/* Host Identity Section */}
                 <div className="px-4 py-3 flex items-center justify-between bg-white/[0.02]">
-                    <Link
-                        href={`/profile/${event.host_user_id}`}
-                        className="flex items-center gap-2 group/host"
+                    <div
+                        className="flex items-center gap-2 group/host cursor-default"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="w-8 h-8 rounded-xl bg-muted border border-border flex items-center justify-center overflow-hidden shrink-0 group-hover/host:border-primary/50 transition-colors">
+                        <div className="w-8 h-8 rounded-xl bg-muted border border-border flex items-center justify-center overflow-hidden shrink-0">
                             <User size={16} className="text-muted-foreground/50" />
                         </div>
                         <div className="flex flex-col min-w-0">
                             <div className="flex items-center gap-1">
-                                <span className="text-[10px] font-black uppercase tracking-tight truncate group-hover/host:text-primary transition-colors">
+                                <span className="text-[10px] font-black uppercase tracking-tight truncate text-foreground">
                                     {event.host?.display_name || 'Anonymous Host'}
                                 </span>
                                 {event.host?.is_host_eligible && (
@@ -171,7 +170,7 @@ export const EventCard = React.memo(({
                             </div>
                             <span className="text-[8px] font-bold text-muted-foreground/40 uppercase tracking-widest">Post Author</span>
                         </div>
-                    </Link>
+                    </div>
                 </div>
 
                 {/* Image Section */}
