@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useState, useRef, useMemo } from 'react'
-import { Plus, Ticket, ShieldCheck, Clock, Trophy, Loader2, User, LogOut, Wallet, CheckSquare, X, Settings, Image as ImageIcon, XCircle, Mail, ChevronDown, Bell, Coins, Search, LayoutDashboard, Camera, Edit2, ImagePlus } from 'lucide-react'
+import { Plus, Ticket, ShieldCheck, Clock, Trophy, Loader2, User, LogOut, Wallet, CheckSquare, X, Settings, Image as ImageIcon, XCircle, Mail, ChevronDown, Bell, Coins, Search, LayoutDashboard } from 'lucide-react'
 import { useUser, useAuth, useClerk } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
 import { CountdownTimer } from '@/components/CountdownTimer'
@@ -258,51 +258,9 @@ export default function ProfilePage() {
         }
     }
 
-    const [isUploadingImage, setIsUploadingImage] = useState(false)
 
-    const handleProfileImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'cover') => {
-        const file = e.target.files?.[0]
-        if (!file || !userId) return
 
-        setIsUploadingImage(true)
-        const supabaseClient = await getClient()
-        if (!supabaseClient) return
 
-        try {
-            const fileExt = file.name.split('.').pop()
-            const fileName = `${userId}-${type}-${Date.now()}.${fileExt}`
-            const filePath = `profile-images/${fileName}`
-
-            const { error: uploadError } = await supabaseClient.storage
-                .from('media')
-                .upload(filePath, file)
-
-            if (uploadError) throw uploadError
-
-            const { data: { publicUrl } } = supabaseClient.storage
-                .from('media')
-                .getPublicUrl(filePath)
-
-            const updates = type === 'avatar' ? { avatar_url: publicUrl } : { cover_photo_url: publicUrl }
-
-            const { error: updateError } = await supabaseClient
-                .from('profiles')
-                .update(updates)
-                .eq('id', userId)
-
-            if (updateError) throw updateError
-
-            // Optimistic update
-            setProfile((prev: any) => ({ ...prev, ...updates }))
-            if (globalProfileCache) globalProfileCache = { ...globalProfileCache, ...updates }
-
-        } catch (error: any) {
-            console.error('Error uploading image:', error)
-            alert('Error uploading image. Please try again.')
-        } finally {
-            setIsUploadingImage(false)
-        }
-    }
 
     // Realtime subscriptions for profile updates
     const supabaseRef = useRef<any>(null)
@@ -525,8 +483,19 @@ export default function ProfilePage() {
     return (
         <div className="flex flex-col gap-6 -mx-6 min-h-[85vh]">
 
-            {/* KYC BANNER (Sticky at top) */}
+            {/* Sticky Header (Title + Settings + KYC + Tabs) */}
             <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border transition-all duration-300">
+                {/* Top Bar: Title + Settings */}
+                <div className="flex items-center justify-between px-6 py-3 border-b border-border/50">
+                    <h1 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                        <User size={16} /> My Profile
+                    </h1>
+                    <Link href="/profile/settings" className="p-2 -mr-2 hover:bg-muted rounded-full transition-colors text-muted-foreground hover:text-foreground">
+                        <Settings size={18} />
+                    </Link>
+                </div>
+
+                {/* KYC BANNER */}
                 {kycStatus !== 'verified' && (
                     <div className="w-full bg-primary/10 border-b border-primary/20 px-6 py-2 flex justify-between items-center animate-in slide-in-from-top fade-in duration-500">
                         <div className="flex items-center gap-2">
@@ -549,56 +518,6 @@ export default function ProfilePage() {
                         )}
                     </div>
                 )}
-
-                {/* PROFILE HEADER (Editable) */}
-                <div className="relative group/header">
-                    {/* Cover Photo */}
-                    {/* Cover Photo / Header Background */}
-                    <div className="h-32 w-full bg-gradient-to-br from-primary/10 via-background to-primary/5 relative overflow-hidden">
-                        <div className="absolute inset-0 bg-grid-white/[0.02]" />
-                    </div>
-
-                    {/* Avatar & Info */}
-                    <div className="px-6 -mt-10 relative z-20 flex justify-between items-end">
-                        <div className="flex flex-col gap-2">
-                            <div className="w-24 h-24 rounded-[2rem] bg-background p-1.5 shadow-xl relative group/avatar">
-                                <div className="w-full h-full rounded-[1.6rem] bg-muted overflow-hidden relative border border-border">
-                                    {profile?.avatar_url ? (
-                                        <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-muted/50">
-                                            <User size={32} className="text-muted-foreground/30" />
-                                        </div>
-                                    )}
-
-                                    <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity cursor-pointer">
-                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleProfileImageUpload(e, 'avatar')} disabled={isUploadingImage} />
-                                        <div className="bg-black/50 backdrop-blur-md p-2 rounded-full text-white border border-white/20 hover:scale-105 transition-transform">
-                                            {isUploadingImage ? <Loader2 className="animate-spin" size={14} /> : <Edit2 size={14} />}
-                                        </div>
-                                    </label>
-                                </div>
-                            </div>
-                            <div>
-                                <h1 className="text-2xl font-black italic uppercase tracking-tighter leading-none mb-1">{profile?.display_name || 'Anonymous User'}</h1>
-                                <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                                    <span>Joined {new Date(profile?.created_at).toLocaleDateString()}</span>
-                                    {profile?.is_host_eligible && (
-                                        <span className="flex items-center gap-1 text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                                            <ShieldCheck size={10} /> Host
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="mb-1 flex gap-2">
-                            <Link href="/profile/settings" className="p-2.5 bg-muted/50 hover:bg-muted rounded-xl border border-border transition-colors">
-                                <Settings size={18} className="text-muted-foreground" />
-                            </Link>
-                        </div>
-                    </div>
-                </div>
 
                 {/* MAIN TAB SWITCHER */}
                 <div className="px-6 py-4">
