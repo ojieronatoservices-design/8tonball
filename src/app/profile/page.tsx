@@ -485,16 +485,6 @@ export default function ProfilePage() {
 
             {/* Sticky Header (Title + Settings + KYC + Tabs) */}
             <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border transition-all duration-300">
-                {/* Top Bar: Title + Settings */}
-                <div className="flex items-center justify-between px-6 py-3 border-b border-border/50">
-                    <h1 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                        <User size={16} /> My Profile
-                    </h1>
-                    <Link href="/profile/settings" className="p-2 -mr-2 hover:bg-muted rounded-full transition-colors text-muted-foreground hover:text-foreground">
-                        <Settings size={18} />
-                    </Link>
-                </div>
-
                 {/* KYC BANNER */}
                 {kycStatus !== 'verified' && (
                     <div className="w-full bg-primary/10 border-b border-primary/20 px-6 py-2 flex justify-between items-center animate-in slide-in-from-top fade-in duration-500">
@@ -519,9 +509,9 @@ export default function ProfilePage() {
                     </div>
                 )}
 
-                {/* MAIN TAB SWITCHER */}
-                <div className="px-6 py-4">
-                    <div className="flex bg-muted/30 p-1 rounded-2xl border border-border/50">
+                {/* MAIN TAB SWITCHER + SETTINGS */}
+                <div className="px-6 py-4 flex items-center gap-2">
+                    <div className="flex-1 flex bg-muted/30 p-1 rounded-2xl border border-border/50">
                         <button
                             onClick={() => setActiveMainTab('participant')}
                             className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 relative ${activeMainTab === 'participant' ? 'bg-white text-black shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
@@ -543,6 +533,9 @@ export default function ProfilePage() {
                             )}
                         </button>
                     </div>
+                    <Link href="/profile/settings" className="p-3 bg-muted/30 hover:bg-muted/50 rounded-2xl border border-border/50 transition-colors shrink-0">
+                        <Settings size={18} className="text-muted-foreground" />
+                    </Link>
                 </div>
             </div>
 
