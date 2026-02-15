@@ -98,8 +98,8 @@ const CreateEventModal = memo(({
         try {
             const mediaUrls: string[] = []
             if (eventImages.length > 0) {
-                console.log(`[Admin] Uploading ${eventImages.length} images...`)
-                for (const image of eventImages) {
+                console.log(`[Admin] Uploading ${eventImages.length} images in parallel...`)
+                const uploadPromises = eventImages.map(async (image) => {
                     const fileExt = image.name.split('.').pop()
                     const fileName = `${userId}-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
                     const filePath = `raffles/${fileName}`
@@ -109,14 +109,22 @@ const CreateEventModal = memo(({
                         throw uploadError
                     }
                     const { data: { publicUrl } } = supabaseClient.storage.from('media').getPublicUrl(filePath)
-                    mediaUrls.push(publicUrl)
-                }
+                    return publicUrl
+                })
+                const results = await Promise.all(uploadPromises)
+                mediaUrls.push(...results)
             }
 
             const date = new Date()
             const monthLetter = date.toLocaleString('default', { month: 'short' })[0].toUpperCase()
             const yearShort = date.getFullYear().toString().slice(-2)
-            const displayId = `#${monthLetter}${yearShort}.${existingEventsCount + 1}`
+
+            // Get the total count of events to generate a unique display ID
+            const { count: totalCount } = await supabaseClient
+                .from('raffles')
+                .select('*', { count: 'exact', head: true })
+
+            const displayId = `#${monthLetter}${yearShort}.${(totalCount || 0) + 1}`
 
             const entryCost = parseInt(cost)
             const goalTibs = parseInt(goal) || 0
@@ -598,6 +606,7 @@ export default function AdminDashboard() {
                 .from('raffles')
                 .select(`*, entries:entries!entries_raffle_id_fkey(count), winner:profiles!winner_user_id(display_name, email), winning_entry:entries!raffles_winning_entry_id_fkey(ticket_number)`)
                 .order('created_at', { ascending: false })
+                .limit(100)
             if (error) throw error
             setExistingEvents(data || [])
         } catch (error) { console.error('Error fetching events:', error) }
@@ -612,10 +621,10 @@ export default function AdminDashboard() {
             // Optimization: Use head: true for exact counts without fetching data
             // And only select the column we need for revenue calculation
             const entriesQuery = supabaseClient.from('entries').select('*', { count: 'exact', head: true })
-            const revenueQuery = supabaseClient.from('transactions').select('requested_tibs').eq('status', 'approved')
             const pendingPaymentsQuery = supabaseClient.from('transactions').select('*', { count: 'exact', head: true }).eq('status', 'pending')
             const pendingPayoutsQuery = supabaseClient.from('payout_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending')
-            const rafflesQuery = supabaseClient.from('raffles').select('entry_cost_tibs, id, entries:entries!entries_raffle_id_fkey(count)')
+            const rafflesQuery = supabaseClient.from('raffles').select('entry_cost_tibs, id, entries:entries!entries_raffle_id_fkey(count)').limit(500)
+            const revenueQuery = supabaseClient.from('transactions').select('requested_tibs').eq('status', 'approved').limit(1000)
 
             if (!isAdmin) {
                 rafflesQuery.eq('host_user_id', userId)
@@ -696,9 +705,9 @@ export default function AdminDashboard() {
         if (!supabaseClient) return
         setIsLoadingPayments(true)
         try {
-            let query = supabaseClient.from('transactions').select('*, profiles(email, display_name)').eq('status', 'pending')
+            let query = supabaseClient.from('transactions').select('*, profiles:user_id(display_name, email)').eq('status', 'pending')
             if (!isAdmin) query = query.eq('user_id', userId)
-            const { data, error } = await query.order('created_at', { ascending: false })
+            const { data, error } = await query.order('created_at', { ascending: false }).limit(50)
             if (error) throw error
             setPayments(data || [])
         } catch (error) { console.error('Error fetching payments:', error) }
@@ -710,9 +719,9 @@ export default function AdminDashboard() {
         if (!supabaseClient) return
         setIsLoadingPayouts(true)
         try {
-            let query = supabaseClient.from('payout_requests').select('*, profiles(email, display_name)').eq('status', 'pending')
+            let query = supabaseClient.from('payout_requests').select('*, profiles:user_id(display_name, email)').eq('status', 'pending')
             if (!isAdmin) query = query.eq('user_id', userId)
-            const { data, error } = await query.order('created_at', { ascending: false })
+            const { data, error } = await query.order('created_at', { ascending: false }).limit(50)
             if (error) throw error
             setPayouts(data || [])
         } catch (error) { console.error('Error fetching payouts:', error) }
@@ -726,9 +735,10 @@ export default function AdminDashboard() {
         try {
             const { data, error } = await supabaseClient
                 .from('kyc_requests')
-                .select('*, profiles(email, display_name)')
+                .select('*, profiles:user_id(display_name, email)')
                 .eq('status', 'pending')
                 .order('created_at', { ascending: false })
+                .limit(50)
             if (error) throw error
             setKycRequests(data || [])
         } catch (error) { console.error('Error fetching KYC:', error) }
