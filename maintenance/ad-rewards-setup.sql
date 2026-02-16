@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS ad_rewards (
 
 -- Enable RLS for ad_rewards
 ALTER TABLE ad_rewards ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view own ad rewards" ON ad_rewards;
 CREATE POLICY "Users can view own ad rewards" ON ad_rewards FOR SELECT USING (auth_uid_text() = user_id);
 
 -- 3. Secure Reward Function (Calculates 80% on server)
