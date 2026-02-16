@@ -656,47 +656,69 @@ export function Shell({ children }: ShellProps) {
                 "fixed bottom-0 w-full max-w-3xl glass z-50 px-4 py-2 transition-transform duration-300",
                 !isVisible && "translate-y-full"
             )}>
-                <div className="grid grid-cols-2 w-full">
-                    {navItems.map((item) => {
-                        const Icon = item.icon
-                        const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
-                        const isDisabled = isLoaded && !user && item.href !== '/'
+                <div className="flex w-full items-center">
+                    {/* Left Wing - Discover */}
+                    <div className="flex-1 flex justify-center">
+                        {(() => {
+                            const item = navItems[0]
+                            const Icon = item.icon
+                            const isActive = pathname === '/'
+                            return (
+                                <Link
+                                    href="/"
+                                    className={cn(
+                                        "flex flex-col items-center gap-0.5 transition-all duration-200 relative",
+                                        isActive ? "neon-text scale-110" : "text-muted-foreground hover:text-foreground"
+                                    )}
+                                >
+                                    <Icon size={16} strokeWidth={isActive ? 3 : 2} />
+                                    <span className="text-[8px] font-bold uppercase tracking-widest">{item.label}</span>
+                                </Link>
+                            )
+                        })()}
+                    </div>
 
-                        return (
-                            <Link
-                                key={item.href}
-                                href={isDisabled ? '/' : item.href}
-                                className={cn(
-                                    "flex flex-col items-center gap-0.5 transition-all duration-200 relative",
-                                    isActive ? "neon-text scale-110" : "text-muted-foreground hover:text-foreground",
-                                    isDisabled && "opacity-20 cursor-not-allowed"
-                                )}
-                                onClick={(e) => {
-                                    if (isDisabled) {
-                                        e.preventDefault()
-                                    }
-                                }}
-                            >
-                                <div className="relative">
-                                    {item.label === 'You' && user?.imageUrl ? (
-                                        <div className={cn(
-                                            "w-5 h-5 rounded-full overflow-hidden border-2 transition-all",
-                                            isActive ? "border-primary shadow-[0_0_8px_rgba(57,255,20,0.5)]" : "border-transparent"
-                                        )}>
-                                            <img src={user.imageUrl} alt="You" className="w-full h-full object-cover" />
-                                        </div>
-                                    ) : (
-                                        <Icon size={16} strokeWidth={isActive ? 3 : 2} />
+                    {/* Center Spacer for Create Event Button (approx 80px) */}
+                    <div className="w-20 shrink-0" />
+
+                    {/* Right Wing - You */}
+                    <div className="flex-1 flex justify-center">
+                        {(() => {
+                            const item = navItems[1]
+                            const isActive = pathname.startsWith(item.href)
+                            const isDisabled = isLoaded && !user
+                            return (
+                                <Link
+                                    href={isDisabled ? '/' : item.href}
+                                    className={cn(
+                                        "flex flex-col items-center gap-0.5 transition-all duration-200 relative",
+                                        isActive ? "neon-text scale-110" : "text-muted-foreground hover:text-foreground",
+                                        isDisabled && "opacity-20 cursor-not-allowed"
                                     )}
-                                    {/* Red dot for Activity tag when there are notifications */}
-                                    {item.label === 'Activity' && unreadCount > 0 && (
-                                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-background animate-pulse" />
-                                    )}
-                                </div>
-                                <span className="text-[8px] font-bold uppercase tracking-widest">{item.label}</span>
-                            </Link>
-                        )
-                    })}
+                                    onClick={(e) => {
+                                        if (isDisabled) e.preventDefault()
+                                    }}
+                                >
+                                    <div className="relative">
+                                        {user?.imageUrl ? (
+                                            <div className={cn(
+                                                "w-5 h-5 rounded-full overflow-hidden border-2 transition-all",
+                                                isActive ? "border-primary shadow-[0_0_8px_rgba(57,255,20,0.5)]" : "border-transparent"
+                                            )}>
+                                                <img src={user.imageUrl} alt="You" className="w-full h-full object-cover" />
+                                            </div>
+                                        ) : (
+                                            <item.icon size={16} strokeWidth={isActive ? 3 : 2} />
+                                        )}
+                                        {unreadCount > 0 && (
+                                            <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-background animate-pulse" />
+                                        )}
+                                    </div>
+                                    <span className="text-[8px] font-bold uppercase tracking-widest">{item.label}</span>
+                                </Link>
+                            )
+                        })()}
+                    </div>
                 </div>
             </nav>
 
