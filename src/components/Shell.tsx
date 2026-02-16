@@ -87,8 +87,34 @@ export function Shell({ children }: ShellProps) {
     const [receiptFile, setReceiptFile] = useState<File | null>(null)
     const [receiptPreview, setReceiptPreview] = useState<string | null>(null)
 
-    // Create Event Modal state
     const [showCreateEventModal, setShowCreateEventModal] = useState(false)
+
+    const triggerNotificationToast = useCallback((type: string, message: string) => {
+        let emoji = '🔔'
+        let toastType: 'success' | 'info' | 'error' = 'info'
+
+        if (type === 'win') {
+            emoji = '🎉'
+            toastType = 'success'
+        } else if (type === 'payment' || type === 'payout') {
+            emoji = '💰'
+            toastType = 'success'
+        } else if (type === 'entry') {
+            emoji = '🎟️'
+            toastType = 'success'
+        } else if (type === 'kyc') {
+            emoji = '🛡️'
+            toastType = 'info'
+        } else if (type === 'vote_up') {
+            emoji = '👍'
+            toastType = 'success'
+        } else if (type === 'comment' || type === 'reply') {
+            emoji = '💬'
+            toastType = 'info'
+        }
+
+        showToast(`${emoji} ${message}`, toastType)
+    }, [showToast])
 
     useEffect(() => {
         let ticking = false
@@ -450,25 +476,22 @@ export function Shell({ children }: ShellProps) {
 
                         if (payload.eventType === 'INSERT' && !payload.new.is_read) {
                             setUnreadCount(prev => prev + 1)
-
                             const type = payload.new.type
                             const msg = payload.new.message
-
-                            if (type === 'win') {
-                                showToast(`🎉 WINNER ALERT: ${msg}`, 'success')
-                            } else if (type === 'payment') {
-                                showToast(`💰 ${msg}`, 'success')
-                            } else {
-                                showToast(`🔔 ${msg}`, 'info')
-                            }
+                            triggerNotificationToast(type, msg)
                         } else if (payload.eventType === 'UPDATE') {
-                            // If it was unread and now it's read
+                            // 1. If it was unread and now it's read
                             if (payload.old.is_read === false && payload.new.is_read === true) {
                                 setUnreadCount(prev => Math.max(0, prev - 1))
                             }
-                            // If it was read and now it's unread (rare but possible)
+                            // 2. If it was read and now it's unread (rare but possible)
                             else if (payload.old.is_read === true && payload.new.is_read === false) {
                                 setUnreadCount(prev => prev + 1)
+                                triggerNotificationToast(payload.new.type, payload.new.message)
+                            }
+                            // 3. Collective Update: If still unread but message changed (e.g., "James + 1 other...")
+                            else if (!payload.new.is_read && payload.old.message !== payload.new.message) {
+                                triggerNotificationToast(payload.new.type, payload.new.message)
                             }
                         } else if (payload.eventType === 'DELETE') {
                             if (payload.old.is_read === false) {
