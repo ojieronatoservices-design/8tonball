@@ -1323,6 +1323,21 @@ export default function AdminDashboard() {
         }
     }
 
+    const handleMarkNotificationsReadByType = async (types: string[]) => {
+        const supabaseClient = await getClient()
+        if (!supabaseClient || !userId) return
+        try {
+            await supabaseClient
+                .from('notifications')
+                .update({ is_read: true })
+                .eq('user_id', userId)
+                .in('type', types)
+                .eq('is_read', false)
+        } catch (err) {
+            console.error('Error clearing notifications by type:', err)
+        }
+    }
+
     if (isCheckingPermissions) return (
         <div className="min-h-screen flex items-center justify-center bg-background">
             <div className="flex flex-col items-center gap-4">
@@ -1403,7 +1418,12 @@ export default function AdminDashboard() {
                                 return (
                                     <button
                                         key={tab}
-                                        onClick={() => setActiveTab(tab)}
+                                        onClick={() => {
+                                            setActiveTab(tab)
+                                            // Auto-clear related notifications
+                                            if (tab === 'payments') handleMarkNotificationsReadByType(['payment'])
+                                            if (tab === 'kyc') handleMarkNotificationsReadByType(['kyc'])
+                                        }}
                                         className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === tab ? 'bg-white/10 text-white' : 'text-white/20 hover:text-white/40 hover:bg-white/5'}`}
                                     >
                                         {label}

@@ -52,7 +52,7 @@ export default function ProfilePage() {
     const [activeMainTab, setActiveMainTab] = useState<'participant' | 'host'>('participant')
 
     // Participant Sub-tabs
-    const [activeTab, setActiveTab] = useState<'live' | 'archives'>('live')
+    const [activeTab, setActiveTab] = useState<'live' | 'archives' | 'activity'>('live')
 
     const [notifications, setNotifications] = useState<any[]>([])
     const [isLoadingNotifs, setIsLoadingNotifs] = useState(false)
@@ -183,7 +183,39 @@ export default function ProfilePage() {
             })
             setUnreadHostCount(host)
             setUnreadParticipantCount(participant)
+        } else {
+            setUnreadHostCount(0)
+            setUnreadParticipantCount(0)
         }
+    }
+
+    const fetchNotifications = async () => {
+        setIsLoadingNotifs(true)
+        const supabaseClient = await getClient()
+        if (!supabaseClient || !userId) return
+        const { data } = await supabaseClient
+            .from('notifications')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(50)
+        if (data) setNotifications(data)
+        setIsLoadingNotifs(false)
+    }
+
+    const markAllNotificationsRead = async () => {
+        const supabaseClient = await getClient()
+        if (!supabaseClient || !userId) return
+        await supabaseClient
+            .from('notifications')
+            .update({ is_read: true })
+            .eq('user_id', userId)
+            .eq('is_read', false)
+
+        setUnreadParticipantCount(0)
+        setUnreadHostCount(0)
+        // Update local state for immediate feedback
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
     }
 
     const handleKYCSubmit = async () => {
@@ -372,13 +404,26 @@ export default function ProfilePage() {
         }
     }, [])
 
-    const markWinAsRead = (id: string) => {
+    const markWinAsRead = async (id: string) => {
+        // Local storage update (legacy/backup)
         if (!readWinIds.has(id)) {
             const newSet = new Set(readWinIds)
             newSet.add(id)
             setReadWinIds(newSet)
             localStorage.setItem('read_wins', JSON.stringify(Array.from(newSet)))
         }
+
+        // Database update (real source of truth)
+        const supabaseClient = await getClient()
+        if (!supabaseClient || !userId) return
+        await supabaseClient
+            .from('notifications')
+            .update({ is_read: true })
+            .eq('user_id', userId)
+            .eq('raffle_id', id)
+            .eq('is_read', false)
+
+        fetchUnreadCounts()
     }
 
     const handleEnterEvent = async (eventId: string, cost: number): Promise<boolean> => {
@@ -567,6 +612,19 @@ export default function ProfilePage() {
                                     <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
                                 )}
                             </button>
+                            <button
+                                onClick={() => {
+                                    setActiveTab('activity')
+                                    fetchNotifications()
+                                    markAllNotificationsRead()
+                                }}
+                                className={`flex-1 py-2 text-[9px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 relative ${activeTab === 'activity' ? 'bg-white/10 text-white shadow-sm ring-1 ring-white/10' : 'text-muted-foreground hover:text-foreground'}`}
+                            >
+                                <Bell size={12} /> Activity
+                                {unreadParticipantCount > 0 && (
+                                    <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                                )}
+                            </button>
                         </div>
                     </div>
 
@@ -735,22 +793,41 @@ export default function ProfilePage() {
                                 )
                                 }
                             </div>
-                        ) : (
-                            <div className="px-6 w-full max-w-3xl mx-auto flex flex-col gap-4">
+                        ) : activeTab === 'activity' ? (
+                            <div className="px-6 w-full max-w-3xl mx-auto flex flex-col gap-3">
+                                <div className="flex justify-between items-center mb-2 px-2">
+                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Recent Activity</span>
+                                    <button
+                                        onClick={markAllNotificationsRead}
+                                        className="text-[9px] font-black uppercase tracking-widest text-primary hover:text-primary/80 transition-colors"
+                                    >
+                                        Mark all as read
+                                    </button>
+                                </div>
                                 {isLoadingNotifs ? (
                                     <div className="py-20 flex justify-center">
                                         <Loader2 className="animate-spin text-primary" />
                                     </div>
                                 ) : notifications.length > 0 ? (
                                     notifications.map((n) => (
-                                        <div key={n.id} className="p-4 bg-muted/20 border border-border rounded-2xl flex gap-4 items-start">
-                                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                        <div key={n.id} className={cn(
+                                            "p-5 border rounded-2xl flex gap-4 items-start transition-all",
+                                            n.is_read ? "bg-muted/5 border-border/30 opacity-60" : "bg-primary/5 border-primary/20 shadow-[0_0_15px_rgba(57,255,20,0.05)]"
+                                        )}>
+                                            <div className={cn(
+                                                "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
+                                                n.type === 'win' ? "bg-primary/20" : "bg-muted"
+                                            )}>
                                                 {n.type === 'win' ? <Trophy size={18} className="text-primary" /> : <Bell size={18} className="text-muted-foreground" />}
                                             </div>
                                             <div className="flex-1">
-                                                <p className="text-sm font-medium">{n.message}</p>
-                                                <p className="text-[10px] text-muted-foreground mt-1">{new Date(n.created_at).toLocaleDateString()}</p>
+                                                <p className={cn(
+                                                    "text-sm font-bold leading-tight",
+                                                    !n.is_read ? "text-foreground" : "text-muted-foreground"
+                                                )}>{n.message}</p>
+                                                <p className="text-[10px] text-muted-foreground mt-1 uppercase font-black tracking-widest">{new Date(n.created_at).toLocaleDateString()}</p>
                                             </div>
+                                            {!n.is_read && <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />}
                                         </div>
                                     ))
                                 ) : (
@@ -759,114 +836,115 @@ export default function ProfilePage() {
                                     </div>
                                 )}
                             </div>
-                        )}
-                    </div>
+                        ) : (
+                            <div className="px-6 w-full max-w-3xl mx-auto flex flex-col gap-4">
+                            </div>
                 </div>
-            )
+                    )
             }
 
-            {/* KYC Modal */}
-            {
-                showKYCModal && (
-                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/95 backdrop-blur-md animate-in fade-in duration-300 overflow-auto">
-                        <div className="bg-card w-full max-w-lg rounded-[2.5rem] border border-border p-10 flex flex-col gap-6 shadow-2xl animate-in zoom-in-95 duration-300">
-                            <div className="flex justify-between items-center">
-                                <h3 className="text-2xl font-black tracking-tight text-foreground uppercase italic">Account Verification</h3>
-                                <button onClick={() => setShowKYCModal(false)} className="w-10 h-10 bg-muted flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-all">
-                                    <X size={20} />
-                                </button>
-                            </div>
-
-                            <div className="flex flex-col gap-4">
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Full Legal Name</label>
-                                    <input
-                                        type="text"
-                                        value={kycForm.fullName}
-                                        onChange={(e) => setKycForm(prev => ({ ...prev, fullName: e.target.value }))}
-                                        placeholder="as shown on ID"
-                                        className="w-full h-12 bg-muted/50 border border-border rounded-xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Home Address</label>
-                                    <input
-                                        type="text"
-                                        value={kycForm.address}
-                                        onChange={(e) => setKycForm(prev => ({ ...prev, address: e.target.value }))}
-                                        placeholder="Current Residence"
-                                        className="w-full h-12 bg-muted/50 border border-border rounded-xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Mobile Number</label>
-                                    <input
-                                        type="tel"
-                                        value={kycForm.phoneNumber}
-                                        onChange={(e) => setKycForm(prev => ({ ...prev, phoneNumber: e.target.value }))}
-                                        placeholder="+63 9XX XXX XXXX"
-                                        className="w-full h-12 bg-muted/50 border border-border rounded-xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
-                                    />
-                                    {!user?.primaryPhoneNumber && (
-                                        <p className="text-[9px] text-primary/70 font-bold px-2 italic">Note: Make sure this matches the number verified in your account settings.</p>
-                                    )}
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4 mt-2">
-                                    {/* ID Upload */}
-                                    <div className="flex flex-col gap-2">
-                                        <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest text-center">ID Photo</label>
-                                        <button
-                                            onClick={() => document.getElementById('id-upload')?.click()}
-                                            className={`aspect-video w-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 overflow-hidden bg-muted/30 transition-all ${kycIDPreview ? 'border-primary/50' : 'border-border hover:border-primary/30'}`}
-                                        >
-                                            {kycIDPreview ? (
-                                                <img src={kycIDPreview} alt="ID" className="w-full h-full object-cover" />
-                                            ) : (
-                                                <>
-                                                    <ImageIcon size={24} className="text-muted-foreground/30" />
-                                                    <span className="text-[8px] font-black uppercase text-muted-foreground/50">Upload ID</span>
-                                                </>
-                                            )}
+                    {/* KYC Modal */}
+                    {
+                        showKYCModal && (
+                            <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/95 backdrop-blur-md animate-in fade-in duration-300 overflow-auto">
+                                <div className="bg-card w-full max-w-lg rounded-[2.5rem] border border-border p-10 flex flex-col gap-6 shadow-2xl animate-in zoom-in-95 duration-300">
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="text-2xl font-black tracking-tight text-foreground uppercase italic">Account Verification</h3>
+                                        <button onClick={() => setShowKYCModal(false)} className="w-10 h-10 bg-muted flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-all">
+                                            <X size={20} />
                                         </button>
-                                        <input type="file" id="id-upload" hidden accept="image/*" onChange={handleIDChange} />
                                     </div>
 
-                                    {/* Selfie Upload */}
-                                    <div className="flex flex-col gap-2">
-                                        <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest text-center">Selfie Photo</label>
-                                        <button
-                                            onClick={() => document.getElementById('selfie-upload')?.click()}
-                                            className={`aspect-video w-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 overflow-hidden bg-muted/30 transition-all ${kycSelfiePreview ? 'border-primary/50' : 'border-border hover:border-primary/30'}`}
-                                        >
-                                            {kycSelfiePreview ? (
-                                                <img src={kycSelfiePreview} alt="Selfie" className="w-full h-full object-cover" />
-                                            ) : (
-                                                <>
-                                                    <User size={24} className="text-muted-foreground/30" />
-                                                    <span className="text-[8px] font-black uppercase text-muted-foreground/50">Upload Selfie</span>
-                                                </>
+                                    <div className="flex flex-col gap-4">
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Full Legal Name</label>
+                                            <input
+                                                type="text"
+                                                value={kycForm.fullName}
+                                                onChange={(e) => setKycForm(prev => ({ ...prev, fullName: e.target.value }))}
+                                                placeholder="as shown on ID"
+                                                className="w-full h-12 bg-muted/50 border border-border rounded-xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Home Address</label>
+                                            <input
+                                                type="text"
+                                                value={kycForm.address}
+                                                onChange={(e) => setKycForm(prev => ({ ...prev, address: e.target.value }))}
+                                                placeholder="Current Residence"
+                                                className="w-full h-12 bg-muted/50 border border-border rounded-xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Mobile Number</label>
+                                            <input
+                                                type="tel"
+                                                value={kycForm.phoneNumber}
+                                                onChange={(e) => setKycForm(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                                                placeholder="+63 9XX XXX XXXX"
+                                                className="w-full h-12 bg-muted/50 border border-border rounded-xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
+                                            />
+                                            {!user?.primaryPhoneNumber && (
+                                                <p className="text-[9px] text-primary/70 font-bold px-2 italic">Note: Make sure this matches the number verified in your account settings.</p>
                                             )}
-                                        </button>
-                                        <input type="file" id="selfie-upload" hidden accept="image/*" onChange={handleSelfieChange} />
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4 mt-2">
+                                            {/* ID Upload */}
+                                            <div className="flex flex-col gap-2">
+                                                <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest text-center">ID Photo</label>
+                                                <button
+                                                    onClick={() => document.getElementById('id-upload')?.click()}
+                                                    className={`aspect-video w-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 overflow-hidden bg-muted/30 transition-all ${kycIDPreview ? 'border-primary/50' : 'border-border hover:border-primary/30'}`}
+                                                >
+                                                    {kycIDPreview ? (
+                                                        <img src={kycIDPreview} alt="ID" className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <>
+                                                            <ImageIcon size={24} className="text-muted-foreground/30" />
+                                                            <span className="text-[8px] font-black uppercase text-muted-foreground/50">Upload ID</span>
+                                                        </>
+                                                    )}
+                                                </button>
+                                                <input type="file" id="id-upload" hidden accept="image/*" onChange={handleIDChange} />
+                                            </div>
+
+                                            {/* Selfie Upload */}
+                                            <div className="flex flex-col gap-2">
+                                                <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest text-center">Selfie Photo</label>
+                                                <button
+                                                    onClick={() => document.getElementById('selfie-upload')?.click()}
+                                                    className={`aspect-video w-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 overflow-hidden bg-muted/30 transition-all ${kycSelfiePreview ? 'border-primary/50' : 'border-border hover:border-primary/30'}`}
+                                                >
+                                                    {kycSelfiePreview ? (
+                                                        <img src={kycSelfiePreview} alt="Selfie" className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <>
+                                                            <User size={24} className="text-muted-foreground/30" />
+                                                            <span className="text-[8px] font-black uppercase text-muted-foreground/50">Upload Selfie</span>
+                                                        </>
+                                                    )}
+                                                </button>
+                                                <input type="file" id="selfie-upload" hidden accept="image/*" onChange={handleSelfieChange} />
+                                            </div>
+                                        </div>
                                     </div>
+
+                                    <button
+                                        onClick={handleKYCSubmit}
+                                        disabled={isSubmittingKYC || !kycIDFile || !kycSelfieFile || !kycForm.fullName}
+                                        className="w-full h-16 bg-primary text-black font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 neon-border text-sm mt-4"
+                                    >
+                                        {isSubmittingKYC ? 'Uploading Photos...' : 'Submit Verification'}
+                                    </button>
+                                    <p className="text-[9px] text-center text-muted-foreground/40 font-medium px-4 leading-normal">
+                                        By submitting, you agree to our host terms. Verification typically takes 2-6 hours. Your data is encrypted and stored securely.
+                                    </p>
                                 </div>
                             </div>
-
-                            <button
-                                onClick={handleKYCSubmit}
-                                disabled={isSubmittingKYC || !kycIDFile || !kycSelfieFile || !kycForm.fullName}
-                                className="w-full h-16 bg-primary text-black font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 neon-border text-sm mt-4"
-                            >
-                                {isSubmittingKYC ? 'Uploading Photos...' : 'Submit Verification'}
-                            </button>
-                            <p className="text-[9px] text-center text-muted-foreground/40 font-medium px-4 leading-normal">
-                                By submitting, you agree to our host terms. Verification typically takes 2-6 hours. Your data is encrypted and stored securely.
-                            </p>
-                        </div>
-                    </div>
-                )
-            }
-        </div >
+                </div>
+            )}
+        </div>
     )
 }
