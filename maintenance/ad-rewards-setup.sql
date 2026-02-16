@@ -20,7 +20,7 @@ ALTER TABLE ad_rewards ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view own ad rewards" ON ad_rewards FOR SELECT USING (auth_uid_text() = user_id);
 
 -- 3. Secure Reward Function (Calculates 80% on server)
-CREATE OR REPLACE FUNCTION reward_watch_ad(p_ad_value_php NUMERIC)
+CREATE OR REPLACE FUNCTION reward_watch_ad(p_ad_value_php NUMERIC, p_user_id TEXT DEFAULT NULL)
 RETURNS JSONB AS $$
 DECLARE
     v_user_id TEXT;
@@ -28,7 +28,9 @@ DECLARE
     v_tibs_per_php CONSTANT NUMERIC := 8.0;
     v_rev_share CONSTANT NUMERIC := 0.8; -- 80% share
 BEGIN
-    v_user_id := auth_uid_text();
+    -- Use provided user_id if called from service role/API, otherwise use auth_uid_text()
+    v_user_id := COALESCE(p_user_id, auth_uid_text());
+    
     IF v_user_id IS NULL THEN
         RETURN jsonb_build_object('success', false, 'message', 'Unauthorized');
     END IF;

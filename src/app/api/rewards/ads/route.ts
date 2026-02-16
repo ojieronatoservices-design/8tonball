@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs'
+import { auth } from '@clerk/nextjs/server'
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -9,7 +9,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 export async function POST(req: NextRequest) {
     try {
-        const { userId } = auth()
+        const { userId } = await auth()
         if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
@@ -33,12 +33,8 @@ export async function POST(req: NextRequest) {
         // But for rewards, service role is safer to ensure the user can't skip the balance update.
 
         const { data, error } = await supabase.rpc('reward_watch_ad', {
-            p_ad_value_php: adValuePhp
-        }, {
-            // Mocking the auth context so auth_uid_text() works inside the RPC
-            headers: {
-                'Authorization': `Bearer ${req.headers.get('Authorization')}`
-            }
+            p_ad_value_php: adValuePhp,
+            p_user_id: userId
         })
 
         // If headers trick doesn't work well in Route Handlers, 
