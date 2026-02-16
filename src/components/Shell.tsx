@@ -88,6 +88,7 @@ export function Shell({ children }: ShellProps) {
     const [receiptPreview, setReceiptPreview] = useState<string | null>(null)
 
     const [showCreateEventModal, setShowCreateEventModal] = useState(false)
+    const [showAdModal, setShowAdModal] = useState(false)
 
     const triggerNotificationToast = useCallback((type: string, message: string) => {
         let emoji = '🔔'
@@ -581,6 +582,14 @@ export function Shell({ children }: ShellProps) {
                                                     >
                                                         <Plus size={12} className="text-primary" />
                                                         Top Up
+                                                    </button>
+                                                    <div className="h-px bg-border" />
+                                                    <button
+                                                        onClick={() => { setShowBurgerMenu(false); setShowAdModal(true) }}
+                                                        className="w-full flex items-center gap-2.5 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-foreground hover:bg-muted/60 transition-colors"
+                                                    >
+                                                        <TrophyIcon size={12} className="text-primary" />
+                                                        Rewards
                                                     </button>
                                                     <div className="h-px bg-border" />
                                                     <button
@@ -1086,6 +1095,122 @@ export function Shell({ children }: ShellProps) {
                     showToast={showToast}
                 />
             )}
+
+            {showAdModal && (
+                <AdRewardedModal
+                    onClose={() => setShowAdModal(false)}
+                    onComplete={async (rewardAmount) => {
+                        // Optimistically update if needed or just wait for subscription
+                        // But since it's a reward, it's nice to show it immediately
+                    }}
+                    showToast={showToast}
+                />
+            )}
+        </div>
+    )
+}
+
+function AdRewardedModal({ onClose, onComplete, showToast }: { onClose: () => void, onComplete: (amount: number) => void, showToast: any }) {
+    const [timeLeft, setTimeLeft] = useState(10)
+    const [isCounting, setIsCounting] = useState(true)
+    const [isGranting, setIsGranting] = useState(false)
+
+    useEffect(() => {
+        if (timeLeft > 0 && isCounting) {
+            const timer = setTimeout(() => setTimeLeft(prev => prev - 1), 1000)
+            return () => clearTimeout(timer)
+        } else if (timeLeft === 0 && isCounting) {
+            setIsCounting(false)
+            handleGrantReward()
+        }
+    }, [timeLeft, isCounting])
+
+    const handleGrantReward = async () => {
+        setIsGranting(true)
+        try {
+            // Mock Ad Value: 0.25 PHP (randomized slightly)
+            const adValue = 0.25 + (Math.random() * 0.1)
+
+            const res = await fetch('/api/rewards/ads', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ adValuePhp: adValue })
+            })
+
+            const data = await res.json()
+            if (data.success) {
+                showToast(`💎 Success! You earned ${data.rewardTibs} Tibs!`, 'success')
+                onComplete(data.rewardTibs)
+                onClose()
+            } else {
+                throw new Error(data.error || 'Failed to reward')
+            }
+        } catch (err: any) {
+            showToast(err.message || 'Error claiming reward', 'error')
+            onClose()
+        } finally {
+            setIsGranting(false)
+        }
+    }
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black/90 backdrop-blur-xl animate-in fade-in duration-300" />
+
+            <div className="relative w-full max-w-sm bg-card border border-border rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+                {/* Visual Header */}
+                <div className="aspect-video bg-gradient-to-br from-primary/20 via-black to-black flex flex-col items-center justify-center relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1614850523296-d8c1af93d400?auto=format&fit=crop&q=80')] opacity-20 group-hover:scale-110 transition-transform duration-1000" />
+                    <div className="relative z-10 flex flex-col items-center gap-4 text-center px-8">
+                        <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center shadow-lg shadow-primary/20 animate-pulse">
+                            <TrophyIcon size={32} className="text-black" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-black uppercase tracking-widest text-white leading-tight">Premium Ad Experience</h3>
+                            <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mt-1">Unlock 80% Rev Share Reward</p>
+                        </div>
+                    </div>
+
+                    {/* Progress Overlay */}
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10">
+                        <div
+                            className="h-full bg-primary transition-all duration-1000 ease-linear"
+                            style={{ width: `${((10 - timeLeft) / 10) * 100}%` }}
+                        />
+                    </div>
+                </div>
+
+                <div className="p-8 flex flex-col items-center text-center gap-6">
+                    <div className="flex flex-col gap-2">
+                        <p className="text-sm font-medium text-muted-foreground">
+                            {timeLeft > 0 ? (
+                                `Reward granted in ${timeLeft} seconds...`
+                            ) : (
+                                isGranting ? "Claiming your Tibs..." : "Reward Granted!"
+                            )}
+                        </p>
+                    </div>
+
+                    {timeLeft > 0 && (
+                        <button
+                            onClick={onClose}
+                            className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-white transition-colors"
+                        >
+                            Skip & Close
+                        </button>
+                    )}
+                </div>
+
+                {/* Ad Branding */}
+                <div className="px-6 py-4 bg-muted/30 border-t border-border flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 bg-white/10 rounded flex items-center justify-center">
+                            <span className="text-[8px] font-bold text-white/40">Ad</span>
+                        </div>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Google Ad Manager</span>
+                    </div>
+                </div>
+            </div>
         </div>
     )
 }
