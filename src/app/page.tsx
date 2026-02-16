@@ -66,7 +66,7 @@ export default function HomePage() {
       const [eventsResult, entriesResult, profileResult] = await Promise.all([
         supabaseClient
           .from('raffles')
-          .select('*, host:profiles!host_user_id(display_name, is_host_eligible)')
+          .select('*, host:profiles!host_user_id(display_name, avatar_url, is_host_eligible)')
           .eq('status', 'open')
           .order('created_at', { ascending: false }),
         userId ? supabaseClient

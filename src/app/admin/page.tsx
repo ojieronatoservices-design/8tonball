@@ -604,7 +604,7 @@ export default function AdminDashboard() {
         try {
             const { data, error } = await supabaseClient
                 .from('raffles')
-                .select(`*, entries:entries!entries_raffle_id_fkey(count), winner:profiles!winner_user_id(display_name, email), winning_entry:entries!raffles_winning_entry_id_fkey(ticket_number)`)
+                .select(`*, host:profiles!host_user_id(display_name, avatar_url, is_host_eligible), entries:entries!entries_raffle_id_fkey(count), winner:profiles!winner_user_id(display_name, email), winning_entry:entries!raffles_winning_entry_id_fkey(ticket_number)`)
                 .order('created_at', { ascending: false })
                 .limit(100)
             if (error) throw error
@@ -840,15 +840,17 @@ export default function AdminDashboard() {
         try {
             let mediaUrls = [...(updatedData.existingMediaUrls || [])]
             if (newImages.length > 0) {
-                for (const image of newImages) {
+                const uploadPromises = newImages.map(async (image) => {
                     const fileExt = image.name.split('.').pop()
                     const fileName = `${userId}-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
                     const filePath = `raffles/${fileName}`
                     const { error: uploadError } = await supabaseClient.storage.from('media').upload(filePath, image)
                     if (uploadError) throw uploadError
                     const { data: { publicUrl } } = supabaseClient.storage.from('media').getPublicUrl(filePath)
-                    mediaUrls.push(publicUrl)
-                }
+                    return publicUrl
+                })
+                const results = await Promise.all(uploadPromises)
+                mediaUrls.push(...results)
             }
             const { error: updateError } = await supabaseClient.from('raffles').update({
                 title: updatedData.title, description: updatedData.description, media_urls: mediaUrls,
