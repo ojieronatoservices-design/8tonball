@@ -157,7 +157,11 @@ export const EventCard = React.memo(({
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="w-8 h-8 rounded-xl bg-muted border border-border flex items-center justify-center overflow-hidden shrink-0">
-                            <User size={16} className="text-muted-foreground/50" />
+                            {event.host?.avatar_url ? (
+                                <img src={event.host.avatar_url} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                                <User size={16} className="text-muted-foreground/50" />
+                            )}
                         </div>
                         <div className="flex flex-col min-w-0">
                             <div className="flex items-center gap-1">

@@ -138,9 +138,12 @@ export function Shell({ children }: ShellProps) {
             // Check if profile exists
             const { data: profile, error: fetchError } = await supabaseClient
                 .from('profiles')
-                .select('tibs_balance, is_admin, is_host_eligible, terms_accepted, age_verified')
+                .select('tibs_balance, is_admin, is_host_eligible, terms_accepted, age_verified, avatar_url, display_name')
                 .eq('id', user.id)
                 .single()
+
+            const userDisplayName = user.fullName || user.username || user.primaryEmailAddress?.emailAddress?.split('@')[0]
+            const userAvatarUrl = user.imageUrl
 
             if (fetchError && fetchError.code === 'PGRST116') {
                 // Profile doesn't exist, create it
@@ -155,7 +158,8 @@ export function Shell({ children }: ShellProps) {
                     .insert([{
                         id: user.id,
                         email: user.primaryEmailAddress?.emailAddress,
-                        display_name: user.fullName || user.username || user.primaryEmailAddress?.emailAddress?.split('@')[0],
+                        display_name: userDisplayName,
+                        avatar_url: userAvatarUrl,
                         tibs_balance: registrationBonus
                     }])
                     .select()
@@ -177,6 +181,17 @@ export function Shell({ children }: ShellProps) {
                 setBalance(profile.tibs_balance)
                 setIsAdmin(profile.is_admin || false)
                 setIsHostEligible(profile.is_host_eligible || false)
+
+                // Update avatar or name if they changed in Clerk
+                if (profile.avatar_url !== userAvatarUrl || profile.display_name !== userDisplayName) {
+                    await supabaseClient
+                        .from('profiles')
+                        .update({
+                            avatar_url: userAvatarUrl,
+                            display_name: userDisplayName
+                        })
+                        .eq('id', user.id)
+                }
 
                 // Show modal if not accepted
                 if (!profile.terms_accepted || !profile.age_verified) {
