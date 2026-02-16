@@ -27,6 +27,16 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en" suppressHydrationWarning>
+        <head>
+          {/* Google Publisher Tag (GPT) for Rewarded Ads */}
+          <script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script>
+          {/* AdSense Service */}
+          <script
+            async
+            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6489544353864483"
+            crossOrigin="anonymous"
+          ></script>
+        </head>
         <body className={`${inter.className} antialiased selection:bg-primary/30`}>
           <Suspense fallback={null}>
             <Shell>{children}</Shell>

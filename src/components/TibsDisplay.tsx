@@ -69,7 +69,10 @@ export function TibsDisplay({ amount, className, showUnit = true, unitClassName 
                 formattedPhp
             ) : (
                 <>
-                    {amount.toLocaleString()}
+                    {amount.toLocaleString(undefined, {
+                        minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
+                        maximumFractionDigits: 2
+                    })}
                     {showUnit && <span className={cn("ml-1 opacity-80", unitClassName)}>Tibs</span>}
                 </>
             )}
