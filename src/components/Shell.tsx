@@ -53,6 +53,11 @@ export function Shell({ children }: ShellProps) {
         router.replace(`/?${params.toString()}`, { scroll: false })
     }
     const [showLegalModal, setShowLegalModal] = useState(false)
+    const [legalCheckboxes, setLegalCheckboxes] = useState({
+        age: false,
+        residency: false,
+        terms: false
+    })
     const [showWalletModal, setShowWalletModal] = useState(false)
     const [isProcessingPaymongo, setIsProcessingPaymongo] = useState<number | null>(null)
     const [isVisible, setIsVisible] = useState(true)
@@ -698,32 +703,71 @@ export function Shell({ children }: ShellProps) {
                                 </p>
                             </div>
 
-                            <div className="w-full space-y-4 py-4">
-                                <div className="flex items-start gap-4 p-4 bg-muted rounded-xl border border-border">
-                                    <div className="mt-1">
-                                        <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(57,255,20,0.5)]" />
+                            <div className="w-full space-y-3 py-2">
+                                {/* Age Checkbox */}
+                                <label className="flex items-start gap-4 p-4 bg-muted rounded-xl border border-border cursor-pointer hover:bg-muted/80 transition-colors group">
+                                    <div className="mt-1 relative flex items-center justify-center">
+                                        <input
+                                            type="checkbox"
+                                            className="peer appearance-none w-5 h-5 rounded-md border-2 border-primary/30 checked:bg-primary checked:border-primary transition-all cursor-pointer"
+                                            checked={legalCheckboxes.age}
+                                            onChange={(e) => setLegalCheckboxes(prev => ({ ...prev, age: e.target.checked }))}
+                                        />
+                                        <div className="absolute opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity text-black">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                        </div>
                                     </div>
-                                    <div className="text-left">
+                                    <div className="text-left flex-1">
                                         <p className="text-sm font-bold text-foreground uppercase tracking-tight">Age Verification</p>
                                         <p className="text-xs text-muted-foreground">I confirm that I am at least 18 years of age.</p>
                                     </div>
-                                </div>
-                                <div className="flex items-start gap-4 p-4 bg-muted rounded-xl border border-border">
-                                    <div className="mt-1">
-                                        <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(57,255,20,0.5)]" />
+                                </label>
+
+                                {/* Residency Checkbox */}
+                                <label className="flex items-start gap-4 p-4 bg-muted rounded-xl border border-border cursor-pointer hover:bg-muted/80 transition-colors group">
+                                    <div className="mt-1 relative flex items-center justify-center">
+                                        <input
+                                            type="checkbox"
+                                            className="peer appearance-none w-5 h-5 rounded-md border-2 border-primary/30 checked:bg-primary checked:border-primary transition-all cursor-pointer"
+                                            checked={legalCheckboxes.residency}
+                                            onChange={(e) => setLegalCheckboxes(prev => ({ ...prev, residency: e.target.checked }))}
+                                        />
+                                        <div className="absolute opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity text-black">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                        </div>
                                     </div>
-                                    <div className="text-left">
+                                    <div className="text-left flex-1">
+                                        <p className="text-sm font-bold text-foreground uppercase tracking-tight">Residency Check</p>
+                                        <p className="text-xs text-muted-foreground">I am a permanent resident of the Philippines.</p>
+                                    </div>
+                                </label>
+
+                                {/* Terms Checkbox */}
+                                <label className="flex items-start gap-4 p-4 bg-muted rounded-xl border border-border cursor-pointer hover:bg-muted/80 transition-colors group">
+                                    <div className="mt-1 relative flex items-center justify-center">
+                                        <input
+                                            type="checkbox"
+                                            className="peer appearance-none w-5 h-5 rounded-md border-2 border-primary/30 checked:bg-primary checked:border-primary transition-all cursor-pointer"
+                                            checked={legalCheckboxes.terms}
+                                            onChange={(e) => setLegalCheckboxes(prev => ({ ...prev, terms: e.target.checked }))}
+                                        />
+                                        <div className="absolute opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity text-black">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                        </div>
+                                    </div>
+                                    <div className="text-left flex-1">
                                         <p className="text-sm font-bold text-foreground uppercase tracking-tight">Terms of Service</p>
                                         <p className="text-xs text-muted-foreground leading-relaxed">
-                                            I agree to the <Link href="/terms" className="text-primary underline font-bold hover:text-primary/80 transition-colors">Terms of Service</Link> and acknowledge that Tibs are non-refundable digital credits.
+                                            I agree to the <Link href="/terms" className="text-primary underline font-bold hover:text-primary/80 transition-colors">Terms of Service</Link>.
                                         </p>
                                     </div>
-                                </div>
+                                </label>
                             </div>
 
                             <button
                                 onClick={handleAcceptLegal}
-                                className="w-full h-14 bg-foreground text-background font-black uppercase tracking-widest text-sm rounded-xl transition-all flex items-center justify-center gap-2 group shadow-lg active:scale-95"
+                                disabled={!legalCheckboxes.age || !legalCheckboxes.residency || !legalCheckboxes.terms}
+                                className="w-full h-14 bg-foreground text-background font-black uppercase tracking-widest text-sm rounded-xl transition-all flex items-center justify-center gap-2 group shadow-lg active:scale-95 disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed"
                             >
                                 ACCEPT & CONTINUE
                             </button>

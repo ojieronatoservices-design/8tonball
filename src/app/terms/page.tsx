@@ -36,7 +36,7 @@ export default function TermsPage() {
                         <h2 className="text-xl font-black text-white uppercase tracking-tight">1. Eligibility</h2>
                         <ul className="list-disc pl-5 space-y-2">
                             <li>You must be at least <strong>18 years of age</strong> to participate in any events on 8TONBALL.</li>
-                            <li>You must be a resident of the Philippines or reside in a jurisdiction where participation in such promotional events is legal.</li>
+                            <li>You must be a <strong>permanent resident of the Philippines</strong> to use the platform and participate in its events.</li>
                         </ul>
                     </section>
 
