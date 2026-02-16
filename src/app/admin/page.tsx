@@ -604,7 +604,7 @@ export default function AdminDashboard() {
         try {
             const { data, error } = await supabaseClient
                 .from('raffles')
-                .select(`*, host:profiles!host_user_id(display_name, avatar_url, is_host_eligible), entries:entries!entries_raffle_id_fkey(count), winner:profiles!winner_user_id(display_name, email), winning_entry:entries!raffles_winning_entry_id_fkey(ticket_number)`)
+                .select(`*, host:profiles!host_user_id(display_name, is_host_eligible), entries:entries!entries_raffle_id_fkey(count), winner:profiles!winner_user_id(display_name, email), winning_entry:entries!raffles_winning_entry_id_fkey(ticket_number)`)
                 .order('created_at', { ascending: false })
                 .limit(100)
             if (error) throw error
@@ -705,7 +705,7 @@ export default function AdminDashboard() {
         if (!supabaseClient) return
         setIsLoadingPayments(true)
         try {
-            let query = supabaseClient.from('transactions').select('*, profiles:user_id(display_name, email)').eq('status', 'pending')
+            let query = supabaseClient.from('transactions').select('*, profiles(email, display_name)').eq('status', 'pending')
             if (!isAdmin) query = query.eq('user_id', userId)
             const { data, error } = await query.order('created_at', { ascending: false }).limit(50)
             if (error) throw error
@@ -719,7 +719,7 @@ export default function AdminDashboard() {
         if (!supabaseClient) return
         setIsLoadingPayouts(true)
         try {
-            let query = supabaseClient.from('payout_requests').select('*, profiles:user_id(display_name, email)').eq('status', 'pending')
+            let query = supabaseClient.from('payout_requests').select('*, profiles(email, display_name)').eq('status', 'pending')
             if (!isAdmin) query = query.eq('user_id', userId)
             const { data, error } = await query.order('created_at', { ascending: false }).limit(50)
             if (error) throw error
@@ -735,7 +735,7 @@ export default function AdminDashboard() {
         try {
             const { data, error } = await supabaseClient
                 .from('kyc_requests')
-                .select('*, profiles:user_id(display_name, email)')
+                .select('*, profiles(email, display_name)')
                 .eq('status', 'pending')
                 .order('created_at', { ascending: false })
                 .limit(50)
