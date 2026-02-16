@@ -7,6 +7,12 @@ import { useSupabase } from '@/hooks/useSupabase'
 import { CountdownTimer } from '@/components/CountdownTimer'
 import Link from 'next/link'
 import AdminDashboard from '../admin/page'
+import { clsx, type ClassValue } from 'clsx'
+import { twMerge } from 'tailwind-merge'
+
+function cn(...inputs: ClassValue[]) {
+    return twMerge(clsx(inputs))
+}
 
 type EntryWithEvent = {
     id: string
@@ -839,112 +845,112 @@ export default function ProfilePage() {
                         ) : (
                             <div className="px-6 w-full max-w-3xl mx-auto flex flex-col gap-4">
                             </div>
-                </div>
-                    )
-            }
-
-                    {/* KYC Modal */}
-                    {
-                        showKYCModal && (
-                            <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/95 backdrop-blur-md animate-in fade-in duration-300 overflow-auto">
-                                <div className="bg-card w-full max-w-lg rounded-[2.5rem] border border-border p-10 flex flex-col gap-6 shadow-2xl animate-in zoom-in-95 duration-300">
-                                    <div className="flex justify-between items-center">
-                                        <h3 className="text-2xl font-black tracking-tight text-foreground uppercase italic">Account Verification</h3>
-                                        <button onClick={() => setShowKYCModal(false)} className="w-10 h-10 bg-muted flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-all">
-                                            <X size={20} />
-                                        </button>
-                                    </div>
-
-                                    <div className="flex flex-col gap-4">
-                                        <div className="flex flex-col gap-2">
-                                            <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Full Legal Name</label>
-                                            <input
-                                                type="text"
-                                                value={kycForm.fullName}
-                                                onChange={(e) => setKycForm(prev => ({ ...prev, fullName: e.target.value }))}
-                                                placeholder="as shown on ID"
-                                                className="w-full h-12 bg-muted/50 border border-border rounded-xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
-                                            />
-                                        </div>
-                                        <div className="flex flex-col gap-2">
-                                            <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Home Address</label>
-                                            <input
-                                                type="text"
-                                                value={kycForm.address}
-                                                onChange={(e) => setKycForm(prev => ({ ...prev, address: e.target.value }))}
-                                                placeholder="Current Residence"
-                                                className="w-full h-12 bg-muted/50 border border-border rounded-xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
-                                            />
-                                        </div>
-                                        <div className="flex flex-col gap-2">
-                                            <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Mobile Number</label>
-                                            <input
-                                                type="tel"
-                                                value={kycForm.phoneNumber}
-                                                onChange={(e) => setKycForm(prev => ({ ...prev, phoneNumber: e.target.value }))}
-                                                placeholder="+63 9XX XXX XXXX"
-                                                className="w-full h-12 bg-muted/50 border border-border rounded-xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
-                                            />
-                                            {!user?.primaryPhoneNumber && (
-                                                <p className="text-[9px] text-primary/70 font-bold px-2 italic">Note: Make sure this matches the number verified in your account settings.</p>
-                                            )}
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4 mt-2">
-                                            {/* ID Upload */}
-                                            <div className="flex flex-col gap-2">
-                                                <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest text-center">ID Photo</label>
-                                                <button
-                                                    onClick={() => document.getElementById('id-upload')?.click()}
-                                                    className={`aspect-video w-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 overflow-hidden bg-muted/30 transition-all ${kycIDPreview ? 'border-primary/50' : 'border-border hover:border-primary/30'}`}
-                                                >
-                                                    {kycIDPreview ? (
-                                                        <img src={kycIDPreview} alt="ID" className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <>
-                                                            <ImageIcon size={24} className="text-muted-foreground/30" />
-                                                            <span className="text-[8px] font-black uppercase text-muted-foreground/50">Upload ID</span>
-                                                        </>
-                                                    )}
-                                                </button>
-                                                <input type="file" id="id-upload" hidden accept="image/*" onChange={handleIDChange} />
-                                            </div>
-
-                                            {/* Selfie Upload */}
-                                            <div className="flex flex-col gap-2">
-                                                <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest text-center">Selfie Photo</label>
-                                                <button
-                                                    onClick={() => document.getElementById('selfie-upload')?.click()}
-                                                    className={`aspect-video w-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 overflow-hidden bg-muted/30 transition-all ${kycSelfiePreview ? 'border-primary/50' : 'border-border hover:border-primary/30'}`}
-                                                >
-                                                    {kycSelfiePreview ? (
-                                                        <img src={kycSelfiePreview} alt="Selfie" className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <>
-                                                            <User size={24} className="text-muted-foreground/30" />
-                                                            <span className="text-[8px] font-black uppercase text-muted-foreground/50">Upload Selfie</span>
-                                                        </>
-                                                    )}
-                                                </button>
-                                                <input type="file" id="selfie-upload" hidden accept="image/*" onChange={handleSelfieChange} />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <button
-                                        onClick={handleKYCSubmit}
-                                        disabled={isSubmittingKYC || !kycIDFile || !kycSelfieFile || !kycForm.fullName}
-                                        className="w-full h-16 bg-primary text-black font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 neon-border text-sm mt-4"
-                                    >
-                                        {isSubmittingKYC ? 'Uploading Photos...' : 'Submit Verification'}
-                                    </button>
-                                    <p className="text-[9px] text-center text-muted-foreground/40 font-medium px-4 leading-normal">
-                                        By submitting, you agree to our host terms. Verification typically takes 2-6 hours. Your data is encrypted and stored securely.
-                                    </p>
-                                </div>
-                            </div>
+                        )}
+                    </div>
                 </div>
             )}
+
+            {/* KYC Modal */}
+            {
+                showKYCModal && (
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/95 backdrop-blur-md animate-in fade-in duration-300 overflow-auto">
+                        <div className="bg-card w-full max-w-lg rounded-[2.5rem] border border-border p-10 flex flex-col gap-6 shadow-2xl animate-in zoom-in-95 duration-300">
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-2xl font-black tracking-tight text-foreground uppercase italic">Account Verification</h3>
+                                <button onClick={() => setShowKYCModal(false)} className="w-10 h-10 bg-muted flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-all">
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <div className="flex flex-col gap-4">
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Full Legal Name</label>
+                                    <input
+                                        type="text"
+                                        value={kycForm.fullName}
+                                        onChange={(e) => setKycForm(prev => ({ ...prev, fullName: e.target.value }))}
+                                        placeholder="as shown on ID"
+                                        className="w-full h-12 bg-muted/50 border border-border rounded-xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Home Address</label>
+                                    <input
+                                        type="text"
+                                        value={kycForm.address}
+                                        onChange={(e) => setKycForm(prev => ({ ...prev, address: e.target.value }))}
+                                        placeholder="Current Residence"
+                                        className="w-full h-12 bg-muted/50 border border-border rounded-xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest">Mobile Number</label>
+                                    <input
+                                        type="tel"
+                                        value={kycForm.phoneNumber}
+                                        onChange={(e) => setKycForm(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                                        placeholder="+63 9XX XXX XXXX"
+                                        className="w-full h-12 bg-muted/50 border border-border rounded-xl px-6 text-sm font-bold focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground/20"
+                                    />
+                                    {!user?.primaryPhoneNumber && (
+                                        <p className="text-[9px] text-primary/70 font-bold px-2 italic">Note: Make sure this matches the number verified in your account settings.</p>
+                                    )}
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4 mt-2">
+                                    {/* ID Upload */}
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest text-center">ID Photo</label>
+                                        <button
+                                            onClick={() => document.getElementById('id-upload')?.click()}
+                                            className={`aspect-video w-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 overflow-hidden bg-muted/30 transition-all ${kycIDPreview ? 'border-primary/50' : 'border-border hover:border-primary/30'}`}
+                                        >
+                                            {kycIDPreview ? (
+                                                <img src={kycIDPreview} alt="ID" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <>
+                                                    <ImageIcon size={24} className="text-muted-foreground/30" />
+                                                    <span className="text-[8px] font-black uppercase text-muted-foreground/50">Upload ID</span>
+                                                </>
+                                            )}
+                                        </button>
+                                        <input type="file" id="id-upload" hidden accept="image/*" onChange={handleIDChange} />
+                                    </div>
+
+                                    {/* Selfie Upload */}
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[10px] uppercase font-black text-muted-foreground/50 ml-2 tracking-widest text-center">Selfie Photo</label>
+                                        <button
+                                            onClick={() => document.getElementById('selfie-upload')?.click()}
+                                            className={`aspect-video w-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 overflow-hidden bg-muted/30 transition-all ${kycSelfiePreview ? 'border-primary/50' : 'border-border hover:border-primary/30'}`}
+                                        >
+                                            {kycSelfiePreview ? (
+                                                <img src={kycSelfiePreview} alt="Selfie" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <>
+                                                    <User size={24} className="text-muted-foreground/30" />
+                                                    <span className="text-[8px] font-black uppercase text-muted-foreground/50">Upload Selfie</span>
+                                                </>
+                                            )}
+                                        </button>
+                                        <input type="file" id="selfie-upload" hidden accept="image/*" onChange={handleSelfieChange} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={handleKYCSubmit}
+                                disabled={isSubmittingKYC || !kycIDFile || !kycSelfieFile || !kycForm.fullName}
+                                className="w-full h-16 bg-primary text-black font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 neon-border text-sm mt-4"
+                            >
+                                {isSubmittingKYC ? 'Uploading Photos...' : 'Submit Verification'}
+                            </button>
+                            <p className="text-[9px] text-center text-muted-foreground/40 font-medium px-4 leading-normal">
+                                By submitting, you agree to our host terms. Verification typically takes 2-6 hours. Your data is encrypted and stored securely.
+                            </p>
+                        </div>
+                    </div>
+                )}
         </div>
     )
 }
