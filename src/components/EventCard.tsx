@@ -403,9 +403,7 @@ export const EventCard = React.memo(({
                                         {isProcessing ? (
                                             <Loader2 className="animate-spin" size={20} />
                                         ) : (
-                                            <div className="flex items-center gap-2">
-                                                <span>CONFIRM (<TibsDisplay amount={event.entry_cost_tibs} />)</span>
-                                            </div>
+                                            'CONFIRM'
                                         )}
                                     </button>
                                 </div>

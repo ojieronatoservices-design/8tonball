@@ -72,6 +72,8 @@ export default function NotificationsPage() {
                     .from('notifications')
                     .update({ is_read: true })
                     .in('id', unreadIds)
+                // Notify Shell to clear the red dot
+                window.dispatchEvent(new CustomEvent('notificationsRead'))
             }
         } catch (error) {
             console.error('Error fetching notifications:', error)

@@ -519,11 +519,15 @@ export function Shell({ children }: ShellProps) {
         const handleOpenWallet = () => setShowWalletModal(true)
         window.addEventListener('openWallet', handleOpenWallet)
 
+        const handleNotificationsRead = () => setUnreadCount(0)
+        window.addEventListener('notificationsRead', handleNotificationsRead)
+
         return () => {
             if (profileChannel && supabaseRef.current) supabaseRef.current.removeChannel(profileChannel)
             if (notificationChannel && supabaseRef.current) supabaseRef.current.removeChannel(notificationChannel)
             window.removeEventListener('balanceUpdate', handleBalanceUpdate)
             window.removeEventListener('openWallet', handleOpenWallet)
+            window.removeEventListener('notificationsRead', handleNotificationsRead)
         }
     }, [isLoaded, user?.id]) // Stable dependency: user.id instead of user object
 

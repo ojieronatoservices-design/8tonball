@@ -222,6 +222,8 @@ export default function ProfilePage() {
         setUnreadHostCount(0)
         // Update local state for immediate feedback
         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
+        // Notify Shell to clear the red dot
+        window.dispatchEvent(new CustomEvent('notificationsRead'))
     }
 
     const handleKYCSubmit = async () => {
