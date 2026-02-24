@@ -84,7 +84,7 @@ export default function EventPage({ params }: Props) {
                     alt={event.title}
                     className="w-full h-full object-cover"
                 />
-                {event.status === 'drawn' && (
+                {(event.status === 'drawn' || event.status === 'closed') && (
                     <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm">
                         <span className="text-3xl font-black neon-text drop-shadow-[0_0_15px_rgba(57,255,20,0.6)]">ENDED</span>
                     </div>

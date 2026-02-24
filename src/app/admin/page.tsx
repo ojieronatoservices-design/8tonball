@@ -760,14 +760,19 @@ export default function AdminDashboard() {
         const supabaseClient = await getClient()
         if (!supabaseClient) return
         if (goalTibs > 0 && currentTibs < goalTibs) {
-            alert(`⚠️ GOAL NOT MET: Current progress is ${currentTibs.toLocaleString()} / ${goalTibs.toLocaleString()} TIBS.`)
-            return
+            if (!confirm(`⚠️ GOAL NOT MET: Current progress is ${currentTibs.toLocaleString()} / ${goalTibs.toLocaleString()} TIBS.\n\nAre you sure you want to close this event? (Participants will be refunded and no winner drawn).`)) return
+        } else {
+            if (!confirm('Are you sure you want to draw a winner now?')) return
         }
-        if (!confirm('Are you sure you want to draw a winner now?')) return
         try {
             const { data, error } = await supabaseClient.rpc('draw_winner_and_payout', { p_raffle_id: eventId, p_admin_id: userId })
             if (error) throw error
             if (!data.success) throw new Error(data.message)
+            if (data.outcome === 'unsuccessful') {
+                alert(data.message)
+                fetchEvents()
+                return
+            }
             const { data: winnerProfile } = await supabaseClient.from('profiles').select('email, display_name').eq('id', data.winner_id).single()
             if (winnerProfile?.email) {
                 await fetch('/api/send-winner-email', {
@@ -958,6 +963,14 @@ export default function AdminDashboard() {
                             </div>
                         )}
 
+                        {event.status === 'closed' && !event.winner && (
+                            <div className="bg-white/5 p-4 rounded-2xl border border-white/10 flex flex-col gap-2">
+                                <div className="flex items-center justify-center gap-2 text-white/50 py-2">
+                                    <span className="text-xs font-black uppercase tracking-widest text-center">Event Unsuccessful — No Winner Selected</span>
+                                </div>
+                            </div>
+                        )}
+
                         {event.goal_tibs > 0 && event.status === 'open' && (
                             <div className="flex flex-col gap-2">
                                 <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
@@ -1129,6 +1142,14 @@ export default function AdminDashboard() {
                                     {!goalMet && (
                                         <span className="text-[8px] bg-red-500/20 text-red-500 px-1 rounded border border-red-500/20 ml-1">UNMET GOAL</span>
                                     )}
+                                </>
+                            )}
+                            {event.status === 'closed' && !event.winner && (
+                                <>
+                                    <span>•</span>
+                                    <span className="text-white/40 font-black flex items-center gap-1">
+                                        NO WINNER
+                                    </span>
                                 </>
                             )}
                         </div>
