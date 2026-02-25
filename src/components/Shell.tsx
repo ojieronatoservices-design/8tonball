@@ -595,18 +595,7 @@ export function Shell({ children }: ShellProps) {
                                                         <TrophyIcon size={12} className="text-primary" />
                                                         Rewards
                                                     </button>
-                                                    {(isAdmin || isHostEligible) && (
-                                                        <>
-                                                            <div className="h-px bg-border" />
-                                                            <button
-                                                                onClick={() => { setShowBurgerMenu(false); setShowCreateEventModal(true) }}
-                                                                className="w-full flex items-center gap-2.5 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-foreground hover:bg-muted/60 transition-colors"
-                                                            >
-                                                                <img src="/logo-8t.png" alt="Create Event" className="w-3 h-3 object-contain" />
-                                                                Create Event
-                                                            </button>
-                                                        </>
-                                                    )}
+
                                                     <div className="h-px bg-border" />
                                                     <button
                                                         onClick={() => {
@@ -674,7 +663,30 @@ export function Shell({ children }: ShellProps) {
                 {children}
             </main>
 
-
+            {/* Floating Create Event Button - Centered and Peeking */}
+            {isLoaded && user && (isHostEligible || isAdmin) && (
+                <button
+                    onClick={() => setShowCreateEventModal(true)}
+                    className={cn(
+                        "fixed left-1/2 -translate-x-1/2 z-[60] w-20 h-20 rounded-full shadow-2xl transition-all duration-300 group overflow-hidden border-2 border-primary/50 bg-black/40 backdrop-blur-sm",
+                        isVisible ? "bottom-4 scale-100 opacity-100" : "-bottom-14 scale-90 hover:scale-100 hover:bottom-4 opacity-100", // Peeking logic: only 30% visible
+                        "shadow-[0_0_30px_rgba(57,255,20,0.4)]"
+                    )}
+                >
+                    <img src="/logo-8t.png" alt="Create Event" className="w-full h-full object-cover p-2" />
+                    {/* Circular text around the button */}
+                    <svg className="absolute inset-0 w-full h-full animate-spin-slow" viewBox="0 0 80 80">
+                        <defs>
+                            <path id="circle-path" d="M40,40 m-34,0 a34,34 0 1,1 68,0 a34,34 0 1,1 -68,0" />
+                        </defs>
+                        <text className="fill-primary text-[6px] font-black uppercase tracking-[0.5em]">
+                            <textPath href="#circle-path" startOffset="0%">
+                                CREATE EVENT • CREATE EVENT •
+                            </textPath>
+                        </text>
+                    </svg>
+                </button>
+            )}
 
             {/* Bottom Navigation */}
             <nav className={cn(
@@ -703,20 +715,8 @@ export function Shell({ children }: ShellProps) {
                         })()}
                     </div>
 
-                    {/* Center Action - Create Event Button */}
-                    <div className="w-20 shrink-0 flex justify-center relative">
-                        {isLoaded && user && (isHostEligible || isAdmin) && (
-                            <button
-                                onClick={() => setShowCreateEventModal(true)}
-                                className={cn(
-                                    "absolute bottom-[-5px] w-16 h-16 rounded-full shadow-2xl transition-transform duration-300 group overflow-hidden border border-primary/50 bg-black/80 backdrop-blur-md active:scale-95 hover:scale-105 flex items-center justify-center",
-                                    "shadow-[0_0_20px_rgba(57,255,20,0.3)]"
-                                )}
-                            >
-                                <img src="/logo-8t.png" alt="Create Event" className="w-full h-full object-cover p-2" />
-                            </button>
-                        )}
-                    </div>
+                    {/* Center Spacer for Create Event Button (approx 80px) */}
+                    <div className="w-20 shrink-0" />
 
                     {/* Right Wing - You */}
                     <div className="flex-1 flex justify-center">
