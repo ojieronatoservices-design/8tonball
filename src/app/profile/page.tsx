@@ -620,19 +620,15 @@ export default function ProfilePage() {
                                     <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
                                 )}
                             </button>
-                            <button
-                                onClick={() => {
-                                    setActiveTab('activity')
-                                    fetchNotifications()
-                                    markAllNotificationsRead()
-                                }}
+                            <Link
+                                href="/notifications"
                                 className={`flex-1 py-2 text-[9px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 relative ${activeTab === 'activity' ? 'bg-white/10 text-white shadow-sm ring-1 ring-white/10' : 'text-muted-foreground hover:text-foreground'}`}
                             >
                                 <Bell size={12} /> Activity
                                 {unreadParticipantCount > 0 && (
                                     <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
                                 )}
-                            </button>
+                            </Link>
                         </div>
                     </div>
 
@@ -800,49 +796,6 @@ export default function ProfilePage() {
                                     })
                                 )
                                 }
-                            </div>
-                        ) : activeTab === 'activity' ? (
-                            <div className="px-6 w-full max-w-3xl mx-auto flex flex-col gap-3">
-                                <div className="flex justify-between items-center mb-2 px-2">
-                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Recent Activity</span>
-                                    <button
-                                        onClick={markAllNotificationsRead}
-                                        className="text-[9px] font-black uppercase tracking-widest text-primary hover:text-primary/80 transition-colors"
-                                    >
-                                        Mark all as read
-                                    </button>
-                                </div>
-                                {isLoadingNotifs ? (
-                                    <div className="py-20 flex justify-center">
-                                        <Loader2 className="animate-spin text-primary" />
-                                    </div>
-                                ) : notifications.length > 0 ? (
-                                    notifications.map((n) => (
-                                        <div key={n.id} className={cn(
-                                            "p-5 border rounded-2xl flex gap-4 items-start transition-all",
-                                            n.is_read ? "bg-muted/5 border-border/30 opacity-60" : "bg-primary/5 border-primary/20 shadow-[0_0_15px_rgba(57,255,20,0.05)]"
-                                        )}>
-                                            <div className={cn(
-                                                "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
-                                                n.type === 'win' ? "bg-primary/20" : "bg-muted"
-                                            )}>
-                                                {n.type === 'win' ? <Trophy size={18} className="text-primary" /> : <Bell size={18} className="text-muted-foreground" />}
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className={cn(
-                                                    "text-sm font-bold leading-tight",
-                                                    !n.is_read ? "text-foreground" : "text-muted-foreground"
-                                                )}>{n.message}</p>
-                                                <p className="text-[10px] text-muted-foreground mt-1 uppercase font-black tracking-widest">{new Date(n.created_at).toLocaleDateString()}</p>
-                                            </div>
-                                            {!n.is_read && <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />}
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="py-20 text-center text-muted-foreground/20 font-black uppercase tracking-[0.2em] text-xs">
-                                        No Activity Yet
-                                    </div>
-                                )}
                             </div>
                         ) : (
                             <div className="px-6 w-full max-w-3xl mx-auto flex flex-col gap-4">
