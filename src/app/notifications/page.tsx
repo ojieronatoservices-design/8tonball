@@ -19,6 +19,13 @@ interface Notification {
         total_actors?: number
         last_actor_name?: string
     }
+    raffle?: {
+        title: string
+        media_urls?: string[]
+    }
+    actor?: {
+        avatar_url?: string
+    }
 }
 
 interface RaffleDetails {
@@ -37,6 +44,10 @@ interface RaffleDetails {
 const getFirst = <T,>(arr: T | T[] | undefined): T | undefined => {
     if (!arr) return undefined
     return Array.isArray(arr) ? arr[0] : arr
+}
+
+const stripEmojis = (str: string) => {
+    return str.replace(/[\u1000-\uFFFF]+/g, '').replace(/\p{Emoji}/gu, '').replace(/(🎉|💰|🎟️|🎫|🥳)/g, '').trim()
 }
 
 export default function NotificationsPage() {
@@ -58,7 +69,7 @@ export default function NotificationsPage() {
         try {
             const { data, error } = await supabaseClient
                 .from('notifications')
-                .select('*')
+                .select('*, raffle:raffles(title, media_urls), actor:profiles!actor_id(avatar_url)')
                 .eq('user_id', userId)
                 .order('created_at', { ascending: false })
 
@@ -175,11 +186,11 @@ export default function NotificationsPage() {
         const now = new Date()
         const d = new Date(date)
         const diff = Math.floor((now.getTime() - d.getTime()) / 1000)
-        if (diff < 60) return 'Just now'
+        if (diff < 60) return `${diff}s`
         if (diff < 3600) return `${Math.floor(diff / 60)}m`
         if (diff < 86400) return `${Math.floor(diff / 3600)}h`
         if (diff < 604800) return `${Math.floor(diff / 86400)}d`
-        return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+        return `${Math.floor(diff / 604800)}w`
     }
 
     const groupNotifications = () => {
@@ -197,6 +208,81 @@ export default function NotificationsPage() {
 
     const { today, earlier } = groupNotifications()
 
+    const renderNotificationItem = (notif: Notification) => {
+        const isWin = notif.type === 'win'
+        const isEntry = notif.type === 'entry'
+        const isSystem = ['payment', 'system', 'payout'].includes(notif.type)
+        const hasThumbnail = isWin && notif.raffle?.media_urls?.[0]
+
+        return (
+            <div
+                key={notif.id}
+                onClick={() => handleNotificationClick(notif)}
+                className={`flex items-start gap-4 px-6 py-5 cursor-pointer transition-all hover:bg-white/5 active:bg-white/10 border-b border-white/5 -mx-6 ${!notif.is_read ? 'bg-primary/5' : ''}`}
+            >
+                {/* Left Icon Area */}
+                <div className="shrink-0 relative">
+                    {isWin ? (
+                        <div className="relative w-16 h-16 rounded-full bg-primary flex items-center justify-center shadow-[0_0_15px_rgba(57,255,20,0.3)] shrink-0">
+                            <div className="absolute inset-0 animate-spin" style={{ animationDuration: '8s' }}>
+                                <svg viewBox="0 0 100 100" className="w-full h-full text-black">
+                                    <path id={`circlePath-${notif.id}`} d="M 50, 50 m -35, 0 a 35,35 0 1,1 70,0 a 35,35 0 1,1 -70,0" fill="transparent" />
+                                    <text className="text-[10px] font-black tracking-[0.2em]" fill="currentColor">
+                                        <textPath href={`#circlePath-${notif.id}`} startOffset="0%">
+                                            CONGRATULATIONS! CONGRATULATIONS!
+                                        </textPath>
+                                    </text>
+                                </svg>
+                            </div>
+                            <span className="text-black font-black text-2xl z-10 italic">8T</span>
+                        </div>
+                    ) : isEntry && notif.actor?.avatar_url ? (
+                        <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-white/10">
+                            <img src={notif.actor.avatar_url} alt="User" className="w-full h-full object-cover" />
+                        </div>
+                    ) : isSystem ? (
+                        <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center">
+                            <span className="text-black font-black text-3xl italic">8</span>
+                        </div>
+                    ) : (
+                        <div className={`w-14 h-14 rounded-full flex items-center justify-center border ${!notif.is_read ? 'border-primary/20 bg-primary/10' : 'border-white/5 bg-white/5'}`}>
+                            {getIcon(notif.type)}
+                        </div>
+                    )}
+                </div>
+
+                {/* Content Area */}
+                <div className="flex-1 min-w-0 flex flex-col justify-center py-1">
+                    <p className={`text-[14px] leading-snug ${!notif.is_read ? 'text-white font-black' : 'text-white/80 font-medium'}`}>
+                        {stripEmojis(notif.message)}
+                    </p>
+
+                    {hasThumbnail && (
+                        <div className="mt-3 flex items-center gap-3 bg-black/40 p-2 rounded-xl border border-white/10 w-fit">
+                            <img src={notif.raffle!.media_urls![0]} alt="Thumbnail" className="w-12 h-12 rounded-lg object-cover" />
+                            <div className="pr-2 max-w-[200px]">
+                                <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Event Won</p>
+                                <p className="text-xs font-black text-white truncate">{notif.raffle!.title}</p>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex items-center gap-2 mt-2">
+                        <span className={`text-[10px] font-black uppercase tracking-widest ${!notif.is_read ? 'text-primary' : 'text-white/30'}`}>{getRelativeTime(notif.created_at)}</span>
+                        {!notif.is_read && <span className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_primary]" />}
+                    </div>
+                </div>
+
+                {/* Right Action Area */}
+                {['comment', 'reply', 'entry', 'vote_up', 'vote_down'].includes(notif.type) && (
+                    <div className="text-primary/20 flex flex-col items-center self-center pl-2">
+                        <CheckCircle2 size={16} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                )}
+            </div>
+        )
+    }
+
     return (
         <div className="flex flex-col gap-6 animate-in fade-in duration-500">
             {/* Header */}
@@ -211,7 +297,7 @@ export default function NotificationsPage() {
             </div>
 
             {/* Notifications List */}
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col">
                 {isLoading ? (
                     <div className="flex flex-col items-center justify-center py-20 gap-4">
                         <Loader2 className="animate-spin text-primary" size={32} />
@@ -219,62 +305,21 @@ export default function NotificationsPage() {
                 ) : notifications.length > 0 ? (
                     <>
                         {today.length > 0 && (
-                            <>
-                                <div className="px-3 py-3 mt-2">
+                            <div className="flex flex-col">
+                                <div className="px-1 py-4">
                                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Recently</span>
                                 </div>
-                                {today.map((notif) => (
-                                    <div
-                                        key={notif.id}
-                                        onClick={() => handleNotificationClick(notif)}
-                                        className={`flex items-start gap-3 px-4 py-5 rounded-3xl cursor-pointer transition-all hover:bg-white/5 active:scale-[0.98] border border-transparent hover:border-white/5 ${!notif.is_read ? 'bg-primary/5 border-primary/20 shadow-[0_0_20px_rgba(57,255,20,0.05)]' : ''}`}
-                                    >
-                                        <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border ${!notif.is_read ? 'border-primary/20 bg-primary/10' : 'border-white/5 bg-white/5'}`}>
-                                            {getIcon(notif.type)}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className={`text-[13px] leading-tight ${!notif.is_read ? 'text-white font-black' : 'text-white/70 font-medium'}`}>
-                                                {notif.message}
-                                            </p>
-                                            <div className="flex items-center gap-2 mt-1.5">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-white/30">{getRelativeTime(notif.created_at)}</span>
-                                                {!notif.is_read && <span className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_primary]" />}
-                                            </div>
-                                        </div>
-                                        {['comment', 'reply', 'entry', 'vote_up', 'vote_down'].includes(notif.type) && (
-                                            <div className="text-primary/20 flex flex-col items-center mt-1">
-                                                <CheckCircle2 size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                <span className="text-[8px] font-black uppercase mt-1 tracking-tighter">View</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </>
+                                {today.map(renderNotificationItem)}
+                            </div>
                         )}
 
                         {earlier.length > 0 && (
-                            <>
-                                <div className="px-3 py-3 mt-6">
+                            <div className="flex flex-col mt-4">
+                                <div className="px-1 py-4">
                                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Previous Activities</span>
                                 </div>
-                                {earlier.map((notif) => (
-                                    <div
-                                        key={notif.id}
-                                        onClick={() => handleNotificationClick(notif)}
-                                        className="flex items-start gap-3 px-4 py-5 rounded-3xl cursor-pointer transition-all hover:bg-white/5 active:scale-[0.98] border border-transparent opacity-60"
-                                    >
-                                        <div className="w-11 h-11 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center shrink-0">
-                                            {getIcon(notif.type)}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-[13px] leading-tight text-white/70 font-medium">
-                                                {notif.message}
-                                            </p>
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-white/20 mt-1.5 block">{getRelativeTime(notif.created_at)}</span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </>
+                                {earlier.map(renderNotificationItem)}
+                            </div>
                         )}
                     </>
                 ) : (
