@@ -1137,7 +1137,7 @@ export default function AdminDashboard() {
                                 <>
                                     <span>•</span>
                                     <span className="text-primary font-black flex items-center gap-1">
-                                        <Trophy size={10} /> {event.winner.display_name} (#{event.winning_entry?.ticket_number})
+                                        <Trophy size={10} /> {event.winner.display_name} (#{event.winning_entry?.ticket_number || '---'})
                                     </span>
                                     {!goalMet && (
                                         <span className="text-[8px] bg-red-500/20 text-red-500 px-1 rounded border border-red-500/20 ml-1">UNMET GOAL</span>
