@@ -670,7 +670,7 @@ export default function ProfilePage() {
                                     </text>
                                 </svg>
                             </div>
-                            <span className="text-black font-black text-2xl z-10 italic">8T</span>
+                            <img src="/logo-8t.png" alt="8T" className="w-10 h-10 object-contain z-10 p-1" />
                         </div>
                     ) : isEntry && notif.actor?.avatar_url ? (
                         <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-white/10">
