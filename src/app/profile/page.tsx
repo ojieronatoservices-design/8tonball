@@ -82,11 +82,12 @@ const stripEmojis = (str: string) => {
 }
 
 import { EventCard } from '@/components/EventCard'
+import { SupabaseClient } from '@supabase/supabase-js'
 
 // Global cache for instant tab switching
 let globalProfileCache: any = null
-let globalEntriesCache: any[] | null = null
-let globalCountsCache: any = null
+let globalEntriesCache: EntryWithEvent[] | null = null
+let globalCountsCache: Record<string, number> | null = null
 let globalHostedCache: any = null
 
 export default function ProfilePage() {
@@ -232,7 +233,7 @@ export default function ProfilePage() {
                 .maybeSingle()
 
             if (kycData) {
-                setKycStatus(kycData.status as any)
+                setKycStatus(kycData.status as 'unverified' | 'pending' | 'verified' | 'rejected')
             }
         } catch (error) {
             console.error('Error fetching profile:', error)
@@ -255,7 +256,7 @@ export default function ProfilePage() {
         const { data } = await supabaseClient.from('notifications').select('type').eq('user_id', userId).eq('is_read', false)
         if (data) {
             let host = 0, participant = 0
-            data.forEach((n: any) => {
+            data.forEach((n: { type: string }) => {
                 if (n.type === 'entry') host++
                 else participant++
             })
@@ -388,7 +389,7 @@ export default function ProfilePage() {
 
 
     // Realtime subscriptions for profile updates
-    const supabaseRef = useRef<any>(null)
+    const supabaseRef = useRef<SupabaseClient | null>(null)
 
     useEffect(() => {
         if (!userId) return
@@ -580,10 +581,9 @@ export default function ProfilePage() {
     const getNotifIcon = (type: string) => {
         switch (type) {
             case 'win': return <Trophy className="text-primary" size={18} />
-            case 'payment': return <Wallet className="text-green-500" size={18} />
-            case 'entry': return <Ticket className="text-primary" size={18} />
             case 'payment':
             case 'payout': return <Coins className="text-yellow-400" size={18} />
+            case 'entry': return <Ticket className="text-primary" size={18} />
             case 'kyc': return <ShieldCheck className="text-blue-400" size={18} />
             default: return <Bell size={18} />
         }

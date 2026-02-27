@@ -222,8 +222,8 @@ export function Shell({ children }: ShellProps) {
                     setShowLegalModal(true)
                 }
             }
-        } catch (err: any) {
-            console.error('[syncProfile] Unexpected error:', err?.message || err)
+        } catch (err: unknown) {
+            console.error('[syncProfile] Unexpected error:', err instanceof Error ? err.message : err)
             showToast('Failed to sync profile. Please try again.', 'error')
         } finally {
             setIsSyncing(false)
@@ -329,9 +329,9 @@ export function Shell({ children }: ShellProps) {
                 throw new Error('Invalid response from payment provider')
             }
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('PayMongo error:', error)
-            showToast(error.message || 'Error creating checkout', 'error')
+            showToast(error instanceof Error ? error.message : 'Error creating checkout', 'error')
         } finally {
             setIsProcessingPaymongo(null)
         }
@@ -359,7 +359,7 @@ export function Shell({ children }: ShellProps) {
 
         setIsSubmittingSettle(true)
         try {
-            let payoutDetails: any = { method: settleMethod }
+            const payoutDetails: Record<string, any> = { method: settleMethod }
 
             if (settleMethod === 'gcash') {
                 payoutDetails.gcash_number = settleGcashNumber
@@ -395,9 +395,9 @@ export function Shell({ children }: ShellProps) {
             setShowSettleModal(false)
             // Reset form
             setSettleGcashNumber(''); setSettleGcashName(''); setSettleBankName(''); setSettleBankAccount(''); setSettleBankHolder(''); setSettleQrFile(null); setSettleQrPreview(null); setSettleQrName('')
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Settle error:', error)
-            showToast(error.message || 'Error submitting settlement request', 'error')
+            showToast(error instanceof Error ? error.message : 'Error submitting settlement request', 'error')
         } finally {
             setIsSubmittingSettle(false)
         }

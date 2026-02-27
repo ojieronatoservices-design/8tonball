@@ -1,11 +1,12 @@
 import { useAuth } from '@clerk/nextjs'
 import { createClerkSupabaseClient, supabase } from '@/lib/supabase'
 import { useMemo, useRef } from 'react'
+import { SupabaseClient } from '@supabase/supabase-js'
 
 export function useSupabase() {
     const { getToken } = useAuth()
 
-    const cachedClient = useRef<any>(null)
+    const cachedClient = useRef<SupabaseClient | null>(null)
     const lastToken = useRef<string | null>(null)
     const lastFetchTime = useRef<number>(0)
 
