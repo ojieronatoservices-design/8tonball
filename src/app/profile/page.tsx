@@ -1,13 +1,14 @@
 "use client"
 
 import React, { useEffect, useState, useRef, useMemo } from 'react'
-import { Plus, Ticket, ShieldCheck, Clock, Trophy, Loader2, User, LogOut, Wallet, CheckSquare, X, Settings, Image as ImageIcon, XCircle, Mail, ChevronDown, Bell, Coins, Search, LayoutDashboard, Info, Users, MessageSquare, Reply, ChevronUp, CheckCircle2 } from 'lucide-react'
+import { Plus, Ticket, ShieldCheck, Clock, Trophy, Loader2, User, LogOut, Wallet, CheckSquare, X, Settings, Image as ImageIcon, XCircle, Mail, ChevronDown, Bell, Coins, Search, LayoutDashboard, Info, Users, ChevronUp, CheckCircle2 } from 'lucide-react'
 import { useUser, useAuth, useClerk } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
 import { useRouter } from 'next/navigation'
 import { CountdownTimer } from '@/components/CountdownTimer'
 import Link from 'next/link'
 import AdminDashboard from '../admin/page'
+import { TibsDisplay } from '@/components/TibsDisplay'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
@@ -114,6 +115,8 @@ export default function ProfilePage() {
     const [isLoadingRaffle, setIsLoadingRaffle] = useState(false)
     const [unreadHostCount, setUnreadHostCount] = useState(0)
     const [unreadParticipantCount, setUnreadParticipantCount] = useState(0)
+    const [showWalletActionModal, setShowWalletActionModal] = useState(false)
+    const [initialHostSearch, setInitialHostSearch] = useState('')
 
     const [archiveSearch, setArchiveSearch] = useState('')
     const deferredArchiveSearch = React.useDeferredValue(archiveSearch)
@@ -131,6 +134,25 @@ export default function ProfilePage() {
     const [kycSelfiePreview, setKycSelfiePreview] = useState<string | null>(null)
     const [isSubmittingKYC, setIsSubmittingKYC] = useState(false)
     const [kycStatus, setKycStatus] = useState<'unverified' | 'pending' | 'verified' | 'rejected'>('unverified')
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const tab = params.get('tab');
+        const subtab = params.get('subtab');
+        const raffleId = params.get('raffleId');
+
+        if (tab === 'host') {
+            setActiveMainTab('host');
+            if (raffleId) setInitialHostSearch(raffleId);
+        } else if (tab === 'participant') {
+            setActiveMainTab('participant');
+            if (subtab === 'archives') setActiveTab('archives');
+            else if (subtab === 'activity') setActiveTab('activity');
+            else setActiveTab('live');
+
+            if (raffleId) setExpandedId(raffleId);
+        }
+    }, [window.location.search]);
 
     const fetchProfile = async (silent = false) => {
         if (!userId) return
@@ -559,12 +581,11 @@ export default function ProfilePage() {
         switch (type) {
             case 'win': return <Trophy className="text-primary" size={18} />
             case 'payment': return <Wallet className="text-green-500" size={18} />
-            case 'comment': return <MessageSquare className="text-blue-400" size={18} />
-            case 'reply': return <Reply className="text-indigo-400" size={18} />
-            case 'entry': return <Users className="text-orange-400" size={18} />
-            case 'vote_up': return <ChevronUp className="text-primary" size={18} />
-            case 'vote_down': return <ChevronDown className="text-red-500" size={18} />
-            default: return <Info className="text-white/40" size={18} />
+            case 'entry': return <Ticket className="text-primary" size={18} />
+            case 'payment':
+            case 'payout': return <Coins className="text-yellow-400" size={18} />
+            case 'kyc': return <ShieldCheck className="text-blue-400" size={18} />
+            default: return <Bell size={18} />
         }
     }
 
@@ -593,36 +614,31 @@ export default function ProfilePage() {
     }
 
     const handleNotificationClick = async (notif: Notification) => {
-        if (!notif.is_read) {
+        if (notif.is_read === false) {
             const supabaseClient = await getClient()
-            if (!supabaseClient) return
-            await supabaseClient.from('notifications').update({ is_read: true }).eq('id', notif.id)
-            setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n))
-            fetchUnreadCounts()
+            if (supabaseClient) {
+                await supabaseClient.from('notifications').update({ is_read: true }).eq('id', notif.id)
+                setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n))
+            }
         }
 
-        if (notif.raffle_id) {
-            router.push(`/event/${notif.raffle_id}`)
-            return
-        }
-
-        if (notif.type === 'win') {
-            setSelectedNotif(notif)
-            setIsLoadingRaffle(true)
-            const supabaseClient = await getClient()
-            if (!supabaseClient) return
-            const { data } = await supabaseClient
-                .from('raffles')
-                .select(`
-                    *,
-                    winning_entry:entries!raffles_winning_entry_id_fkey(*),
-                    host:profiles!raffles_host_id_fkey(*),
-                    entries:entries(count)
-                `)
-                .eq('id', notif.raffle_id)
-                .single()
-            setSelectedRaffle(data)
-            setIsLoadingRaffle(false)
+        if (notif.type === 'win' && notif.raffle_id) {
+            setActiveMainTab('participant')
+            setActiveTab('archives')
+            setExpandedId(notif.raffle_id)
+            // Optional: Scroll to top or to the element
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+        } else if (notif.type === 'entry' && notif.raffle_id) {
+            setActiveMainTab('host')
+            setInitialHostSearch(notif.raffle_id)
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+        } else if (notif.type === 'payment' || notif.type === 'payout') {
+            setShowWalletActionModal(true)
+        } else if (notif.raffle_id) {
+            // Default behavior for other raffle-related notifs
+            setActiveMainTab('participant')
+            setActiveTab('live')
+            setExpandedId(notif.raffle_id)
         } else {
             setSelectedNotif(notif)
         }
@@ -823,7 +839,7 @@ export default function ProfilePage() {
             {activeMainTab === 'host' ? (
                 // Host Dashboard (Embedded)
                 <div className="px-6 pb-20 animate-in fade-in slide-in-from-right-4 duration-300">
-                    <AdminDashboard />
+                    <AdminDashboard initialSearchQuery={initialHostSearch} />
                 </div>
             ) : (
                 // Participant Profile
@@ -1265,6 +1281,52 @@ export default function ProfilePage() {
                         </button>
                         <p className="text-[9px] text-center text-muted-foreground/40 font-medium px-4 leading-normal">
                             By submitting, you agree to our host terms. Verification typically takes 2-6 hours. Your data is encrypted and stored securely.
+                        </p>
+                    </div>
+                </div>
+            )}
+            {/* Wallet Action Modal */}
+            {showWalletActionModal && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-card w-full max-w-sm rounded-[2.5rem] border border-border p-8 flex flex-col gap-6 shadow-2xl animate-in zoom-in-95 duration-300">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-xl font-black tracking-tight text-foreground uppercase italic underline decoration-primary decoration-4 underline-offset-4">Wallet</h3>
+                            <button onClick={() => setShowWalletActionModal(false)} className="w-8 h-8 bg-muted flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-all">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="flex flex-col items-center py-6 bg-muted/30 rounded-[2rem] border border-border/50">
+                            <span className="text-[10px] uppercase font-black tracking-widest text-muted-foreground mb-1">Your Balance</span>
+                            <div className="text-4xl font-black text-foreground flex items-baseline gap-1">
+                                <TibsDisplay amount={profile?.tibs_balance || 0} showUnit={false} />
+                                <span className="text-sm uppercase tracking-widest text-primary">Tibs</span>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3">
+                            <button
+                                onClick={() => { setShowWalletActionModal(false); /* Trigger top up in Shell? */ }}
+                                className="w-full h-14 bg-primary text-black font-black uppercase tracking-widest text-xs rounded-2xl flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-lg shadow-primary/20"
+                            >
+                                <Plus size={16} strokeWidth={3} /> Top Up Tibs
+                            </button>
+                            <button
+                                onClick={() => { setShowWalletActionModal(false); setActiveMainTab('participant'); setActiveTab('activity'); }}
+                                className="w-full h-14 bg-white/5 text-foreground font-black uppercase tracking-widest text-xs rounded-2xl flex items-center justify-center gap-2 border border-border hover:bg-white/10 transition-all transition-transform active:scale-95"
+                            >
+                                <Trophy size={16} /> Claim Rewards
+                            </button>
+                            <button
+                                onClick={() => { setShowWalletActionModal(false); setActiveMainTab('host'); }}
+                                className="w-full h-14 bg-white/5 text-foreground font-black uppercase tracking-widest text-xs rounded-2xl flex items-center justify-center gap-2 border border-border hover:bg-white/10 transition-all transition-transform active:scale-95"
+                            >
+                                <Wallet size={16} /> Settle Payouts
+                            </button>
+                        </div>
+
+                        <p className="text-[10px] text-center text-muted-foreground font-bold uppercase tracking-widest opacity-40">
+                            Secure Tibs Wallet System
                         </p>
                     </div>
                 </div>

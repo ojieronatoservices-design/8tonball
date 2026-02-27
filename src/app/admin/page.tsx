@@ -459,7 +459,7 @@ const PayoutsList = memo(({ payouts, handleApprovePayout, isLoadingPayouts, fetc
 ))
 PayoutsList.displayName = 'PayoutsList'
 
-export default function AdminDashboard() {
+export default function AdminDashboard({ initialSearchQuery = '' }: { initialSearchQuery?: string }) {
     const { user } = useUser()
     const { userId } = useAuth()
     const { getClient } = useSupabase()
@@ -1226,7 +1226,7 @@ export default function AdminDashboard() {
         handleMarkRead: (id: string) => void
     }) => {
         const [dateFilter, setDateFilter] = useState('')
-        const [searchQuery, setSearchQuery] = useState('')
+        const [searchQuery, setSearchQuery] = useState(initialSearchQuery)
         const deferredDateFilter = React.useDeferredValue(dateFilter)
         const deferredSearchQuery = React.useDeferredValue(searchQuery)
 

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react'
 import Image from 'next/image'
-import { Trophy, Clock, Users, Loader2, Share2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Coins, XCircle, Ticket, User, CheckCircle2, MessageSquare } from 'lucide-react'
+import { Trophy, Clock, Users, Loader2, Share2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Coins, XCircle, Ticket, User, CheckCircle2 } from 'lucide-react'
 import { CountdownTimer } from '@/components/CountdownTimer'
 import { ImageLightbox } from '@/components/ImageLightbox'
 import { TibsDisplay } from '@/components/TibsDisplay'
@@ -86,9 +86,6 @@ export const EventCard = React.memo(({
     useEffect(() => {
         if (!justJoined) setLocalEntryCount(entryCount)
     }, [entryCount, justJoined])
-
-    // Fetch comment count
-    // Comment count fetch removed
 
     const handleJoinClick = (e: React.MouseEvent) => {
         e.stopPropagation()

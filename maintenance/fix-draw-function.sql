@@ -56,7 +56,7 @@ BEGIN
 
     -- 7. Create Winner Notification
     INSERT INTO notifications (user_id, message, type)
-    VALUES (v_winner_id, '🎉 Congratulations! You won "' || v_event_title || '"! Check your email for details.', 'win');
+    VALUES (v_winner_id, '🎉 Congratulations! You won "' || v_event_title || '"!', 'win');
 
     RETURN jsonb_build_object(
         'success', true, 

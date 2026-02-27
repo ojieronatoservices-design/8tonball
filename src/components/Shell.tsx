@@ -106,12 +106,9 @@ export function Shell({ children }: ShellProps) {
         } else if (type === 'kyc') {
             emoji = '🛡️'
             toastType = 'info'
-        } else if (type === 'vote_up') {
-            emoji = '👍'
-            toastType = 'success'
-        } else if (type === 'comment' || type === 'reply') {
-            emoji = '💬'
-            toastType = 'info'
+        } else {
+            // Drop other notification types (comment, reply, vote)
+            return
         }
 
         showToast(`${emoji} ${message}`, toastType)
