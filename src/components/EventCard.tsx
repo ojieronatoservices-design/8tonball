@@ -51,7 +51,6 @@ export const EventCard = React.memo(({
     const [isFlashActive, setIsFlashActive] = useState(false)
 
     // Trigger flash highlight if focusing on this raffle (from deep link)
-    // We can just check raffleId, no need for comment logic anymore
     useEffect(() => {
         const rId = searchParams.get('raffleId')
         if (event.id === rId) {
@@ -423,7 +422,6 @@ export const EventCard = React.memo(({
                 </div>
             </div>
 
-            {/* Comments Drawer Removed */}
 
             {/* Image Lightbox */}
             {showLightbox && (

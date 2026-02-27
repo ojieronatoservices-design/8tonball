@@ -622,24 +622,35 @@ export default function ProfilePage() {
             }
         }
 
-        if (notif.type === 'win' && notif.raffle_id) {
+        const isWin = notif.type === 'win'
+        const isEntry = notif.type === 'entry'
+        const isWallet = notif.type === 'payment' || notif.type === 'payout'
+
+        if (isWin) {
             setActiveMainTab('participant')
             setActiveTab('archives')
-            setExpandedId(notif.raffle_id)
-            // Optional: Scroll to top or to the element
+
+            // Redirection logic: Use raffle_id if present, otherwise try to find it by title in myEntries
+            if (notif.raffle_id) {
+                setExpandedId(notif.raffle_id)
+            } else {
+                // Secondary check: Find by title in our cached entries
+                const match = myEntries.find(e => notif.message.includes(e.raffles?.title))
+                if (match) setExpandedId(match.raffle_id)
+            }
             window.scrollTo({ top: 0, behavior: 'smooth' })
-        } else if (notif.type === 'entry' && notif.raffle_id) {
+        } else if (isEntry && notif.raffle_id) {
             setActiveMainTab('host')
             setInitialHostSearch(notif.raffle_id)
             window.scrollTo({ top: 0, behavior: 'smooth' })
-        } else if (notif.type === 'payment' || notif.type === 'payout') {
+        } else if (isWallet) {
             setShowWalletActionModal(true)
         } else if (notif.raffle_id) {
-            // Default behavior for other raffle-related notifs
             setActiveMainTab('participant')
             setActiveTab('live')
             setExpandedId(notif.raffle_id)
-        } else {
+        } else if (!isWin) {
+            // Fallback modal ONLY if it's not a win
             setSelectedNotif(notif)
         }
     }
@@ -675,13 +686,13 @@ export default function ProfilePage() {
                 {/* Left Icon Area */}
                 <div className="shrink-0 relative">
                     {isWin ? (
-                        <div className="relative w-16 h-16 rounded-full bg-primary flex items-center justify-center shadow-[0_0_15px_rgba(57,255,20,0.3)] shrink-0">
+                        <div className="relative w-16 h-16 rounded-full bg-black flex items-center justify-center shadow-[0_0_15px_rgba(57,255,20,0.3)] shrink-0 border border-primary/20">
                             <div className="absolute inset-0 animate-spin" style={{ animationDuration: '8s' }}>
-                                <svg viewBox="0 0 100 100" className="w-full h-full text-black">
+                                <svg viewBox="0 0 100 100" className="w-full h-full text-primary">
                                     <path id={`circlePath-${notif.id}`} d="M 50, 50 m -35, 0 a 35,35 0 1,1 70,0 a 35,35 0 1,1 -70,0" fill="transparent" />
-                                    <text className="text-[7.5px] font-black" fill="currentColor">
-                                        <textPath href={`#circlePath-${notif.id}`} startOffset="0%">
-                                            C O N G R A T U L A T I O N S ! C O N G R A T U L A T I O N S !
+                                    <text className="text-[8px] font-black tracking-[0.2em]" fill="currentColor">
+                                        <textPath href={`#circlePath-${notif.id}`} startOffset="0%" textLength="210" lengthAdjust="spacing">
+                                            CONGRATULATIONS!
                                         </textPath>
                                     </text>
                                 </svg>
@@ -693,8 +704,13 @@ export default function ProfilePage() {
                             <img src={notif.actor.avatar_url} alt="User" className="w-full h-full object-cover" />
                         </div>
                     ) : isSystem ? (
-                        <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center">
-                            <span className="text-black font-black text-3xl italic">8</span>
+                        <div className="w-14 h-14 rounded-full bg-black flex items-center justify-center overflow-hidden border border-white/10 shadow-[0_0_15px_rgba(57,255,20,0.2)]">
+                            <img
+                                src="/reward-logo.png"
+                                alt="Reward"
+                                className="w-full h-full object-cover animate-spin"
+                                style={{ animationDuration: '6s' }}
+                            />
                         </div>
                     ) : (
                         <div className={`w-14 h-14 rounded-full flex items-center justify-center border ${!notif.is_read ? 'border-primary/20 bg-primary/10' : 'border-white/5 bg-white/5'}`}>
@@ -711,9 +727,11 @@ export default function ProfilePage() {
 
                     {hasThumbnail && (
                         <div className="mt-3 flex items-center gap-3 bg-black/40 p-2 rounded-xl border border-white/10 w-fit">
+                            {/* @ts-ignore */}
                             <img src={notif.raffle!.media_urls![0]} alt="Thumbnail" className="w-12 h-12 rounded-lg object-cover" />
                             <div className="pr-2 max-w-[200px]">
                                 <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Event Won</p>
+                                {/* @ts-ignore */}
                                 <p className="text-xs font-black text-white truncate">{notif.raffle!.title}</p>
                             </div>
                         </div>
@@ -724,13 +742,6 @@ export default function ProfilePage() {
                         {!notif.is_read && <span className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_primary]" />}
                     </div>
                 </div>
-
-                {/* Right Action Area */}
-                {['comment', 'reply', 'entry', 'vote_up', 'vote_down'].includes(notif.type) && (
-                    <div className="text-primary/20 flex flex-col items-center self-center pl-2">
-                        <CheckCircle2 size={16} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                )}
             </div>
         )
     }
@@ -1080,7 +1091,7 @@ export default function ProfilePage() {
                                         </div>
                                         <div className="space-y-2">
                                             <p className="text-white font-black text-lg italic uppercase">No Activity Detected</p>
-                                            <p className="text-white/30 text-[10px] font-black uppercase tracking-[0.2em]">Join an event or start a conversation!</p>
+                                            <p className="text-white/30 text-[10px] font-black uppercase tracking-[0.2em]">Join an event and win big!</p>
                                         </div>
                                     </div>
                                 )}

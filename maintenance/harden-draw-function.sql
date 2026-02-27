@@ -65,8 +65,8 @@ BEGIN
     WHERE id = p_raffle_id;
 
     -- 8. Create Winner Notification
-    INSERT INTO notifications (user_id, message, type)
-    VALUES (v_winner_id, '🎉 Congratulations! You won "' || v_event_title || '"! Check your email for details.', 'win');
+    INSERT INTO notifications (user_id, message, type, raffle_id)
+    VALUES (v_winner_id, '🎉 Congratulations! You won "' || v_event_title || '"!', 'win', p_raffle_id);
 
     RETURN jsonb_build_object(
         'success', true, 
