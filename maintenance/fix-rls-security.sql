@@ -12,14 +12,17 @@ ALTER TABLE IF EXISTS public.kyc_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.payout_requests ENABLE ROW LEVEL SECURITY;
 
 -- 2. Specifically fix refund_queue (The reported error)
-IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'refund_queue' AND schemaname = 'public') THEN
-    ALTER TABLE public.refund_queue ENABLE ROW LEVEL SECURITY;
-    
-    -- Ensure the admin policy exists
-    DROP POLICY IF EXISTS "Admins can manage refund queue" ON public.refund_queue;
-    CREATE POLICY "Admins can manage refund queue" ON public.refund_queue
-        USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth_uid_text() AND is_admin = true));
-END IF;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'refund_queue' AND schemaname = 'public') THEN
+        ALTER TABLE public.refund_queue ENABLE ROW LEVEL SECURITY;
+        
+        -- Ensure the admin policy exists
+        DROP POLICY IF EXISTS "Admins can manage refund queue" ON public.refund_queue;
+        CREATE POLICY "Admins can manage refund queue" ON public.refund_queue
+            USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth_uid_text() AND is_admin = true));
+    END IF;
+END $$;
 
 -- 3. Verify RLS status
 SELECT tablename, rowsecurity 
