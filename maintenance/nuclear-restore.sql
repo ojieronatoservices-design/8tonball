@@ -82,6 +82,11 @@ CREATE POLICY "Users can view own kyc" ON kyc_requests FOR SELECT USING (auth_ui
 CREATE POLICY "Users can create own kyc" ON kyc_requests FOR INSERT WITH CHECK (auth_uid_text() = user_id);
 CREATE POLICY "Admins can manage kyc" ON kyc_requests USING ((SELECT is_admin FROM profiles WHERE id = auth_uid_text()));
 
+-- REFUND_QUEUE
+ALTER TABLE public.refund_queue ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Admins can manage refund queue" ON refund_queue;
+CREATE POLICY "Admins can manage refund queue" ON refund_queue USING ((SELECT is_admin FROM profiles WHERE id = auth_uid_text()));
+
 -- 4. CLEAN UP BROKEN POLICIES ON SOCIAL TABLES (Ensuring they are at least viewable)
 DO $$
 DECLARE
