@@ -155,7 +155,7 @@ export function ManageCodesModal({ raffleId, displayId, onClose }: ManageCodesMo
                                     max="100000"
                                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none"
                                 />
-                                <p className="text-[10px] text-white/30 ml-1">Generates random high-entropy codes (e.g. 8TB-A7F9-K2M1)</p>
+                                <p className="text-[10px] text-white/30 ml-1">Generates random high-entropy codes (e.g. A7F9-K2M1-XYZ9)</p>
                             </div>
                             <button
                                 onClick={handleGenerate}

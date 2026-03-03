@@ -6,17 +6,18 @@ ALTER TABLE public.raffles ADD COLUMN IF NOT EXISTS requires_code BOOLEAN DEFAUL
 -- 2. Create campaign_codes table
 CREATE TABLE IF NOT EXISTS public.campaign_codes (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    raffle_id UUID REFERENCES public.raffles(id) ON DELETE CASCADE NOT NULL,
+    host_user_id TEXT REFERENCES public.profiles(id) NOT NULL,
+    raffle_id UUID REFERENCES public.raffles(id) ON DELETE CASCADE,
     code VARCHAR NOT NULL,
     is_used BOOLEAN DEFAULT false,
     used_by TEXT REFERENCES public.profiles(id),
     used_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(raffle_id, code)
+    UNIQUE(host_user_id, code)
 );
 
 -- Index for fast lookup by code
-CREATE INDEX IF NOT EXISTS idx_campaign_codes_lookup ON public.campaign_codes(raffle_id, code);
+CREATE INDEX IF NOT EXISTS idx_campaign_codes_lookup ON public.campaign_codes(host_user_id, code);
 
 -- Enable RLS for campaign_codes
 ALTER TABLE public.campaign_codes ENABLE ROW LEVEL SECURITY;
@@ -87,7 +88,7 @@ BEGIN
     -- 4. Verify and lock the code atomically
     SELECT id, is_used INTO v_code_id, v_is_used
     FROM campaign_codes 
-    WHERE raffle_id = p_raffle_id AND code = p_code
+    WHERE code = p_code AND host_user_id = v_host_id AND (raffle_id IS NULL OR raffle_id = p_raffle_id)
     FOR UPDATE; -- Atomic lock
 
     IF v_code_id IS NULL THEN

@@ -1367,14 +1367,14 @@ function CreateEventModalWrapper({ isAdmin, isHostEligible, getClient, userId, o
                         <div className="flex flex-col gap-1.5">
                             <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Cost (Tibs) <span className="text-white/15">(0 for Free)</span></label>
                             <input type="number" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="0"
-                                min="0"
-                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+                                min="0" disabled={requiresCode}
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none disabled:opacity-50 cursor-not-allowed" />
                         </div>
                         <div className="flex flex-col gap-1.5">
                             <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Goal (Tibs) <span className="text-white/15">(0 for Free)</span></label>
                             <input type="number" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="0"
-                                min="0"
-                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+                                min="0" disabled={requiresCode}
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none disabled:opacity-50 cursor-not-allowed" />
                         </div>
                     </div>
                     <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
@@ -1384,7 +1384,14 @@ function CreateEventModalWrapper({ isAdmin, isHostEligible, getClient, userId, o
                         </div>
                         <button
                             type="button"
-                            onClick={() => setRequiresCode(!requiresCode)}
+                            onClick={() => {
+                                const newVal = !requiresCode
+                                setRequiresCode(newVal)
+                                if (newVal) {
+                                    setCost('0')
+                                    setGoal('0')
+                                }
+                            }}
                             className={`w-12 h-7 rounded-full transition-all duration-200 ${requiresCode ? 'bg-primary' : 'bg-white/10'} relative`}
                         >
                             <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-all duration-200 ${requiresCode ? 'left-6' : 'left-1'}`} />

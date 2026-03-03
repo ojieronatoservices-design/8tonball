@@ -1,11 +1,11 @@
 import { createClient } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 
-// Generate a random alphanumeric code like 8TB-A7F9-K2M1
+// Generate a random alphanumeric code like XXXX-XXXX-XXXX
 const generateRandomCode = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
     const segment = () => Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
-    return `8TB-${segment()}-${segment()}`
+    return `${segment()}-${segment()}-${segment()}`
 }
 
 export async function POST(request: Request) {
@@ -78,6 +78,7 @@ export async function POST(request: Request) {
 
         for (let i = 0; i < codesToInsert.length; i += BATCH_SIZE) {
             const batch = codesToInsert.slice(i, i + BATCH_SIZE).map(code => ({
+                host_user_id: session.user.id,
                 raffle_id: raffleId,
                 code: code
             }))
