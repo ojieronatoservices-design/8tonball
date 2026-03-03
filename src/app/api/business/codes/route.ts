@@ -140,12 +140,17 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 
-        // Fetch all codes for this raffle
-        // Warning: For very large sets (>100k), this GET request might be too large. 
-        // We'll select only the raw string to minimize JSON size.
+        // Fetch all codes for this raffle including who used them and when
         const { data: codes, error: fetchError } = await supabase
             .from('campaign_codes')
-            .select('code, is_used')
+            .select(`
+                code, 
+                is_used, 
+                used_at,
+                used_by_profile:profiles!used_by (
+                    email
+                )
+            `)
             .eq('raffle_id', raffleId)
 
         if (fetchError) throw fetchError

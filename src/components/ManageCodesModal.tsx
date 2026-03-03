@@ -95,8 +95,13 @@ export function ManageCodesModal({ raffleId, displayId, onClose }: ManageCodesMo
                 return
             }
 
-            // Create CSV
-            const csvContent = "Code,Used\n" + json.codes.map((c: any) => `${c.code},${c.is_used}`).join("\n")
+            // Create CSV with enhanced details
+            const csvContent = "Code,Used,Redeemed By,Redeemed At\n" +
+                json.codes.map((c: any) => {
+                    const email = c.used_by_profile?.email || (c.is_used ? 'Unknown' : '')
+                    const date = c.used_at ? new Date(c.used_at).toLocaleString() : ''
+                    return `"${c.code}",${c.is_used},"${email}","${date}"`
+                }).join("\n")
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
             const url = URL.createObjectURL(blob)
 
