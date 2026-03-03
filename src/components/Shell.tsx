@@ -1227,6 +1227,7 @@ function CreateEventModalWrapper({ isAdmin, isHostEligible, getClient, userId, o
     const [goal, setGoal] = useState('')
     const [drawTime, setDrawTime] = useState('')
     const [maxEntriesPerUser, setMaxEntriesPerUser] = useState('')
+    const [requiresCode, setRequiresCode] = useState(false)
     const [eventImages, setEventImages] = useState<File[]>([])
     const [eventPreviews, setEventPreviews] = useState<string[]>([])
     const [isLaunching, setIsLaunching] = useState(false)
@@ -1321,7 +1322,8 @@ function CreateEventModalWrapper({ isAdmin, isHostEligible, getClient, userId, o
                 status: 'open',
                 goal_tibs: goalTibs,
                 display_id: displayId,
-                max_entries_per_user: maxEntries
+                max_entries_per_user: maxEntries,
+                requires_code: requiresCode
             }])
 
             if (insertError) throw insertError
@@ -1374,6 +1376,19 @@ function CreateEventModalWrapper({ isAdmin, isHostEligible, getClient, userId, o
                                 min="0"
                                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" />
                         </div>
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
+                        <div className="flex flex-col">
+                            <span className="text-xs font-black text-white/80 uppercase tracking-wider">Requires Entry Code</span>
+                            <span className="text-[10px] text-white/30">Users must enter a valid alphanumeric code to join</span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setRequiresCode(!requiresCode)}
+                            className={`w-12 h-7 rounded-full transition-all duration-200 ${requiresCode ? 'bg-primary' : 'bg-white/10'} relative`}
+                        >
+                            <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-all duration-200 ${requiresCode ? 'left-6' : 'left-1'}`} />
+                        </button>
                     </div>
                     <div className="flex flex-col gap-1.5">
                         <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Max Entries Per User <span className="text-white/15">(optional)</span></label>

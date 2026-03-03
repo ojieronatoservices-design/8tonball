@@ -69,6 +69,9 @@ export const EventCard = React.memo(({
 
     // UX States
     const [isConfirming, setIsConfirming] = useState(false)
+    const [isEnteringCode, setIsEnteringCode] = useState(false)
+    const [codeValue, setCodeValue] = useState('')
+    const [codeError, setCodeError] = useState('')
     const [isProcessing, setIsProcessing] = useState(false)
     const [localEntryCount, setLocalEntryCount] = useState(entryCount)
     const [justJoined, setJustJoined] = useState(false)
@@ -95,7 +98,9 @@ export const EventCard = React.memo(({
 
     const handleJoinClick = (e: React.MouseEvent) => {
         e.stopPropagation()
-        if (isFree) {
+        if (event.requires_code) {
+            setIsEnteringCode(true)
+        } else if (isFree) {
             // Free events skip confirmation — direct entry
             handleConfirm(e)
         } else {
@@ -106,6 +111,9 @@ export const EventCard = React.memo(({
     const handleCancel = (e: React.MouseEvent) => {
         e.stopPropagation()
         setIsConfirming(false)
+        setIsEnteringCode(false)
+        setCodeValue('')
+        setCodeError('')
     }
 
     const handleConfirm = async (e: React.MouseEvent) => {
@@ -121,6 +129,46 @@ export const EventCard = React.memo(({
             setLocalEntryCount(prev => prev + 1)
             setJustJoined(true)
             setTimeout(() => setJustJoined(false), 5000)
+        }
+    }
+
+    const handleCodeSubmit = async (e: React.MouseEvent) => {
+        e.stopPropagation()
+        if (!userId) {
+            alert('Please sign in to enter.')
+            return
+        }
+        if (!codeValue.trim()) {
+            setCodeError('Code required')
+            return
+        }
+
+        setIsProcessing(true)
+        setCodeError('')
+
+        try {
+            const supabase = getClient()
+            const { data, error } = await (await supabase).rpc('redeem_campaign_code', {
+                p_raffle_id: event.id,
+                p_code: codeValue.trim().toUpperCase(),
+                p_user_id: userId
+            })
+
+            if (error) throw error
+            if (data && data.success === false) {
+                throw new Error(data.message)
+            }
+
+            // Success
+            setLocalEntryCount(prev => prev + 1)
+            setJustJoined(true)
+            setTimeout(() => setJustJoined(false), 5000)
+            setIsEnteringCode(false)
+            setCodeValue('')
+        } catch (err: any) {
+            setCodeError(err.message || 'Failed to redeem')
+        } finally {
+            setIsProcessing(false)
         }
     }
 
@@ -251,11 +299,13 @@ export const EventCard = React.memo(({
                 </div>
 
                 {/* Flash Sale Banner - Edge to Edge */}
-                <div className={`flex justify-between items-center py-3 px-6 ${isFree ? 'bg-gradient-to-r from-[#39FF14] to-[#00E5FF]' : 'bg-gradient-to-r from-[#39FF14] to-[#d946ef]'} text-black shadow-[0_0_20px_rgba(57,255,20,0.4)] relative z-10`}>
+                <div className={`flex justify-between items-center py-3 px-6 ${event.requires_code ? 'bg-gradient-to-r from-[#FFD700] to-[#FF8C00]' : isFree ? 'bg-gradient-to-r from-[#39FF14] to-[#00E5FF]' : 'bg-gradient-to-r from-[#39FF14] to-[#d946ef]'} text-black shadow-[0_0_20px_rgba(57,255,20,0.4)] relative z-10`}>
                     {/* Left: Cost & Entries */}
                     <div className="flex flex-col items-start leading-none">
                         <div className="flex items-baseline gap-1">
-                            {isFree ? (
+                            {event.requires_code ? (
+                                <span className="text-3xl font-black font-sans tracking-tighter uppercase whitespace-nowrap">CODE</span>
+                            ) : isFree ? (
                                 <span className="text-3xl font-black font-sans tracking-tighter uppercase">FREE</span>
                             ) : (
                                 <TibsDisplay
@@ -395,10 +445,40 @@ export const EventCard = React.memo(({
                     )}
 
                     {variant !== 'profile-archive' && (
-                        <div className="flex gap-2 pt-1 h-[42px]">
+                        <div className="flex gap-2 pt-1 h-[42px] relative w-full">
                             {isAdmin || userId === event.host_user_id ? (
                                 <div className="flex-1 h-full bg-muted text-muted-foreground border border-border rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center italic">
                                     {isAdmin ? 'Admin Restricted' : 'Host Restricted'}
+                                </div>
+                            ) : isEnteringCode ? (
+                                <div className="flex-1 flex flex-col w-full animate-in slide-in-from-right fade-in duration-200">
+                                    <div className="flex gap-1 h-full">
+                                        <button
+                                            onClick={handleCancel}
+                                            disabled={isProcessing}
+                                            className="h-full px-3 bg-muted hover:bg-foreground/5 text-foreground rounded-2xl flex items-center justify-center border border-border transition-colors disabled:opacity-50"
+                                        >
+                                            <XCircle size={18} />
+                                        </button>
+                                        <input
+                                            type="text"
+                                            value={codeValue}
+                                            onChange={(e) => { setCodeValue(e.target.value.toUpperCase()); setCodeError('') }}
+                                            placeholder="ENTER CODE"
+                                            disabled={isProcessing}
+                                            className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-2xl px-3 text-xs font-black uppercase tracking-widest focus:border-primary focus:outline-none"
+                                            onClick={(e) => e.stopPropagation()}
+                                            autoFocus
+                                        />
+                                        <button
+                                            onClick={handleCodeSubmit}
+                                            disabled={isProcessing || !codeValue.trim()}
+                                            className="h-full px-4 bg-primary text-black rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all disabled:opacity-50 active:scale-95 neon-border shadow-md shrink-0"
+                                        >
+                                            {isProcessing ? <Loader2 className="animate-spin" size={16} /> : 'SUBMIT'}
+                                        </button>
+                                    </div>
+                                    {codeError && <span className="text-[9px] text-red-500 font-bold px-2 truncate block w-full text-center absolute -bottom-5 z-20">{codeError}</span>}
                                 </div>
                             ) : isConfirming ? (
                                 <div className="flex-1 flex gap-2 animate-in slide-in-from-right fade-in duration-200">
@@ -427,7 +507,7 @@ export const EventCard = React.memo(({
                                     disabled={maxEntriesReached}
                                     className={`flex-1 h-full rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] transition-all duration-200 active:scale-95 shadow-lg flex items-center justify-center gap-2 ${maxEntriesReached ? 'bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-50' : 'bg-primary text-black neon-border hover:brightness-110'}`}
                                 >
-                                    {maxEntriesReached ? 'Max Reached' : isFree ? (remainingEntries != null ? `Join Now (${remainingEntries})` : 'Join Now') : 'Enter'}
+                                    {maxEntriesReached ? 'Max Reached' : event.requires_code ? (remainingEntries != null ? `Enter Code (${remainingEntries})` : 'Enter Code') : isFree ? (remainingEntries != null ? `Join Now (${remainingEntries})` : 'Join Now') : 'Enter'}
                                 </button>
                             )}
                             <button
