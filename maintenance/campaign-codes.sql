@@ -4,6 +4,7 @@
 ALTER TABLE public.raffles ADD COLUMN IF NOT EXISTS requires_code BOOLEAN DEFAULT false;
 
 -- 2. Create campaign_codes table
+DROP TABLE IF EXISTS public.campaign_codes CASCADE;
 CREATE TABLE IF NOT EXISTS public.campaign_codes (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     host_user_id TEXT REFERENCES public.profiles(id) NOT NULL,
