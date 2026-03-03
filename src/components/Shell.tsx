@@ -1226,6 +1226,8 @@ function CreateEventModalWrapper({ isAdmin, isHostEligible, getClient, userId, o
     const [cost, setCost] = useState('')
     const [goal, setGoal] = useState('')
     const [drawTime, setDrawTime] = useState('')
+    const [isFreeEvent, setIsFreeEvent] = useState(false)
+    const [maxEntriesPerUser, setMaxEntriesPerUser] = useState('')
     const [eventImages, setEventImages] = useState<File[]>([])
     const [eventPreviews, setEventPreviews] = useState<string[]>([])
     const [isLaunching, setIsLaunching] = useState(false)
@@ -1266,8 +1268,12 @@ function CreateEventModalWrapper({ isAdmin, isHostEligible, getClient, userId, o
 
     const handleLaunchEvent = async () => {
         if (isLaunching) return
-        if (!title || !cost || !drawTime) {
-            alert('Please fill in all required fields (Title, Cost, Draw Time)')
+        if (!title || !drawTime) {
+            alert('Please fill in all required fields (Title, Draw Time)')
+            return
+        }
+        if (!isFreeEvent && !cost) {
+            alert('Please set a cost or enable Free Event')
             return
         }
 
@@ -1302,10 +1308,11 @@ function CreateEventModalWrapper({ isAdmin, isHostEligible, getClient, userId, o
             const yearShort = date.getFullYear().toString().slice(-2)
             const displayId = `#${monthLetter}${yearShort}.${(existingCount || 0) + 1}`
 
-            const entryCost = parseInt(cost)
-            const goalTibs = parseInt(goal) || 0
+            const entryCost = isFreeEvent ? 0 : parseInt(cost)
+            const goalTibs = isFreeEvent ? 0 : (parseInt(goal) || 0)
+            const maxEntries = maxEntriesPerUser ? parseInt(maxEntriesPerUser) : null
 
-            if (isNaN(entryCost)) {
+            if (!isFreeEvent && isNaN(entryCost)) {
                 throw new Error('Invalid cost value. Please enter a number.')
             }
 
@@ -1318,7 +1325,8 @@ function CreateEventModalWrapper({ isAdmin, isHostEligible, getClient, userId, o
                 host_user_id: userId,
                 status: 'open',
                 goal_tibs: goalTibs,
-                display_id: displayId
+                display_id: displayId,
+                max_entries_per_user: maxEntries
             }])
 
             if (insertError) throw insertError
@@ -1358,17 +1366,36 @@ function CreateEventModalWrapper({ isAdmin, isHostEligible, getClient, userId, o
                         <input type="datetime-local" value={drawTime} onChange={(e) => setDrawTime(e.target.value)}
                             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none [color-scheme:dark]" />
                     </div>
+                    <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
+                        <div className="flex flex-col">
+                            <span className="text-xs font-black text-white/80 uppercase tracking-wider">Free Event</span>
+                            <span className="text-[10px] text-white/30">No Tibs required to enter</span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => { setIsFreeEvent(!isFreeEvent); if (!isFreeEvent) { setCost('0'); setGoal(''); } else { setCost(''); } }}
+                            className={`w-12 h-7 rounded-full transition-all duration-200 ${isFreeEvent ? 'bg-primary' : 'bg-white/10'} relative`}
+                        >
+                            <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-all duration-200 ${isFreeEvent ? 'left-6' : 'left-1'}`} />
+                        </button>
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="flex flex-col gap-1.5">
+                        <div className={`flex flex-col gap-1.5 ${isFreeEvent ? 'opacity-30 pointer-events-none' : ''}`}>
                             <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Cost (Tibs)</label>
-                            <input type="number" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="100"
+                            <input type="number" value={isFreeEvent ? '0' : cost} onChange={(e) => setCost(e.target.value)} placeholder="100"
                                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" />
                         </div>
-                        <div className="flex flex-col gap-1.5">
+                        <div className={`flex flex-col gap-1.5 ${isFreeEvent ? 'opacity-30 pointer-events-none' : ''}`}>
                             <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Goal (Tibs)</label>
                             <input type="number" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="5000"
                                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" />
                         </div>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Max Entries Per User <span className="text-white/15">(optional)</span></label>
+                        <input type="number" value={maxEntriesPerUser} onChange={(e) => setMaxEntriesPerUser(e.target.value)} placeholder="Unlimited"
+                            min="1"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" />
                     </div>
                     <div className="flex flex-col gap-1.5">
                         <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Media (Multiple allowed)</label>

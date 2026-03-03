@@ -980,7 +980,7 @@ export default function ProfilePage() {
                                         const won = didWin(group);
                                         const totalEntries = group.event.all_entries?.[0]?.count || 0
                                         const currentTibs = totalEntries * group.event.entry_cost_tibs
-                                        const goalMet = group.event.goal_tibs > 0 ? currentTibs >= group.event.goal_tibs : true
+                                        const goalMet = group.event.entry_cost_tibs === 0 ? true : (group.event.goal_tibs > 0 ? currentTibs >= group.event.goal_tibs : true)
                                         return (
                                             <div key={group.event.id} className="w-full">
                                                 <div className={`flex flex-col bg-card border-b border-border transition-all duration-300 ${isExpanded ? 'bg-muted/30' : 'hover:bg-muted/10'}`}>

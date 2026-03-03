@@ -60,6 +60,13 @@ export const EventCard = React.memo(({
         }
     }, [searchParams, event.id])
 
+    // Free event + max entry logic
+    const isFree = event.entry_cost_tibs === 0
+    const maxEntries = event.max_entries_per_user
+    const userEntryCount = entryNumbers?.length || 0
+    const maxEntriesReached = maxEntries != null && userEntryCount >= maxEntries
+    const remainingEntries = maxEntries != null ? Math.max(0, maxEntries - userEntryCount) : null
+
     // UX States
     const [isConfirming, setIsConfirming] = useState(false)
     const [isProcessing, setIsProcessing] = useState(false)
@@ -88,7 +95,12 @@ export const EventCard = React.memo(({
 
     const handleJoinClick = (e: React.MouseEvent) => {
         e.stopPropagation()
-        setIsConfirming(true)
+        if (isFree) {
+            // Free events skip confirmation — direct entry
+            handleConfirm(e)
+        } else {
+            setIsConfirming(true)
+        }
     }
 
     const handleCancel = (e: React.MouseEvent) => {
@@ -239,20 +251,26 @@ export const EventCard = React.memo(({
                 </div>
 
                 {/* Flash Sale Banner - Edge to Edge */}
-                <div className="flex justify-between items-center py-3 px-6 bg-gradient-to-r from-[#39FF14] to-[#d946ef] text-black shadow-[0_0_20px_rgba(57,255,20,0.4)] relative z-10">
-                    {/* Left: Tibs & Entries */}
+                <div className={`flex justify-between items-center py-3 px-6 ${isFree ? 'bg-gradient-to-r from-[#39FF14] to-[#00E5FF]' : 'bg-gradient-to-r from-[#39FF14] to-[#d946ef]'} text-black shadow-[0_0_20px_rgba(57,255,20,0.4)] relative z-10`}>
+                    {/* Left: Cost & Entries */}
                     <div className="flex flex-col items-start leading-none">
                         <div className="flex items-baseline gap-1">
-                            <TibsDisplay
-                                amount={event.entry_cost_tibs}
-                                className="text-3xl font-black font-sans tracking-tighter"
-                                showUnit={true}
-                                unitClassName="text-sm font-black font-sans uppercase opacity-80"
-                            />
+                            {isFree ? (
+                                <span className="text-3xl font-black font-sans tracking-tighter uppercase">FREE</span>
+                            ) : (
+                                <TibsDisplay
+                                    amount={event.entry_cost_tibs}
+                                    className="text-3xl font-black font-sans tracking-tighter"
+                                    showUnit={true}
+                                    unitClassName="text-sm font-black font-sans uppercase opacity-80"
+                                />
+                            )}
                         </div>
                         <div className="flex items-center gap-1 opacity-70 mt-0.5">
                             <Ticket size={10} fill="currentColor" />
-                            <span className="text-[10px] font-bold font-sans uppercase tracking-wider">{localEntryCount} entries</span>
+                            <span className="text-[10px] font-bold font-sans uppercase tracking-wider">
+                                {localEntryCount} entries{maxEntries != null ? ` · ${remainingEntries} left` : ''}
+                            </span>
                         </div>
                     </div>
 
@@ -406,9 +424,10 @@ export const EventCard = React.memo(({
                             ) : (
                                 <button
                                     onClick={handleJoinClick}
-                                    className="flex-1 h-full bg-primary text-black rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] transition-all duration-200 active:scale-95 neon-border shadow-lg flex items-center justify-center gap-2 hover:brightness-110"
+                                    disabled={maxEntriesReached}
+                                    className={`flex-1 h-full rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] transition-all duration-200 active:scale-95 shadow-lg flex items-center justify-center gap-2 ${maxEntriesReached ? 'bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-50' : 'bg-primary text-black neon-border hover:brightness-110'}`}
                                 >
-                                    Enter
+                                    {maxEntriesReached ? 'Max Reached' : isFree ? (remainingEntries != null ? `Join Now (${remainingEntries})` : 'Join Now') : 'Enter'}
                                 </button>
                             )}
                             <button

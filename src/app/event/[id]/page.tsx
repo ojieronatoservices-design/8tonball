@@ -103,7 +103,7 @@ export default function EventPage({ params }: Props) {
                     <div className="flex-1 bg-muted px-4 py-3 rounded-2xl border border-border flex flex-col gap-1">
                         <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-black">Entry Cost</span>
                         <div className="font-bold neon-text text-lg">
-                            <TibsDisplay amount={event.entry_cost_tibs} />
+                            {event.entry_cost_tibs === 0 ? <span className="text-primary font-black">FREE</span> : <TibsDisplay amount={event.entry_cost_tibs} />}
                         </div>
                     </div>
                     <div className="flex-1 bg-muted px-4 py-3 rounded-2xl border border-border flex flex-col gap-1">
