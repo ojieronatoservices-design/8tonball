@@ -42,7 +42,6 @@ const CreateEventModal = memo(({
     const [cost, setCost] = useState('')
     const [goal, setGoal] = useState('')
     const [drawTime, setDrawTime] = useState('')
-    const [isFreeEvent, setIsFreeEvent] = useState(false)
     const [maxEntriesPerUser, setMaxEntriesPerUser] = useState('')
     const [eventImages, setEventImages] = useState<File[]>([])
     const [eventPreviews, setEventPreviews] = useState<string[]>([])
@@ -84,12 +83,8 @@ const CreateEventModal = memo(({
 
     const handleLaunchEvent = async () => {
         if (isLaunching) return
-        if (!title || !drawTime) {
-            alert('Please fill in all required fields (Title, Draw Time)')
-            return
-        }
-        if (!isFreeEvent && !cost) {
-            alert('Please set a cost or enable Free Event')
+        if (!title || !cost || !drawTime) {
+            alert('Please fill in all required fields (Title, Cost, Draw Time)')
             return
         }
 
@@ -132,12 +127,12 @@ const CreateEventModal = memo(({
 
             const displayId = `#${monthLetter}${yearShort}.${(totalCount || 0) + 1}`
 
-            const entryCost = isFreeEvent ? 0 : parseInt(cost)
-            const goalTibs = isFreeEvent ? 0 : (parseInt(goal) || 0)
+            const entryCost = parseInt(cost)
+            const goalTibs = parseInt(goal) || 0
             const maxEntries = maxEntriesPerUser ? parseInt(maxEntriesPerUser) : null
 
-            if (!isFreeEvent && isNaN(entryCost)) {
-                throw new Error('Invalid cost value. Please enter a number.')
+            if (isNaN(entryCost) || entryCost < 0) {
+                throw new Error('Invalid cost value. Please enter a valid number (0 or higher).')
             }
 
             const { error: insertError } = await supabaseClient.from('raffles').insert([{
@@ -195,28 +190,17 @@ const CreateEventModal = memo(({
                         <input type="datetime-local" value={drawTime} onChange={(e) => setDrawTime(e.target.value)}
                             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none [color-scheme:dark]" />
                     </div>
-                    <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
-                        <div className="flex flex-col">
-                            <span className="text-xs font-black text-white/80 uppercase tracking-wider">Free Event</span>
-                            <span className="text-[10px] text-white/30">No Tibs required to enter</span>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => { setIsFreeEvent(!isFreeEvent); if (!isFreeEvent) { setCost('0'); setGoal(''); } else { setCost(''); } }}
-                            className={`w-12 h-7 rounded-full transition-all duration-200 ${isFreeEvent ? 'bg-primary' : 'bg-white/10'} relative`}
-                        >
-                            <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-all duration-200 ${isFreeEvent ? 'left-6' : 'left-1'}`} />
-                        </button>
-                    </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <div className={`flex flex-col gap-1.5 ${isFreeEvent ? 'opacity-30 pointer-events-none' : ''}`}>
-                            <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Cost (Tibs)</label>
-                            <input type="number" value={isFreeEvent ? '0' : cost} onChange={(e) => setCost(e.target.value)} placeholder="100"
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Cost (Tibs) <span className="text-white/15">(0 for Free)</span></label>
+                            <input type="number" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="0"
+                                min="0"
                                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" />
                         </div>
-                        <div className={`flex flex-col gap-1.5 ${isFreeEvent ? 'opacity-30 pointer-events-none' : ''}`}>
-                            <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Goal (Tibs)</label>
-                            <input type="number" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="5000"
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Goal (Tibs) <span className="text-white/15">(0 for Free)</span></label>
+                            <input type="number" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="0"
+                                min="0"
                                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" />
                         </div>
                     </div>
