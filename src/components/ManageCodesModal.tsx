@@ -6,10 +6,11 @@ import { X, Key, Upload, Download, Loader2, Database, CheckCircle2, ShieldAlert 
 interface ManageCodesModalProps {
     raffleId: string
     displayId: string
+    isCampaignMode?: boolean
     onClose: () => void
 }
 
-export function ManageCodesModal({ raffleId, displayId, onClose }: ManageCodesModalProps) {
+export function ManageCodesModal({ raffleId, displayId, isCampaignMode = false, onClose }: ManageCodesModalProps) {
     const [activeTab, setActiveTab] = useState<'generate' | 'upload'>('generate')
     const [generateCount, setGenerateCount] = useState('1000')
     const [csvFile, setCsvFile] = useState<File | null>(null)
@@ -29,7 +30,12 @@ export function ManageCodesModal({ raffleId, displayId, onClose }: ManageCodesMo
             const res = await fetch('/api/business/codes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'generate', raffleId, count })
+                body: JSON.stringify({
+                    action: 'generate',
+                    raffleId: isCampaignMode ? undefined : raffleId,
+                    campaignId: isCampaignMode ? raffleId : undefined,
+                    count
+                })
             })
 
             const json = await res.json()
@@ -66,7 +72,12 @@ export function ManageCodesModal({ raffleId, displayId, onClose }: ManageCodesMo
             const res = await fetch('/api/business/codes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'upload', raffleId, codes })
+                body: JSON.stringify({
+                    action: 'upload',
+                    raffleId: isCampaignMode ? undefined : raffleId,
+                    campaignId: isCampaignMode ? raffleId : undefined,
+                    codes
+                })
             })
 
             const json = await res.json()
@@ -85,7 +96,8 @@ export function ManageCodesModal({ raffleId, displayId, onClose }: ManageCodesMo
         setIsDownloading(true)
         setStatusMessage(null)
         try {
-            const res = await fetch(`/api/business/codes?raffleId=${raffleId}`)
+            const queryParam = isCampaignMode ? `campaignId=${raffleId}` : `raffleId=${raffleId}`
+            const res = await fetch(`/api/business/codes?${queryParam}`)
             const json = await res.json()
 
             if (!res.ok) throw new Error(json.error || 'Failed to fetch codes')
@@ -124,9 +136,11 @@ export function ManageCodesModal({ raffleId, displayId, onClose }: ManageCodesMo
                 <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
                     <div>
                         <h3 className="text-xl font-black flex items-center gap-2">
-                            <Key className="text-primary" size={20} /> Manage Campaign Codes
+                            <Key className="text-primary" size={20} /> Manage {isCampaignMode ? 'Campaign' : 'Event'} Codes
                         </h3>
-                        <p className="text-xs text-white/40 font-black tracking-widest mt-1 uppercase">Event {displayId}</p>
+                        <p className="text-xs text-white/40 font-black tracking-widest mt-1 uppercase">
+                            {isCampaignMode ? 'Campaign' : 'Event'} {displayId}
+                        </p>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors"><X size={20} /></button>
                 </div>

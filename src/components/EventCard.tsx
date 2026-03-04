@@ -177,14 +177,13 @@ export const EventCard = React.memo(({
         return videoExtensions.some(ext => url.toLowerCase().includes(ext))
     }
 
-    const images = event.media_urls && event.media_urls.length > 0
-        ? event.media_urls
-        : ['https://via.placeholder.com/800x500?text=No+Image']
+    const images = (event.media_urls || []).filter((url: string) => url && (url.startsWith('http') || url.startsWith('data:')))
+    const displayImages = images.length > 0 ? images : ['https://images.unsplash.com/photo-1614850523296-d8c1af93d400?auto=format&fit=crop&q=80&w=800']
 
     const nextImage = (e: React.MouseEvent) => {
         e.stopPropagation()
         if (scrollRef.current) {
-            const nextIdx = (currentImageIndex + 1) % images.length
+            const nextIdx = (currentImageIndex + 1) % displayImages.length
             scrollRef.current.scrollTo({ left: nextIdx * scrollRef.current.offsetWidth, behavior: 'smooth' })
         }
     }
@@ -192,13 +191,25 @@ export const EventCard = React.memo(({
     const prevImage = (e: React.MouseEvent) => {
         e.stopPropagation()
         if (scrollRef.current) {
-            const prevIdx = (currentImageIndex - 1 + images.length) % images.length
+            const prevIdx = (currentImageIndex - 1 + displayImages.length) % displayImages.length
             scrollRef.current.scrollTo({ left: prevIdx * scrollRef.current.offsetWidth, behavior: 'smooth' })
         }
     }
 
     const description = event.description || ''
     const isLongDescription = description.length > 100
+
+    // Banner color logic
+    const customBannerColor = event.banner_color
+    const defaultGradient = event.requires_code
+        ? 'from-[#FFD700] to-[#FF8C00]'
+        : isFree
+            ? 'from-[#39FF14] to-[#00E5FF]'
+            : 'from-[#39FF14] to-[#d946ef]'
+
+    const bannerStyle = customBannerColor
+        ? { backgroundColor: customBannerColor }
+        : undefined
 
     return (
         <>
@@ -241,7 +252,7 @@ export const EventCard = React.memo(({
                         className="flex w-full h-full overflow-x-auto snap-x snap-mandatory scrollbar-hide cursor-pointer"
                         onClick={() => setShowLightbox(true)}
                     >
-                        {images.map((img: string, idx: number) => (
+                        {displayImages.map((img: string, idx: number) => (
                             <div key={idx} className="w-full h-full flex-shrink-0 snap-center relative">
                                 {isVideo(img) ? (
                                     <div
@@ -272,7 +283,7 @@ export const EventCard = React.memo(({
                     </div>
 
                     {/* Carousel Controls - Removed backdrop-blur for performance */}
-                    {images.length > 1 && (
+                    {displayImages.length > 1 && (
                         <>
                             <div className="absolute inset-0 pointer-events-none flex items-center justify-between px-4 z-10 transition-opacity duration-300 opacity-0 group-hover:opacity-100">
                                 <button
@@ -290,7 +301,7 @@ export const EventCard = React.memo(({
                             </div>
 
                             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 px-3 py-1.5 bg-black/40 rounded-full z-10">
-                                {images.map((_: string, idx: number) => (
+                                {displayImages.map((_: string, idx: number) => (
                                     <div key={idx} className={`w-1.5 h-1.5 rounded-full transition-colors ${idx === currentImageIndex ? 'bg-primary' : 'bg-white/30'}`} />
                                 ))}
                             </div>
@@ -299,12 +310,18 @@ export const EventCard = React.memo(({
                 </div>
 
                 {/* Flash Sale Banner - Edge to Edge */}
-                <div className={`flex justify-between items-center py-3 px-6 ${event.requires_code ? 'bg-gradient-to-r from-[#FFD700] to-[#FF8C00]' : isFree ? 'bg-gradient-to-r from-[#39FF14] to-[#00E5FF]' : 'bg-gradient-to-r from-[#39FF14] to-[#d946ef]'} text-black shadow-[0_0_20px_rgba(57,255,20,0.4)] relative z-10`}>
+                <div
+                    className={cn(
+                        "flex justify-between items-center py-3 px-6 text-black shadow-[0_0_20px_rgba(57,255,20,0.4)] relative z-10",
+                        !customBannerColor && `bg-gradient-to-r ${defaultGradient}`
+                    )}
+                    style={bannerStyle}
+                >
                     {/* Left: Cost & Entries */}
                     <div className="flex flex-col items-start leading-none">
                         <div className="flex items-baseline gap-1">
                             {event.requires_code ? (
-                                <span className="text-3xl font-black font-sans tracking-tighter uppercase whitespace-nowrap">CODE</span>
+                                <span className="text-xl font-black font-sans tracking-tighter uppercase whitespace-nowrap">ENTER/SCAN CODE TO JOIN</span>
                             ) : isFree ? (
                                 <span className="text-3xl font-black font-sans tracking-tighter uppercase">FREE</span>
                             ) : (
@@ -319,7 +336,7 @@ export const EventCard = React.memo(({
                         <div className="flex items-center gap-1 opacity-70 mt-0.5">
                             <Ticket size={10} fill="currentColor" />
                             <span className="text-[10px] font-bold font-sans uppercase tracking-wider">
-                                {localEntryCount} entries{maxEntries != null ? ` · ${remainingEntries} left` : ''}
+                                {localEntryCount} entries{maxEntries != null && maxEntries < 1000 ? ` · ${remainingEntries} left` : ''}
                             </span>
                         </div>
                     </div>
@@ -517,7 +534,7 @@ export const EventCard = React.memo(({
                                     disabled={maxEntriesReached}
                                     className={`flex-1 h-full rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] transition-all duration-200 active:scale-95 shadow-lg flex items-center justify-center gap-2 ${maxEntriesReached ? 'bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-50' : 'bg-primary text-black neon-border hover:brightness-110'}`}
                                 >
-                                    {maxEntriesReached ? 'Max Reached' : event.requires_code ? (remainingEntries != null ? `Enter Code (${remainingEntries})` : 'Enter Code') : isFree ? (remainingEntries != null ? `Join Now (${remainingEntries})` : 'Join Now') : 'Enter'}
+                                    {maxEntriesReached ? 'Max Reached' : event.requires_code ? (remainingEntries != null && maxEntries != null && maxEntries < 1000000 ? `Enter Code (${remainingEntries})` : 'Enter Code') : isFree ? (remainingEntries != null && maxEntries != null && maxEntries < 1000000 ? `Join Now (${remainingEntries})` : 'Join Now') : 'Enter'}
                                 </button>
                             )}
                             <button

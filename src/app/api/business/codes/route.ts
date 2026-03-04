@@ -18,28 +18,44 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json()
-        const { action, raffleId, count, codes } = body
+        const { action, raffleId, campaignId, count, codes } = body
 
-        if (!raffleId) {
-            return NextResponse.json({ error: 'Raffle ID is required' }, { status: 400 })
+        if (!raffleId && !campaignId) {
+            return NextResponse.json({ error: 'Raffle or Campaign ID is required' }, { status: 400 })
         }
 
         // Verify the user is the host of this raffle or an admin
         const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', session.user.id).single()
         const isAdmin = profile?.is_admin
 
-        const { data: raffle, error: raffleError } = await supabase
-            .from('raffles')
-            .select('host_user_id')
-            .eq('id', raffleId)
-            .single()
+        if (raffleId) {
+            const { data: raffle, error: raffleError } = await supabase
+                .from('raffles')
+                .select('host_user_id')
+                .eq('id', raffleId)
+                .single()
 
-        if (raffleError || !raffle) {
-            return NextResponse.json({ error: 'Raffle not found' }, { status: 404 })
-        }
+            if (raffleError || !raffle) {
+                return NextResponse.json({ error: 'Raffle not found' }, { status: 404 })
+            }
 
-        if (!isAdmin && raffle.host_user_id !== session.user.id) {
-            return NextResponse.json({ error: 'Forbidden. You are not the host of this event.' }, { status: 403 })
+            if (!isAdmin && raffle.host_user_id !== session.user.id) {
+                return NextResponse.json({ error: 'Forbidden. You are not the host of this event.' }, { status: 403 })
+            }
+        } else if (campaignId) {
+            const { data: campaign, error: campaignError } = await supabase
+                .from('campaigns')
+                .select('host_user_id')
+                .eq('id', campaignId)
+                .single()
+
+            if (campaignError || !campaign) {
+                return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+            }
+
+            if (!isAdmin && campaign.host_user_id !== session.user.id) {
+                return NextResponse.json({ error: 'Forbidden. You are not the host of this campaign.' }, { status: 403 })
+            }
         }
 
         let codesToInsert: string[] = []
@@ -79,7 +95,8 @@ export async function POST(request: Request) {
         for (let i = 0; i < codesToInsert.length; i += BATCH_SIZE) {
             const batch = codesToInsert.slice(i, i + BATCH_SIZE).map(code => ({
                 host_user_id: session.user.id,
-                raffle_id: raffleId,
+                raffle_id: raffleId || null,
+                campaign_id: campaignId || null,
                 code: code
             }))
 
@@ -110,9 +127,10 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url)
         const raffleId = searchParams.get('raffleId')
+        const campaignId = searchParams.get('campaignId')
 
-        if (!raffleId) {
-            return NextResponse.json({ error: 'Raffle ID is required' }, { status: 400 })
+        if (!raffleId && !campaignId) {
+            return NextResponse.json({ error: 'Raffle or Campaign ID is required' }, { status: 400 })
         }
 
         const supabase = await createClient()
@@ -126,22 +144,38 @@ export async function GET(request: Request) {
         const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', session.user.id).single()
         const isAdmin = profile?.is_admin
 
-        const { data: raffle } = await supabase
-            .from('raffles')
-            .select('host_user_id')
-            .eq('id', raffleId)
-            .single()
+        if (raffleId) {
+            const { data: raffle } = await supabase
+                .from('raffles')
+                .select('host_user_id')
+                .eq('id', raffleId)
+                .single()
 
-        if (!raffle) {
-            return NextResponse.json({ error: 'Raffle not found' }, { status: 404 })
-        }
+            if (!raffle) {
+                return NextResponse.json({ error: 'Raffle not found' }, { status: 404 })
+            }
 
-        if (!isAdmin && raffle.host_user_id !== session.user.id) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            if (!isAdmin && raffle.host_user_id !== session.user.id) {
+                return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            }
+        } else if (campaignId) {
+            const { data: campaign } = await supabase
+                .from('campaigns')
+                .select('host_user_id')
+                .eq('id', campaignId)
+                .single()
+
+            if (!campaign) {
+                return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+            }
+
+            if (!isAdmin && campaign.host_user_id !== session.user.id) {
+                return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            }
         }
 
         // Fetch all codes for this raffle including who used them and when
-        const { data: codes, error: fetchError } = await supabase
+        const query = supabase
             .from('campaign_codes')
             .select(`
                 code, 
@@ -151,7 +185,14 @@ export async function GET(request: Request) {
                     email
                 )
             `)
-            .eq('raffle_id', raffleId)
+
+        if (raffleId) {
+            query.eq('raffle_id', raffleId)
+        } else {
+            query.eq('campaign_id', campaignId)
+        }
+
+        const { data: codes, error: fetchError } = await query
 
         if (fetchError) throw fetchError
 

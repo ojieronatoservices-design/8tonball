@@ -36,6 +36,7 @@ const CreateEventModal = memo(({
     getClient: () => Promise<any>,
     userId: string | null | undefined,
     existingEventsCount: number,
+    campaigns: any[],
     onClose: () => void
 }) => {
     const [title, setTitle] = useState('')
@@ -48,6 +49,8 @@ const CreateEventModal = memo(({
     const [eventImages, setEventImages] = useState<File[]>([])
     const [eventPreviews, setEventPreviews] = useState<string[]>([])
     const [isLaunching, setIsLaunching] = useState(false)
+    const [selectedCampaignId, setSelectedCampaignId] = useState<string>('')
+    const [bannerColor, setBannerColor] = useState('#39FF14') // Default primary color
 
     // Cleanup Object URLs on unmount
     useEffect(() => {
@@ -148,7 +151,9 @@ const CreateEventModal = memo(({
                 goal_tibs: goalTibs,
                 display_id: displayId,
                 max_entries_per_user: maxEntries,
-                requires_code: requiresCode
+                requires_code: requiresCode,
+                campaign_id: requiresCode && selectedCampaignId ? selectedCampaignId : null,
+                banner_color: bannerColor
             }])
 
             if (insertError) {
@@ -209,6 +214,24 @@ const CreateEventModal = memo(({
                                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none disabled:opacity-50 cursor-not-allowed" />
                         </div>
                     </div>
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Banner Color</label>
+                        <div className="flex items-center gap-3">
+                            <input
+                                type="color"
+                                value={bannerColor}
+                                onChange={(e) => setBannerColor(e.target.value)}
+                                className="w-12 h-12 bg-transparent border-none cursor-pointer rounded-lg overflow-hidden"
+                            />
+                            <input
+                                type="text"
+                                value={bannerColor}
+                                onChange={(e) => setBannerColor(e.target.value)}
+                                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs font-mono focus:border-primary focus:outline-none uppercase"
+                            />
+                        </div>
+                    </div>
+
                     <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
                         <div className="flex flex-col">
                             <span className="text-xs font-black text-white/80 uppercase tracking-wider">Requires Entry Code</span>
@@ -229,6 +252,32 @@ const CreateEventModal = memo(({
                             <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-all duration-200 ${requiresCode ? 'left-6' : 'left-1'}`} />
                         </button>
                     </div>
+
+                    {requiresCode && (
+                        <div className="flex flex-col gap-1.5 animate-in slide-in-from-top-2 duration-300">
+                            <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Select Campaign</label>
+                            {campaigns.length === 0 ? (
+                                <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
+                                    <p className="text-[10px] text-yellow-500 font-bold uppercase tracking-wider leading-relaxed">
+                                        ⚠️ NO CAMPAIGNS FOUND. PLEASE CREATE A CAMPAIGN IN THE "CAMPAIGNS" TAB FIRST TO USE ENTRY CODES.
+                                    </p>
+                                </div>
+                            ) : (
+                                <select
+                                    value={selectedCampaignId}
+                                    onChange={(e) => setSelectedCampaignId(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none appearance-none"
+                                >
+                                    <option value="" className="bg-background">-- CHOOSE A CAMPAIGN --</option>
+                                    {campaigns.map(c => (
+                                        <option key={c.id} value={c.id} className="bg-background">
+                                            {c.name} ({c.campaign_codes?.[0]?.count || 0} Codes)
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
+                        </div>
+                    )}
                     <div className="flex flex-col gap-1.5">
                         <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Max Entries Per User <span className="text-white/15">(optional)</span></label>
                         <input type="number" value={maxEntriesPerUser} onChange={(e) => setMaxEntriesPerUser(e.target.value)} placeholder="Unlimited"
@@ -398,6 +447,170 @@ const PaymentsList = memo(({ payments, handleApprove, handleReject, isLoadingPay
 ))
 PaymentsList.displayName = 'PaymentsList'
 
+const CreateCampaignModal = memo(({
+    onClose,
+    onCreated,
+    getClient,
+    userId
+}: {
+    onClose: () => void,
+    onCreated: () => void,
+    getClient: () => Promise<any>,
+    userId: string | null | undefined
+}) => {
+    const [name, setName] = useState('')
+    const [isCreating, setIsCreating] = useState(false)
+
+    const handleCreate = async () => {
+        if (!name.trim()) return
+        setIsCreating(true)
+        try {
+            const supabase = await getClient()
+            const { error } = await supabase.from('campaigns').insert({
+                name: name.trim(),
+                host_user_id: userId
+            })
+            if (error) throw error
+            onCreated()
+            onClose()
+        } catch (err: any) {
+            alert(err.message || 'Error creating campaign')
+        } finally {
+            setIsCreating(false)
+        }
+    }
+
+    return (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
+            <div className="bg-card w-full max-w-sm rounded-3xl border border-white/10 p-8 shadow-2xl animate-in zoom-in-95 duration-300">
+                <h3 className="text-xl font-black mb-6 flex items-center gap-2">
+                    <Plus className="text-primary" size={20} /> New Campaign
+                </h3>
+                <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30">Campaign Name</label>
+                        <input
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="e.g. Summer Drop 2024"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none"
+                            autoFocus
+                        />
+                    </div>
+                    <div className="flex gap-3 pt-4">
+                        <button
+                            onClick={handleCreate}
+                            disabled={isCreating || !name.trim()}
+                            className="flex-1 py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            {isCreating ? <Loader2 className="animate-spin" size={20} /> : 'Create'}
+                        </button>
+                        <button onClick={onClose} className="px-6 py-4 bg-white/5 hover:bg-white/10 text-white/60 font-black uppercase tracking-widest rounded-2xl transition-all">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+})
+CreateCampaignModal.displayName = 'CreateCampaignModal'
+
+const CampaignsManager = memo(({
+    campaigns,
+    isLoading,
+    fetchCampaigns,
+    getClient,
+    userId
+}: {
+    campaigns: any[],
+    isLoading: boolean,
+    fetchCampaigns: () => void,
+    getClient: () => Promise<any>,
+    userId: string | null | undefined
+}) => {
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+    const [selectedCampaignForCodes, setSelectedCampaignForCodes] = useState<any>(null)
+
+    return (
+        <div className="flex flex-col gap-6">
+            <div className="flex justify-between items-center">
+                <h2 className="text-xl font-black uppercase tracking-widest">Code Campaigns</h2>
+                <button
+                    onClick={() => setIsCreateModalOpen(true)}
+                    className="px-4 py-2 bg-primary/20 hover:bg-primary/30 text-primary text-[10px] font-black uppercase tracking-widest rounded-xl border border-primary/30 transition-all flex items-center gap-2"
+                >
+                    <Plus size={14} /> Create Campaign
+                </button>
+            </div>
+
+            {isLoading ? (
+                <div className="py-20 flex justify-center"><Loader2 size={32} className="animate-spin text-primary/30" /></div>
+            ) : campaigns.length === 0 ? (
+                <div className="text-center py-20 bg-card rounded-3xl border border-white/5">
+                    <Key className="mx-auto text-white/10 mb-4" size={48} />
+                    <p className="text-white/40 font-black uppercase tracking-widest text-xs">No campaigns yet</p>
+                    <button onClick={() => setIsCreateModalOpen(true)} className="mt-4 text-[10px] font-black uppercase tracking-widest text-primary hover:underline">Create your first campaign</button>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {campaigns.map((camp) => (
+                        <div key={camp.id} className="bg-card p-6 rounded-3xl border border-white/5 hover:border-white/10 transition-all group">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h4 className="text-lg font-black tracking-tight">{camp.name}</h4>
+                                    <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">{new Date(camp.created_at).toLocaleDateString()}</span>
+                                </div>
+                                <div className="bg-white/5 px-3 py-1 rounded-full border border-white/10 text-xs font-black text-white/40">
+                                    {camp.campaign_codes?.[0]?.count || 0} Codes
+                                </div>
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setSelectedCampaignForCodes(camp)}
+                                    className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/10 transition-all flex items-center justify-center gap-2"
+                                >
+                                    <Key size={14} className="text-primary" /> Manage Codes
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        if (confirm('Are you sure? This will delete the campaign and all its codes.')) {
+                                            const supabase = await getClient()
+                                            await supabase.from('campaigns').delete().eq('id', camp.id)
+                                            fetchCampaigns()
+                                        }
+                                    }}
+                                    className="p-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl border border-red-500/20 transition-all"
+                                >
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {isCreateModalOpen && (
+                <CreateCampaignModal
+                    onClose={() => setIsCreateModalOpen(false)}
+                    onCreated={fetchCampaigns}
+                    getClient={getClient}
+                    userId={userId}
+                />
+            )}
+
+            {selectedCampaignForCodes && (
+                <ManageCodesModal
+                    raffleId={selectedCampaignForCodes.id} // Reusing ManageCodesModal with campaign ID as it supports codes
+                    displayId={selectedCampaignForCodes.name}
+                    isCampaignMode={true} // We'll add this prop to ManageCodesModal
+                    onClose={() => setSelectedCampaignForCodes(null)}
+                />
+            )}
+        </div>
+    )
+})
+CampaignsManager.displayName = 'CampaignsManager'
+
 const KYCList = memo(({ requests, handleApprove, handleReject, isLoadingKYC, fetchKYC }: { requests: any[], handleApprove: (id: string, uid: string) => void, handleReject: (id: string) => void, isLoadingKYC: boolean, fetchKYC: () => void }) => (
     <div className="flex flex-col gap-6">
         <div className="flex justify-between items-center">
@@ -499,7 +712,7 @@ export default function AdminDashboard({ initialSearchQuery = '' }: { initialSea
     const { user } = useUser()
     const { userId } = useAuth()
     const { getClient } = useSupabase()
-    const [activeTab, setActiveTab] = useState<'events' | 'archives' | 'payments' | 'payouts' | 'kyc' | 'analytics'>('events')
+    const [activeTab, setActiveTab] = useState<'events' | 'archives' | 'campaigns' | 'payments' | 'payouts' | 'kyc' | 'analytics'>('events')
 
     // Permission State
     const [isAdmin, setIsAdmin] = useState(false)
@@ -519,6 +732,10 @@ export default function AdminDashboard({ initialSearchQuery = '' }: { initialSea
     // KYC State
     const [kycRequests, setKycRequests] = useState<any[]>([])
     const [isLoadingKYC, setIsLoadingKYC] = useState(false)
+
+    // Campaigns State
+    const [campaigns, setCampaigns] = useState<any[]>([])
+    const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(false)
 
     // Unread Notifications State (Red Dot Logic)
     const [unreadNotifications, setUnreadNotifications] = useState<Record<string, number>>({})
@@ -592,6 +809,7 @@ export default function AdminDashboard({ initialSearchQuery = '' }: { initialSea
     const fetchEventsMemo = useCallback(() => fetchEvents(), [userId])
     const fetchPaymentsMemo = useCallback(() => fetchPayments(), [userId])
     const fetchPayoutRequestsMemo = useCallback(() => fetchPayoutRequests(), [userId])
+    const fetchCampaignsMemo = useCallback(() => fetchCampaigns(), [userId])
 
     const formatDisplayId = (id: string, displayId: string | null) => {
         if (displayId) {
@@ -633,6 +851,16 @@ export default function AdminDashboard({ initialSearchQuery = '' }: { initialSea
         checkPermissions()
     }, [userId, getClient])
 
+    // Auto-fetch data on tab change
+    useEffect(() => {
+        if (activeTab === 'events' || activeTab === 'archives') fetchEvents()
+        if (activeTab === 'payments') fetchPayments()
+        if (activeTab === 'payouts') fetchPayoutRequests()
+        if (activeTab === 'kyc') fetchKYCRequests()
+        if (activeTab === 'analytics') fetchAnalytics()
+        if (activeTab === 'campaigns') fetchCampaigns()
+    }, [activeTab, userId])
+
     const fetchEvents = async () => {
         const supabaseClient = await getClient()
         if (!supabaseClient) return
@@ -647,6 +875,22 @@ export default function AdminDashboard({ initialSearchQuery = '' }: { initialSea
             setExistingEvents(data || [])
         } catch (error) { console.error('Error fetching events:', error) }
         finally { setIsLoadingEvents(false) }
+    }
+
+    const fetchCampaigns = async () => {
+        const supabaseClient = await getClient()
+        if (!supabaseClient || !userId) return
+        setIsLoadingCampaigns(true)
+        try {
+            const { data, error } = await supabaseClient
+                .from('campaigns')
+                .select('*, campaign_codes(count)')
+                .order('created_at', { ascending: false })
+
+            if (error) throw error
+            setCampaigns(data || [])
+        } catch (error) { console.error('Error fetching campaigns:', error) }
+        finally { setIsLoadingCampaigns(false) }
     }
 
     const fetchAnalytics = async () => {
@@ -1632,7 +1876,7 @@ export default function AdminDashboard({ initialSearchQuery = '' }: { initialSea
                     </div>
 
                     <div className="flex items-center gap-1 overflow-x-auto no-scrollbar -mx-2 px-2">
-                        {(['events', 'archives', 'payments', 'payouts', 'kyc', 'analytics'] as const)
+                        {(['events', 'archives', 'campaigns', 'payments', 'payouts', 'kyc', 'analytics'] as const)
                             .filter(tab => isAdmin || tab !== 'kyc')
                             .map((tab) => {
                                 const label = tab === 'payments' ? 'Purchases' : tab === 'payouts' ? 'Cash Outs' : tab
@@ -1683,6 +1927,7 @@ export default function AdminDashboard({ initialSearchQuery = '' }: { initialSea
                                 onLaunch={fetchEventsMemo}
                                 getClient={getClient}
                                 userId={userId}
+                                campaigns={campaigns}
                                 existingEventsCount={existingEvents?.length || 0}
                                 onClose={() => setIsCreateModalOpen(false)}
                             />
@@ -1707,6 +1952,14 @@ export default function AdminDashboard({ initialSearchQuery = '' }: { initialSea
                     <PayoutsList payouts={payouts} handleApprovePayout={handleApprovePayoutMemo} isLoadingPayouts={isLoadingPayouts} fetchPayoutRequests={fetchPayoutRequestsMemo} />
                 ) : activeTab === 'kyc' ? (
                     <KYCList requests={kycRequests} handleApprove={handleApproveKYC} handleReject={handleRejectKYC} isLoadingKYC={isLoadingKYC} fetchKYC={fetchKYCRequests} />
+                ) : activeTab === 'campaigns' ? (
+                    <CampaignsManager
+                        campaigns={campaigns}
+                        isLoading={isLoadingCampaigns}
+                        fetchCampaigns={fetchCampaignsMemo}
+                        getClient={getClient}
+                        userId={userId}
+                    />
                 ) : null}
             </div>
 
