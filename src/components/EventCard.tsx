@@ -324,12 +324,18 @@ export const EventCard = React.memo(({
                         </div>
                     </div>
 
-                    {/* Right: Timer */}
+                    {/* Right: Timer or Fulfillment */}
                     <div className="flex flex-col items-end leading-none">
-                        <span className="text-[9px] font-black uppercase tracking-widest opacity-70 mb-0.5">Event Ends In</span>
+                        <span className="text-[9px] font-black uppercase tracking-widest opacity-70 mb-0.5">
+                            {variant === 'profile-archive' && isWinner ? 'Prize Status' : 'Event Ends In'}
+                        </span>
                         {variant === 'profile-archive' ? (
-                            <span className="text-xl font-black font-sans tracking-tight">
-                                {event.status === 'claimed' ? 'CLAIMED' : isWinner ? 'WON' : 'ENDED'}
+                            <span className={cn(
+                                "text-xl font-black font-sans tracking-tight uppercase",
+                                event.fulfillment_status === 'claimed' ? "text-green-500" :
+                                    event.fulfillment_status === 'shipped' ? "text-blue-500" : "text-black"
+                            )}>
+                                {event.fulfillment_status || (event.status === 'claimed' ? 'CLAIMED' : isWinner ? 'WON' : 'ENDED')}
                             </span>
                         ) : (
                             <div className="text-2xl font-black font-sans tabular-nums tracking-tight">
@@ -370,9 +376,13 @@ export const EventCard = React.memo(({
                             <div className="flex justify-between items-center px-1">
                                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Your Tickets ({entryNumbers.length})</span>
                                 {variant === 'profile-archive' && isWinner && (
-                                    event.status === 'claimed' ? (
+                                    event.fulfillment_status === 'claimed' || event.status === 'claimed' ? (
                                         <span className="text-[9px] font-black uppercase bg-green-500/20 text-green-500 border border-green-500/30 px-1.5 py-0.5 rounded-sm tracking-widest flex items-center gap-1">
                                             Claimed
+                                        </span>
+                                    ) : event.fulfillment_status === 'shipped' ? (
+                                        <span className="text-[9px] font-black uppercase bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1.5 py-0.5 rounded-sm tracking-widest flex items-center gap-1 animate-pulse">
+                                            Shipped
                                         </span>
                                     ) : (
                                         <span className="text-[9px] font-black uppercase bg-primary text-black px-1.5 py-0.5 rounded-sm animate-pulse tracking-widest flex items-center gap-1">

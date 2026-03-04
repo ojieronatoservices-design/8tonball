@@ -559,7 +559,10 @@ export default function ProfilePage() {
         try {
             const { error } = await supabaseClient
                 .from('raffles')
-                .update({ status: 'claimed' })
+                .update({
+                    status: 'claimed',
+                    fulfillment_status: 'claimed'
+                })
                 .eq('id', raffleId)
 
             if (error) throw error
