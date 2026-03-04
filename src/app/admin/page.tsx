@@ -883,9 +883,16 @@ export default function AdminDashboard({ initialSearchQuery = '' }: { initialSea
         if (!supabaseClient || !userId) return
         setIsLoadingCampaigns(true)
         try {
-            const { data, error } = await supabaseClient
+            let query = supabaseClient
                 .from('campaigns')
                 .select('*, campaign_codes(count)')
+
+            // Filter for host's own campaigns if not admin
+            if (!isAdmin) {
+                query = query.eq('host_user_id', userId)
+            }
+
+            const { data, error } = await query
                 .order('created_at', { ascending: false })
 
             if (error) throw error
