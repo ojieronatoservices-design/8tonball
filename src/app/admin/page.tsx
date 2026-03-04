@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, memo, useCallback } from 'react'
-import { Plus, Check, X, LayoutDashboard, Loader2, CheckCircle2, Trophy, ShieldAlert, BarChart3, Users, Ticket, Coins, Image as ImageIcon, Edit, Trash2, Calendar, ChevronDown, Search, Phone, MapPin, Key, Link, Copy, FileText, ChevronRight } from 'lucide-react'
+import { Plus, Check, X, LayoutDashboard, Loader2, CheckCircle2, Trophy, ShieldAlert, BarChart3, Users, Ticket, Coins, Image as ImageIcon, Edit, Trash2, Calendar, ChevronDown, Search, Phone, MapPin, Key, Link, Copy, FileText, ChevronRight, AlertCircle } from 'lucide-react'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { useUser, useAuth } from '@clerk/nextjs'
@@ -519,12 +519,14 @@ CreateCampaignModal.displayName = 'CreateCampaignModal'
 const CampaignsManager = memo(({
     campaigns,
     isLoading,
+    fetchError,
     fetchCampaigns,
     getClient,
     userId
 }: {
     campaigns: any[],
     isLoading: boolean,
+    fetchError: string | null,
     fetchCampaigns: () => void,
     getClient: () => Promise<any>,
     userId: string | null | undefined
@@ -535,7 +537,17 @@ const CampaignsManager = memo(({
     return (
         <div className="flex flex-col gap-6">
             <div className="flex justify-between items-center">
-                <h2 className="text-xl font-black uppercase tracking-widest">Code Campaigns</h2>
+                <div className="flex flex-col gap-1">
+                    <h2 className="text-xl font-black uppercase tracking-widest">Code Campaigns</h2>
+                    <button
+                        onClick={fetchCampaigns}
+                        disabled={isLoading}
+                        className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-white/20 hover:text-primary transition-colors disabled:opacity-30"
+                    >
+                        <Loader2 size={10} className={isLoading ? "animate-spin" : ""} />
+                        Refresh List
+                    </button>
+                </div>
                 <button
                     onClick={() => setIsCreateModalOpen(true)}
                     className="px-4 py-2 bg-primary/20 hover:bg-primary/30 text-primary text-[10px] font-black uppercase tracking-widest rounded-xl border border-primary/30 transition-all flex items-center gap-2"
@@ -543,6 +555,17 @@ const CampaignsManager = memo(({
                     <Plus size={14} /> Create Campaign
                 </button>
             </div>
+
+            {fetchError && (
+                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex flex-col gap-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-red-500 flex items-center gap-2">
+                        <AlertCircle size={14} />
+                        Fetch Error
+                    </p>
+                    <p className="text-[11px] text-white/60 font-medium leading-relaxed">{fetchError}</p>
+                    <button onClick={fetchCampaigns} className="text-[9px] font-black uppercase tracking-widest text-red-500/60 hover:text-red-500 underline text-left">Try Again</button>
+                </div>
+            )}
 
             {isLoading ? (
                 <div className="py-20 flex justify-center"><Loader2 size={32} className="animate-spin text-primary/30" /></div>
@@ -737,6 +760,7 @@ export default function AdminDashboard({ initialSearchQuery = '' }: { initialSea
     // Campaigns State
     const [campaigns, setCampaigns] = useState<any[]>([])
     const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(false)
+    const [fetchError, setFetchError] = useState<string | null>(null)
 
     // Unread Notifications State (Red Dot Logic)
     const [unreadNotifications, setUnreadNotifications] = useState<Record<string, number>>({})
@@ -852,15 +876,21 @@ export default function AdminDashboard({ initialSearchQuery = '' }: { initialSea
         checkPermissions()
     }, [userId, getClient])
 
-    // Auto-fetch data on tab change
+    // Consolidate all fetching into one effect
     useEffect(() => {
+        if (!userId) return
+
+        // Always fetch analytics for badges
+        fetchAnalytics()
+        fetchUnreadNotifications()
+
+        // Tab-specific fetching
         if (activeTab === 'events' || activeTab === 'archives') fetchEvents()
-        if (activeTab === 'payments') fetchPayments()
-        if (activeTab === 'payouts') fetchPayoutRequests()
-        if (activeTab === 'kyc') fetchKYCRequests()
-        if (activeTab === 'analytics') fetchAnalytics()
-        if (activeTab === 'campaigns') fetchCampaigns()
-    }, [activeTab, userId])
+        else if (activeTab === 'payments') fetchPayments()
+        else if (activeTab === 'payouts') fetchPayoutRequests()
+        else if (activeTab === 'kyc' && isAdmin) fetchKYCRequests()
+        else if (activeTab === 'campaigns') fetchCampaigns()
+    }, [activeTab, userId, isAdmin]) // Re-fetch if permissions change
 
     const fetchEvents = async () => {
         const supabaseClient = await getClient()
@@ -882,6 +912,7 @@ export default function AdminDashboard({ initialSearchQuery = '' }: { initialSea
         const supabaseClient = await getClient()
         if (!supabaseClient || !userId) return
         setIsLoadingCampaigns(true)
+        setFetchError(null)
         try {
             let query = supabaseClient
                 .from('campaigns')
@@ -897,8 +928,12 @@ export default function AdminDashboard({ initialSearchQuery = '' }: { initialSea
 
             if (error) throw error
             setCampaigns(data || [])
-        } catch (error) { console.error('Error fetching campaigns:', error) }
-        finally { setIsLoadingCampaigns(false) }
+        } catch (error: any) {
+            console.error('Error fetching campaigns:', error)
+            setFetchError(error.message || 'Failed to load campaigns')
+        } finally {
+            setIsLoadingCampaigns(false)
+        }
     }
 
     const fetchAnalytics = async () => {
@@ -1033,16 +1068,7 @@ export default function AdminDashboard({ initialSearchQuery = '' }: { initialSea
         finally { setIsLoadingKYC(false) }
     }
 
-    useEffect(() => {
-        fetchAnalytics() // Fetch counts for badges on every tab change/mount
-        if (activeTab === 'payouts') fetchPayoutRequests()
-        else if (activeTab === 'payments') fetchPayments()
-        else if (activeTab === 'kyc') fetchKYCRequests()
-        else if (activeTab === 'events' || activeTab === 'archives') {
-            fetchEvents()
-            fetchUnreadNotifications() // Fetch red dots
-        }
-    }, [activeTab, userId])
+    // Redundant useEffect removed and consolidated above
 
     const handleDrawWinner = async (eventId: string, eventTitle: string, eventImage: string, currentTibs: number, goalTibs: number) => {
         const supabaseClient = await getClient()
@@ -1964,6 +1990,7 @@ export default function AdminDashboard({ initialSearchQuery = '' }: { initialSea
                     <CampaignsManager
                         campaigns={campaigns}
                         isLoading={isLoadingCampaigns}
+                        fetchError={fetchError}
                         fetchCampaigns={fetchCampaignsMemo}
                         getClient={getClient}
                         userId={userId}
