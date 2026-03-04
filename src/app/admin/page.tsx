@@ -28,6 +28,7 @@ const CreateEventModal = memo(({
     getClient,
     userId,
     existingEventsCount,
+    campaigns,
     onClose
 }: {
     isAdmin: boolean,
