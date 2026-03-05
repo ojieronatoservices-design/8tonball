@@ -83,9 +83,20 @@ const CampaignsManager = memo(({
                                                 Host: {camp.host.display_name} ({camp.host.email})
                                             </span>
                                         )}
+                                        <div className="mt-2">
+                                            {camp.raffles && camp.raffles.length > 0 ? (
+                                                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 border border-primary/20 rounded-md text-[9px] font-black text-primary uppercase tracking-widest">
+                                                    <span className="opacity-60 text-[10px]">🔗</span> {camp.raffles[0].title}
+                                                </div>
+                                            ) : (
+                                                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-white/5 border border-white/10 rounded-md text-[9px] font-black text-white/40 uppercase tracking-widest">
+                                                    <span className="opacity-60 text-[10px]">⚠️</span> Unlinked
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="bg-white/5 px-3 py-1 rounded-full border border-white/10 text-xs font-black text-white/40">
+                                <div className="bg-white/5 px-3 py-1 rounded-full border border-white/10 text-xs font-black text-white/40 whitespace-nowrap">
                                     {camp.campaign_codes?.[0]?.count || 0} Codes
                                 </div>
                             </div>
@@ -94,7 +105,7 @@ const CampaignsManager = memo(({
                                     onClick={() => setSelectedCampaignForCodes(camp)}
                                     className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/10 transition-all flex items-center justify-center gap-2"
                                 >
-                                    <Key size={14} className="text-primary" /> Manage Codes
+                                    <Key size={14} className="text-primary" /> Manage & Analytics
                                 </button>
                                 <button
                                     onClick={async () => {

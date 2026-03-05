@@ -199,39 +199,57 @@ const CreateEventModal = memo(({
 
                     <div className="flex flex-col gap-1.5">
                         <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Attach Campaign</label>
-                        {campaigns.length === 0 ? (
-                            <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
-                                <p className="text-[10px] text-yellow-500 font-bold uppercase tracking-wider leading-relaxed">
-                                    ⚠️ NO CAMPAIGNS FOUND. PLEASE CREATE A CAMPAIGN IN THE "CAMPAIGNS" TAB FIRST TO USE ENTRY CODES.
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="relative group">
-                                <select
-                                    value={selectedCampaignId}
-                                    onChange={(e) => {
-                                        const val = e.target.value
-                                        setSelectedCampaignId(val)
-                                        if (val) {
-                                            setRequiresCode(true)
-                                            setCost('0')
-                                            setGoal('0')
-                                        }
-                                    }}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none appearance-none cursor-pointer group-hover:bg-white/[0.07] transition-colors"
-                                >
-                                    <option value="" className="bg-background">-- NO CAMPAIGN ATTACHED --</option>
-                                    {campaigns.map(c => (
-                                        <option key={c.id} value={c.id} className="bg-background">
-                                            {c.name} ({c.campaign_codes?.[0]?.count || 0} Codes)
-                                        </option>
-                                    ))}
-                                </select>
-                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-white/20 group-hover:text-white/40 transition-colors">
-                                    <ChevronDown size={16} />
+                        {(() => {
+                            const availableCampaigns = campaigns.filter(c => !c.raffles || c.raffles.length === 0)
+
+                            if (campaigns.length === 0) {
+                                return (
+                                    <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
+                                        <p className="text-[10px] text-yellow-500 font-bold uppercase tracking-wider leading-relaxed">
+                                            ⚠️ NO CAMPAIGNS FOUND. PLEASE CREATE A CAMPAIGN IN THE "CAMPAIGNS" TAB FIRST TO USE ENTRY CODES.
+                                        </p>
+                                    </div>
+                                )
+                            }
+
+                            if (availableCampaigns.length === 0 && campaigns.length > 0) {
+                                return (
+                                    <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
+                                        <p className="text-[10px] text-yellow-500 font-bold uppercase tracking-wider leading-relaxed">
+                                            ⚠️ ALL YOUR CAMPAIGNS ARE ALREADY ATTACHED TO OTHER EVENTS. CREATE A NEW CAMPAIGN FIRST.
+                                        </p>
+                                    </div>
+                                )
+                            }
+
+                            return (
+                                <div className="relative group">
+                                    <select
+                                        value={selectedCampaignId}
+                                        onChange={(e) => {
+                                            const val = e.target.value
+                                            setSelectedCampaignId(val)
+                                            if (val) {
+                                                setRequiresCode(true)
+                                                setCost('0')
+                                                setGoal('0')
+                                            }
+                                        }}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none appearance-none cursor-pointer group-hover:bg-white/[0.07] transition-colors"
+                                    >
+                                        <option value="" className="bg-background">-- NO CAMPAIGN ATTACHED --</option>
+                                        {availableCampaigns.map(c => (
+                                            <option key={c.id} value={c.id} className="bg-background">
+                                                {c.name} ({c.campaign_codes?.[0]?.count || 0} Codes)
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-white/20 group-hover:text-white/40 transition-colors">
+                                        <ChevronDown size={16} />
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            )
+                        })()}
                         <p className="text-[10px] text-white/20 mt-1 px-1">Attaching a campaign enables entry codes for this event.</p>
                     </div>
 

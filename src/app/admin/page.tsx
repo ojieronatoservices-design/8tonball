@@ -205,7 +205,7 @@ export default function AdminDashboard({ initialSearchQuery = '' }: { initialSea
         try {
             let query = supabaseClient
                 .from('campaigns')
-                .select('*, host:profiles!campaigns_host_user_id_fkey(display_name, email), campaign_codes(count)')
+                .select('*, host:profiles!campaigns_host_user_id_fkey(display_name, email), campaign_codes(count), raffles(id, title, status, goal_tibs)')
 
             // Filter for host's own campaigns if not admin
             if (!isAdmin) {

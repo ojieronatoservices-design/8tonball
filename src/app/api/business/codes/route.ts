@@ -174,6 +174,36 @@ export async function GET(request: Request) {
             }
         }
 
+        const action = searchParams.get('action')
+
+        if (action === 'stats') {
+            // Fetch aggregate stats only (faster for the dashboard)
+            const query = supabase
+                .from('campaign_codes')
+                .select('is_used', { count: 'exact', head: false })
+
+            if (raffleId) {
+                query.eq('raffle_id', raffleId)
+            } else {
+                query.eq('campaign_id', campaignId)
+            }
+
+            const { data, count, error: statsError } = await query
+
+            if (statsError) throw statsError
+
+            const totalCodes = count || 0
+            const usedCodes = data?.filter(c => c.is_used).length || 0
+
+            return NextResponse.json({
+                success: true,
+                stats: {
+                    total: totalCodes,
+                    used: usedCodes
+                }
+            })
+        }
+
         // Fetch all codes for this raffle including who used them and when
         const query = supabase
             .from('campaign_codes')

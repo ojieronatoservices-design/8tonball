@@ -84,26 +84,44 @@ const EditEventModal = memo(({ event, onClose, campaigns, handleUpdateEvent, isU
                     {editRequiresCode && (
                         <div className="flex flex-col gap-1.5 animate-in slide-in-from-top-2 duration-300">
                             <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Select Campaign</label>
-                            {campaigns.length === 0 ? (
-                                <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
-                                    <p className="text-[10px] text-yellow-500 font-bold uppercase tracking-wider leading-relaxed">
-                                        ⚠️ NO CAMPAIGNS FOUND. PLEASE CREATE A CAMPAIGN IN THE "CAMPAIGNS" TAB FIRST TO USE ENTRY CODES.
-                                    </p>
-                                </div>
-                            ) : (
-                                <select
-                                    value={editCampaignId}
-                                    onChange={(e) => setEditCampaignId(e.target.value)}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none appearance-none"
-                                >
-                                    <option value="" className="bg-background">-- CHOOSE A CAMPAIGN --</option>
-                                    {campaigns.map(c => (
-                                        <option key={c.id} value={c.id} className="bg-background">
-                                            {c.name} ({c.campaign_codes?.[0]?.count || 0} Codes)
-                                        </option>
-                                    ))}
-                                </select>
-                            )}
+                            {(() => {
+                                const availableCampaigns = campaigns.filter(c => (!c.raffles || c.raffles.length === 0) || c.id === event.campaign_id)
+
+                                if (campaigns.length === 0) {
+                                    return (
+                                        <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
+                                            <p className="text-[10px] text-yellow-500 font-bold uppercase tracking-wider leading-relaxed">
+                                                ⚠️ NO CAMPAIGNS FOUND. PLEASE CREATE A CAMPAIGN IN THE "CAMPAIGNS" TAB FIRST TO USE ENTRY CODES.
+                                            </p>
+                                        </div>
+                                    )
+                                }
+
+                                if (availableCampaigns.length === 0) {
+                                    return (
+                                        <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
+                                            <p className="text-[10px] text-yellow-500 font-bold uppercase tracking-wider leading-relaxed">
+                                                ⚠️ ALL YOUR CAMPAIGNS ARE ALREADY ATTACHED TO OTHER EVENTS. CREATE A NEW CAMPAIGN FIRST.
+                                            </p>
+                                        </div>
+                                    )
+                                }
+
+                                return (
+                                    <select
+                                        value={editCampaignId}
+                                        onChange={(e) => setEditCampaignId(e.target.value)}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none appearance-none"
+                                    >
+                                        <option value="" className="bg-background">-- CHOOSE A CAMPAIGN --</option>
+                                        {availableCampaigns.map(c => (
+                                            <option key={c.id} value={c.id} className="bg-background">
+                                                {c.name} ({c.campaign_codes?.[0]?.count || 0} Codes)
+                                            </option>
+                                        ))}
+                                    </select>
+                                )
+                            })()}
                         </div>
                     )}
 
