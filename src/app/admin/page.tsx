@@ -453,7 +453,8 @@ const CreateCampaignModal = memo(({
     onClose,
     onCreated,
     getClient,
-    userId
+    userId,
+    showToast
 }: {
     onClose: () => void,
     onCreated: () => void,
