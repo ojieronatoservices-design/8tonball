@@ -321,7 +321,7 @@ export const EventCard = React.memo(({
                     <div className="flex flex-col items-start leading-none">
                         <div className="flex items-baseline gap-1">
                             {event.requires_code ? (
-                                <span className="text-xl font-black font-sans tracking-tighter uppercase whitespace-nowrap">ENTER/SCAN CODE TO JOIN</span>
+                                <span className="text-xl font-black font-sans tracking-tighter uppercase whitespace-nowrap">SPONSORED</span>
                             ) : isFree ? (
                                 <span className="text-3xl font-black font-sans tracking-tighter uppercase">FREE</span>
                             ) : (
