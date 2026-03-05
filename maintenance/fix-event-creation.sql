@@ -41,4 +41,4 @@ DROP POLICY IF EXISTS "Users can delete own media" ON storage.objects;
 CREATE POLICY "Users can delete own media"
 ON storage.objects FOR DELETE
 TO authenticated
-USING (bucket_id = 'media' AND auth.uid()::text = owner::text);
+USING (bucket_id = 'media' AND auth_uid_text() = owner::text);

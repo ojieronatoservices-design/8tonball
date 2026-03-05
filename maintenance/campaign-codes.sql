@@ -26,11 +26,11 @@ ALTER TABLE public.campaign_codes ENABLE ROW LEVEL SECURITY;
 -- RLS Policies for campaign_codes
 -- Admins can do anything
 CREATE POLICY "Admins have full access to campaign codes" ON public.campaign_codes
-    USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid()::text AND is_admin = true));
+    USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth_uid_text() AND is_admin = true));
 
 -- Hosts can view and manage their own event's codes
 CREATE POLICY "Hosts can manage their campaign codes" ON public.campaign_codes
-    USING (EXISTS (SELECT 1 FROM public.raffles WHERE id = raffle_id AND host_user_id = auth.uid()::text));
+    USING (EXISTS (SELECT 1 FROM public.raffles WHERE id = raffle_id AND host_user_id = auth_uid_text()));
 
 -- Anyone can READ a code to verify it exists/is valid (but we only expose this through the RPC function logic ideally, so actually maybe no public SELECT. Let's let the RPC function bypass RLS using SECURITY DEFINER)
 
