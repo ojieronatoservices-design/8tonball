@@ -6,6 +6,7 @@ import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { useUser, useAuth } from '@clerk/nextjs'
 import { useSupabase } from '@/hooks/useSupabase'
+import { useToast } from '@/components/Toast'
 import { EventCard } from '@/components/EventCard'
 import { ManageCodesModal } from '@/components/ManageCodesModal'
 
@@ -457,8 +458,10 @@ const CreateCampaignModal = memo(({
     onClose: () => void,
     onCreated: () => void,
     getClient: () => Promise<any>,
-    userId: string | null | undefined
+    userId: string | null | undefined,
+    showToast: (msg: string, type?: 'success' | 'error' | 'info') => void
 }) => {
+    const { user: clerkUser } = useUser() // Unused but keep if needed, actually not needed here
     const [name, setName] = useState('')
     const [isCreating, setIsCreating] = useState(false)
 
@@ -472,10 +475,11 @@ const CreateCampaignModal = memo(({
                 host_user_id: userId
             })
             if (error) throw error
+            showToast('Campaign created successfully!')
             onCreated()
             onClose()
         } catch (err: any) {
-            alert(err.message || 'Error creating campaign')
+            showToast(err.message || 'Error creating campaign', 'error')
         } finally {
             setIsCreating(false)
         }
@@ -522,16 +526,21 @@ const CampaignsManager = memo(({
     fetchError,
     fetchCampaigns,
     getClient,
-    userId
+    userId,
+    isAdmin,
+    showToast
 }: {
     campaigns: any[],
     isLoading: boolean,
     fetchError: string | null,
     fetchCampaigns: () => void,
     getClient: () => Promise<any>,
-    userId: string | null | undefined
+    userId: string | null | undefined,
+    isAdmin: boolean,
+    showToast: (msg: string, type?: 'success' | 'error' | 'info') => void
 }) => {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+    const [isDeleting, setIsDeleting] = useState<string | null>(null)
     const [selectedCampaignForCodes, setSelectedCampaignForCodes] = useState<any>(null)
 
     return (
@@ -582,7 +591,14 @@ const CampaignsManager = memo(({
                             <div className="flex justify-between items-start mb-4">
                                 <div>
                                     <h4 className="text-lg font-black tracking-tight">{camp.name}</h4>
-                                    <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">{new Date(camp.created_at).toLocaleDateString()}</span>
+                                    <div className="flex flex-col gap-0.5 mt-0.5">
+                                        <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">{new Date(camp.created_at).toLocaleDateString()}</span>
+                                        {isAdmin && camp.host && (
+                                            <span className="text-[9px] font-black text-primary/40 uppercase tracking-tighter">
+                                                Host: {camp.host.display_name} ({camp.host.email})
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="bg-white/5 px-3 py-1 rounded-full border border-white/10 text-xs font-black text-white/40">
                                     {camp.campaign_codes?.[0]?.count || 0} Codes
@@ -598,14 +614,24 @@ const CampaignsManager = memo(({
                                 <button
                                     onClick={async () => {
                                         if (confirm('Are you sure? This will delete the campaign and all its codes.')) {
-                                            const supabase = await getClient()
-                                            await supabase.from('campaigns').delete().eq('id', camp.id)
-                                            fetchCampaigns()
+                                            setIsDeleting(camp.id)
+                                            try {
+                                                const supabase = await getClient()
+                                                const { error } = await supabase.from('campaigns').delete().eq('id', camp.id)
+                                                if (error) throw error
+                                                showToast('Campaign deleted successfully')
+                                                fetchCampaigns()
+                                            } catch (err: any) {
+                                                showToast(err.message || 'Error deleting campaign', 'error')
+                                            } finally {
+                                                setIsDeleting(null)
+                                            }
                                         }
                                     }}
-                                    className="p-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl border border-red-500/20 transition-all"
+                                    disabled={isDeleting === camp.id}
+                                    className="p-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl border border-red-500/20 transition-all disabled:opacity-50"
                                 >
-                                    <Trash2 size={16} />
+                                    {isDeleting === camp.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                                 </button>
                             </div>
                         </div>
@@ -619,6 +645,7 @@ const CampaignsManager = memo(({
                     onCreated={fetchCampaigns}
                     getClient={getClient}
                     userId={userId}
+                    showToast={showToast}
                 />
             )}
 
@@ -733,7 +760,8 @@ const PayoutsList = memo(({ payouts, handleApprovePayout, isLoadingPayouts, fetc
 PayoutsList.displayName = 'PayoutsList'
 
 export default function AdminDashboard({ initialSearchQuery = '' }: { initialSearchQuery?: string }) {
-    const { user } = useUser()
+    const { showToast } = useToast()
+    const { user: clerkUser } = useUser()
     const { userId } = useAuth()
     const { getClient } = useSupabase()
     const [activeTab, setActiveTab] = useState<'events' | 'archives' | 'campaigns' | 'payments' | 'payouts' | 'kyc' | 'analytics'>('events')
@@ -916,7 +944,7 @@ export default function AdminDashboard({ initialSearchQuery = '' }: { initialSea
         try {
             let query = supabaseClient
                 .from('campaigns')
-                .select('*, campaign_codes(count)')
+                .select('*, host:profiles!campaigns_host_user_id_fkey(display_name, email), campaign_codes(count)')
 
             // Filter for host's own campaigns if not admin
             if (!isAdmin) {
@@ -1994,6 +2022,8 @@ export default function AdminDashboard({ initialSearchQuery = '' }: { initialSea
                         fetchCampaigns={fetchCampaignsMemo}
                         getClient={getClient}
                         userId={userId}
+                        isAdmin={isAdmin}
+                        showToast={showToast}
                     />
                 ) : null}
             </div>

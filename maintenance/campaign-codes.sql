@@ -125,9 +125,12 @@ BEGIN
         END IF;
     END LOOP;
 
-    -- 6. Mark code as used
+    -- 6. Mark code as used and link to raffle if it was a campaign-level code
     UPDATE campaign_codes 
-    SET is_used = true, used_by = p_user_id, used_at = NOW()
+    SET is_used = true, 
+        used_by = p_user_id, 
+        used_at = NOW(),
+        raffle_id = COALESCE(raffle_id, p_raffle_id)
     WHERE id = v_code_id;
 
     -- 7. Create entry
