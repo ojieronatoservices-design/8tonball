@@ -153,7 +153,6 @@ const CreateEventModal = memo(({
                 display_id: displayId,
                 max_entries_per_user: maxEntries,
                 requires_code: requiresCode,
-                campaign_id: requiresCode && selectedCampaignId ? selectedCampaignId : null,
                 campaign_id: requiresCode && selectedCampaignId ? selectedCampaignId : null
             }])
 
@@ -310,7 +309,6 @@ const CreateEventModal = memo(({
                 </div>
             </div>
         </div>
-    </div>
     )
 })
 
