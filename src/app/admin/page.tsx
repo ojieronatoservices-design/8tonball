@@ -52,7 +52,7 @@ const CreateEventModal = memo(({
     const [eventPreviews, setEventPreviews] = useState<string[]>([])
     const [isLaunching, setIsLaunching] = useState(false)
     const [selectedCampaignId, setSelectedCampaignId] = useState<string>('')
-    const [bannerColor, setBannerColor] = useState('#39FF14') // Default primary color
+    const [selectedCampaignId, setSelectedCampaignId] = useState<string>('')
 
     // Cleanup Object URLs on unmount
     useEffect(() => {
@@ -155,7 +155,7 @@ const CreateEventModal = memo(({
                 max_entries_per_user: maxEntries,
                 requires_code: requiresCode,
                 campaign_id: requiresCode && selectedCampaignId ? selectedCampaignId : null,
-                banner_color: bannerColor
+                campaign_id: requiresCode && selectedCampaignId ? selectedCampaignId : null
             }])
 
             if (insertError) {
@@ -216,118 +216,102 @@ const CreateEventModal = memo(({
                                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none disabled:opacity-50 cursor-not-allowed" />
                         </div>
                     </div>
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Banner Color</label>
-                        <div className="flex items-center gap-3">
-                            <input
-                                type="color"
-                                value={bannerColor}
-                                onChange={(e) => setBannerColor(e.target.value)}
-                                className="w-12 h-12 bg-transparent border-none cursor-pointer rounded-lg overflow-hidden"
-                            />
-                            <input
-                                type="text"
-                                value={bannerColor}
-                                onChange={(e) => setBannerColor(e.target.value)}
-                                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs font-mono focus:border-primary focus:outline-none uppercase"
-                            />
-                        </div>
-                    </div>
+                </div>
 
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Attach Campaign</label>
-                        {campaigns.length === 0 ? (
-                            <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
-                                <p className="text-[10px] text-yellow-500 font-bold uppercase tracking-wider leading-relaxed">
-                                    ⚠️ NO CAMPAIGNS FOUND. PLEASE CREATE A CAMPAIGN IN THE "CAMPAIGNS" TAB FIRST TO USE ENTRY CODES.
-                                </p>
+                <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Attach Campaign</label>
+                    {campaigns.length === 0 ? (
+                        <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
+                            <p className="text-[10px] text-yellow-500 font-bold uppercase tracking-wider leading-relaxed">
+                                ⚠️ NO CAMPAIGNS FOUND. PLEASE CREATE A CAMPAIGN IN THE "CAMPAIGNS" TAB FIRST TO USE ENTRY CODES.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="relative group">
+                            <select
+                                value={selectedCampaignId}
+                                onChange={(e) => {
+                                    const val = e.target.value
+                                    setSelectedCampaignId(val)
+                                    if (val) {
+                                        setRequiresCode(true)
+                                        setCost('0')
+                                        setGoal('0')
+                                    }
+                                }}
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none appearance-none cursor-pointer group-hover:bg-white/[0.07] transition-colors"
+                            >
+                                <option value="" className="bg-background">-- NO CAMPAIGN ATTACHED --</option>
+                                {campaigns.map(c => (
+                                    <option key={c.id} value={c.id} className="bg-background">
+                                        {c.name} ({c.campaign_codes?.[0]?.count || 0} Codes)
+                                    </option>
+                                ))}
+                            </select>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-white/20 group-hover:text-white/40 transition-colors">
+                                <ChevronDown size={16} />
                             </div>
-                        ) : (
-                            <div className="relative group">
-                                <select
-                                    value={selectedCampaignId}
-                                    onChange={(e) => {
-                                        const val = e.target.value
-                                        setSelectedCampaignId(val)
-                                        if (val) {
-                                            setRequiresCode(true)
-                                            setCost('0')
-                                            setGoal('0')
-                                        }
-                                    }}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none appearance-none cursor-pointer group-hover:bg-white/[0.07] transition-colors"
-                                >
-                                    <option value="" className="bg-background">-- NO CAMPAIGN ATTACHED --</option>
-                                    {campaigns.map(c => (
-                                        <option key={c.id} value={c.id} className="bg-background">
-                                            {c.name} ({c.campaign_codes?.[0]?.count || 0} Codes)
-                                        </option>
-                                    ))}
-                                </select>
-                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-white/20 group-hover:text-white/40 transition-colors">
-                                    <ChevronDown size={16} />
-                                </div>
-                            </div>
-                        )}
-                        <p className="text-[10px] text-white/20 mt-1 px-1">Attaching a campaign enables entry codes for this event.</p>
-                    </div>
+                        </div>
+                    )}
+                    <p className="text-[10px] text-white/20 mt-1 px-1">Attaching a campaign enables entry codes for this event.</p>
+                </div>
 
-                    <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
-                        <div className="flex flex-col">
-                            <span className="text-xs font-black text-white/80 uppercase tracking-wider">Requires Entry Code</span>
-                            <span className="text-[10px] text-white/30">Users must enter a valid alphanumeric code to join</span>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const newVal = !requiresCode
-                                setRequiresCode(newVal)
-                                if (newVal) {
-                                    setCost('0')
-                                    setGoal('0')
-                                } else {
-                                    setSelectedCampaignId('')
-                                }
-                            }}
-                            className={`w-12 h-7 rounded-full transition-all duration-200 ${requiresCode ? 'bg-primary' : 'bg-white/10'} relative`}
-                        >
-                            <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-all duration-200 ${requiresCode ? 'left-6' : 'left-1'}`} />
-                        </button>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Max Entries Per User <span className="text-white/15">(optional)</span></label>
-                        <input type="number" value={maxEntriesPerUser} onChange={(e) => setMaxEntriesPerUser(e.target.value)} placeholder="Unlimited"
-                            min="1"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Media (Multiple allowed)</label>
-                        <div className="grid grid-cols-4 gap-2">
-                            {eventPreviews.map((preview: string, index: number) => (
-                                <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-white/10 group">
-                                    {isVideo(preview) ? <video src={preview} className="w-full h-full object-cover" /> : <img src={preview} alt="Preview" className="w-full h-full object-cover" />}
-                                    <button onClick={() => removeImage(index)} className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <X size={14} className="text-white" />
-                                    </button>
-                                </div>
-                            ))}
-                            <label className="aspect-square bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-white/20 hover:text-white/40 cursor-pointer transition-colors group">
-                                <input type="file" className="hidden" accept="image/*,video/*" multiple onChange={handleFileChange} />
-                                <ImageIcon size={24} className="group-hover:scale-110 transition-transform" />
-                            </label>
-                        </div>
+                <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
+                    <div className="flex flex-col">
+                        <span className="text-xs font-black text-white/80 uppercase tracking-wider">Requires Entry Code</span>
+                        <span className="text-[10px] text-white/30">Users must enter a valid alphanumeric code to join</span>
                     </div>
                     <button
-                        onClick={handleLaunchEvent}
-                        disabled={isLaunching || (!isAdmin && !isHostEligible)}
-                        className="w-full py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 mt-2 transition-transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        type="button"
+                        onClick={() => {
+                            const newVal = !requiresCode
+                            setRequiresCode(newVal)
+                            if (newVal) {
+                                setCost('0')
+                                setGoal('0')
+                            } else {
+                                setSelectedCampaignId('')
+                            }
+                        }}
+                        className={`w-12 h-7 rounded-full transition-all duration-200 ${requiresCode ? 'bg-primary' : 'bg-white/10'} relative`}
                     >
-                        {isLaunching && <Loader2 size={18} className="animate-spin" />}
-                        {isLaunching ? 'Launching...' : (!isAdmin && !isHostEligible) ? 'Eligibility Required' : 'Launch'}
+                        <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-all duration-200 ${requiresCode ? 'left-6' : 'left-1'}`} />
                     </button>
                 </div>
+                <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Max Entries Per User <span className="text-white/15">(optional)</span></label>
+                    <input type="number" value={maxEntriesPerUser} onChange={(e) => setMaxEntriesPerUser(e.target.value)} placeholder="Unlimited"
+                        min="1"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Media (Multiple allowed)</label>
+                    <div className="grid grid-cols-4 gap-2">
+                        {eventPreviews.map((preview: string, index: number) => (
+                            <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-white/10 group">
+                                {isVideo(preview) ? <video src={preview} className="w-full h-full object-cover" /> : <img src={preview} alt="Preview" className="w-full h-full object-cover" />}
+                                <button onClick={() => removeImage(index)} className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <X size={14} className="text-white" />
+                                </button>
+                            </div>
+                        ))}
+                        <label className="aspect-square bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-white/20 hover:text-white/40 cursor-pointer transition-colors group">
+                            <input type="file" className="hidden" accept="image/*,video/*" multiple onChange={handleFileChange} />
+                            <ImageIcon size={24} className="group-hover:scale-110 transition-transform" />
+                        </label>
+                    </div>
+                </div>
+                <button
+                    onClick={handleLaunchEvent}
+                    disabled={isLaunching || (!isAdmin && !isHostEligible)}
+                    className="w-full py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 mt-2 transition-transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    {isLaunching && <Loader2 size={18} className="animate-spin" />}
+                    {isLaunching ? 'Launching...' : (!isAdmin && !isHostEligible) ? 'Eligibility Required' : 'Launch'}
+                </button>
             </div>
         </div>
+        </div >
     )
 })
 
