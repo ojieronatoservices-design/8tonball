@@ -43,6 +43,7 @@ DECLARE
     v_requires_code BOOLEAN;
     v_max_entries INTEGER;
     v_current_entries INTEGER;
+    v_campaign_id UUID;
     v_code_id UUID;
     v_is_used BOOLEAN;
     v_ticket TEXT;
@@ -55,8 +56,8 @@ DECLARE
     v_attempts INTEGER := 0;
 BEGIN
     -- 1. Get raffle data
-    SELECT status, host_user_id, requires_code, max_entries_per_user
-    INTO v_status, v_host_id, v_requires_code, v_max_entries
+    SELECT status, host_user_id, requires_code, max_entries_per_user, campaign_id
+    INTO v_status, v_host_id, v_requires_code, v_max_entries, v_campaign_id
     FROM raffles WHERE id = p_raffle_id;
     
     IF v_status != 'open' THEN
@@ -89,7 +90,13 @@ BEGIN
     -- 4. Verify and lock the code atomically
     SELECT id, is_used INTO v_code_id, v_is_used
     FROM campaign_codes 
-    WHERE code = p_code AND host_user_id = v_host_id AND (raffle_id IS NULL OR raffle_id = p_raffle_id)
+    WHERE code = p_code 
+      AND host_user_id = v_host_id 
+      AND (
+          raffle_id IS NULL 
+          OR raffle_id = p_raffle_id 
+          OR (v_campaign_id IS NOT NULL AND campaign_id = v_campaign_id)
+      )
     FOR UPDATE; -- Atomic lock
 
     IF v_code_id IS NULL THEN
