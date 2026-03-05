@@ -928,7 +928,10 @@ export default function AdminDashboard({ initialSearchQuery = '' }: { initialSea
         fetchUnreadNotifications()
 
         // Tab-specific fetching
-        if (activeTab === 'events' || activeTab === 'archives') fetchEvents()
+        if (activeTab === 'events' || activeTab === 'archives') {
+            fetchEvents()
+            fetchCampaigns()
+        }
         else if (activeTab === 'payments') fetchPayments()
         else if (activeTab === 'payouts') fetchPayoutRequests()
         else if (activeTab === 'kyc' && isAdmin) fetchKYCRequests()
