@@ -5,7 +5,7 @@ BEGIN;
 CREATE TABLE IF NOT EXISTS public.campaigns (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     name TEXT NOT NULL,
-    host_user_id TEXT REFERENCES public.profiles(id) NOT NULL,
+    host_user_id TEXT NOT NULL REFERENCES public.profiles(id),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
