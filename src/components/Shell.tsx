@@ -1475,6 +1475,6 @@ function CreateEventModalWrapper({ isAdmin, isHostEligible, getClient, userId, o
                     </button>
                 </div>
             </div>
-        </div >
+        </div>
     )
 }

@@ -52,7 +52,6 @@ const CreateEventModal = memo(({
     const [eventPreviews, setEventPreviews] = useState<string[]>([])
     const [isLaunching, setIsLaunching] = useState(false)
     const [selectedCampaignId, setSelectedCampaignId] = useState<string>('')
-    const [selectedCampaignId, setSelectedCampaignId] = useState<string>('')
 
     // Cleanup Object URLs on unmount
     useEffect(() => {
@@ -310,7 +309,8 @@ const CreateEventModal = memo(({
                     </button>
                 </div>
             </div>
-        </div >
+        </div>
+    </div>
     )
 })
 
