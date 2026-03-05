@@ -89,6 +89,7 @@ export function Shell({ children }: ShellProps) {
 
     const [showCreateEventModal, setShowCreateEventModal] = useState(false)
     const [showAdModal, setShowAdModal] = useState(false)
+    const [campaigns, setCampaigns] = useState<any[]>([])
 
     const triggerNotificationToast = useCallback((type: string, message: string) => {
         let emoji = '🔔'
@@ -430,6 +431,13 @@ export function Shell({ children }: ShellProps) {
                 const supabaseClient = await getClient()
                 if (!supabaseClient) return
                 supabaseRef.current = supabaseClient
+
+                // Fetch campaigns for the modal
+                const { data: campaignData } = await supabaseClient
+                    .from('campaigns')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                if (campaignData) setCampaigns(campaignData)
 
                 // Check for initial unread notifications
                 const { count } = await supabaseClient
@@ -1095,6 +1103,7 @@ export function Shell({ children }: ShellProps) {
                     userId={user?.id || null}
                     onClose={() => setShowCreateEventModal(false)}
                     showToast={showToast}
+                    campaigns={campaigns}
                 />
             )}
 
@@ -1218,13 +1227,15 @@ function AdRewardedModal({ onClose, onComplete, showToast }: { onClose: () => vo
 }
 
 // Lightweight Create Event Modal that lives in Shell (for the floating button)
-function CreateEventModalWrapper({ isAdmin, isHostEligible, getClient, userId, onClose, showToast }: {
-    isAdmin: boolean, isHostEligible: boolean, getClient: any, userId: string | null, onClose: () => void, showToast: (msg: string, type?: 'success' | 'error' | 'info') => void
+function CreateEventModalWrapper({ isAdmin, isHostEligible, getClient, userId, onClose, showToast, campaigns }: {
+    isAdmin: boolean, isHostEligible: boolean, getClient: any, userId: string | null, onClose: () => void, showToast: (msg: string, type?: 'success' | 'error' | 'info') => void, campaigns: any[]
 }) {
     const [title, setTitle] = useState('')
     const [description, setDescription] = useState('')
     const [cost, setCost] = useState('')
     const [goal, setGoal] = useState('')
+    const [bannerColor, setBannerColor] = useState('#39FF14')
+    const [selectedCampaignId, setSelectedCampaignId] = useState('')
     const [drawTime, setDrawTime] = useState('')
     const [maxEntriesPerUser, setMaxEntriesPerUser] = useState('')
     const [requiresCode, setRequiresCode] = useState(false)
@@ -1323,7 +1334,9 @@ function CreateEventModalWrapper({ isAdmin, isHostEligible, getClient, userId, o
                 goal_tibs: goalTibs,
                 display_id: displayId,
                 max_entries_per_user: maxEntries,
-                requires_code: requiresCode
+                requires_code: requiresCode,
+                campaign_id: selectedCampaignId || null,
+                banner_color: bannerColor
             }])
 
             if (insertError) throw insertError
@@ -1376,6 +1389,58 @@ function CreateEventModalWrapper({ isAdmin, isHostEligible, getClient, userId, o
                                 min="0" disabled={requiresCode}
                                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none disabled:opacity-50 cursor-not-allowed" />
                         </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Banner Color</label>
+                        <div className="flex gap-2">
+                            <input
+                                type="color"
+                                value={bannerColor}
+                                onChange={(e) => setBannerColor(e.target.value)}
+                                className="w-12 h-10 rounded-xl bg-white/5 border border-white/10 cursor-pointer p-1"
+                            />
+                            <input
+                                type="text"
+                                value={bannerColor}
+                                onChange={(e) => setBannerColor(e.target.value)}
+                                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs font-mono focus:border-primary focus:outline-none uppercase"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Attach Campaign</label>
+                        {campaigns.length === 0 ? (
+                            <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
+                                <p className="text-[10px] text-yellow-500 font-bold uppercase tracking-wider leading-relaxed">
+                                    ⚠️ NO CAMPAIGNS FOUND. CREATE A CAMPAIGN IN ADMIN FIRST TO USE ENTRY CODES.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="relative group">
+                                <select
+                                    value={selectedCampaignId}
+                                    onChange={(e) => {
+                                        const val = e.target.value
+                                        setSelectedCampaignId(val)
+                                        if (val) {
+                                            setRequiresCode(true)
+                                            setCost('0')
+                                            setGoal('0')
+                                        }
+                                    }}
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none appearance-none cursor-pointer group-hover:bg-white/[0.07] transition-colors"
+                                >
+                                    <option value="" className="bg-background">-- NO CAMPAIGN ATTACHED --</option>
+                                    {campaigns.map(c => (
+                                        <option key={c.id} value={c.id} className="bg-background">
+                                            {c.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                     </div>
                     <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
                         <div className="flex flex-col">
