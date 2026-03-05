@@ -1389,94 +1389,92 @@ function CreateEventModalWrapper({ isAdmin, isHostEligible, getClient, userId, o
                         </div>
                     </div>
 
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Attach Campaign</label>
-                    {campaigns.length === 0 ? (
-                        <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
-                            <p className="text-[10px] text-yellow-500 font-bold uppercase tracking-wider leading-relaxed">
-                                ⚠️ NO CAMPAIGNS FOUND. CREATE A CAMPAIGN IN ADMIN FIRST TO USE ENTRY CODES.
-                            </p>
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Attach Campaign</label>
+                        {campaigns.length === 0 ? (
+                            <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
+                                <p className="text-[10px] text-yellow-500 font-bold uppercase tracking-wider leading-relaxed">
+                                    ⚠️ NO CAMPAIGNS FOUND. CREATE A CAMPAIGN IN ADMIN FIRST TO USE ENTRY CODES.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="relative group">
+                                <select
+                                    value={selectedCampaignId}
+                                    onChange={(e) => {
+                                        const val = e.target.value
+                                        setSelectedCampaignId(val)
+                                        if (val) {
+                                            setRequiresCode(true)
+                                            setCost('0')
+                                            setGoal('0')
+                                        }
+                                    }}
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none appearance-none cursor-pointer group-hover:bg-white/[0.07] transition-colors"
+                                >
+                                    <option value="" className="bg-background">-- NO CAMPAIGN ATTACHED --</option>
+                                    {campaigns.map(c => (
+                                        <option key={c.id} value={c.id} className="bg-background">
+                                            {c.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
+                        <div className="flex flex-col">
+                            <span className="text-xs font-black text-white/80 uppercase tracking-wider">Requires Entry Code</span>
+                            <span className="text-[10px] text-white/30">Users must enter a valid alphanumeric code to join</span>
                         </div>
-                    ) : (
-                        <div className="relative group">
-                            <select
-                                value={selectedCampaignId}
-                                onChange={(e) => {
-                                    const val = e.target.value
-                                    setSelectedCampaignId(val)
-                                    if (val) {
-                                        setRequiresCode(true)
-                                        setCost('0')
-                                        setGoal('0')
-                                    }
-                                }}
-                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none appearance-none cursor-pointer group-hover:bg-white/[0.07] transition-colors"
-                            >
-                                <option value="" className="bg-background">-- NO CAMPAIGN ATTACHED --</option>
-                                {campaigns.map(c => (
-                                    <option key={c.id} value={c.id} className="bg-background">
-                                        {c.name}
-                                    </option>
-                                ))}
-                            </select>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const newVal = !requiresCode
+                                setRequiresCode(newVal)
+                                if (newVal) {
+                                    setCost('0')
+                                    setGoal('0')
+                                }
+                            }}
+                            className={`w-12 h-7 rounded-full transition-all duration-200 ${requiresCode ? 'bg-primary' : 'bg-white/10'} relative`}
+                        >
+                            <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-all duration-200 ${requiresCode ? 'left-6' : 'left-1'}`} />
+                        </button>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Max Entries Per User <span className="text-white/15">(optional)</span></label>
+                        <input type="number" value={maxEntriesPerUser} onChange={(e) => setMaxEntriesPerUser(e.target.value)} placeholder="Unlimited"
+                            min="1"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Media (Multiple allowed)</label>
+                        <div className="grid grid-cols-4 gap-2">
+                            {eventPreviews.map((preview: string, index: number) => (
+                                <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-white/10 group">
+                                    {isVideo(preview) ? <video src={preview} className="w-full h-full object-cover" /> : <img src={preview} alt="Preview" className="w-full h-full object-cover" />}
+                                    <button onClick={() => removeImage(index)} className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <X size={14} className="text-white" />
+                                    </button>
+                                </div>
+                            ))}
+                            <label className="aspect-square bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-white/20 hover:text-white/40 cursor-pointer transition-colors group">
+                                <input type="file" className="hidden" accept="image/*,video/*" multiple onChange={handleFileChange} />
+                                <ImageIcon size={24} className="group-hover:scale-110 transition-transform" />
+                            </label>
                         </div>
-                    )}
-                </div>
-                <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
-                    <div className="flex flex-col">
-                        <span className="text-xs font-black text-white/80 uppercase tracking-wider">Requires Entry Code</span>
-                        <span className="text-[10px] text-white/30">Users must enter a valid alphanumeric code to join</span>
                     </div>
                     <button
-                        type="button"
-                        onClick={() => {
-                            const newVal = !requiresCode
-                            setRequiresCode(newVal)
-                            if (newVal) {
-                                setCost('0')
-                                setGoal('0')
-                            }
-                        }}
-                        className={`w-12 h-7 rounded-full transition-all duration-200 ${requiresCode ? 'bg-primary' : 'bg-white/10'} relative`}
+                        onClick={handleLaunchEvent}
+                        disabled={isLaunching || (!isAdmin && !isHostEligible)}
+                        className="w-full py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 mt-2 transition-transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-all duration-200 ${requiresCode ? 'left-6' : 'left-1'}`} />
+                        {isLaunching && <Loader2 size={18} className="animate-spin" />}
+                        {isLaunching ? 'Launching...' : 'Launch'}
                     </button>
                 </div>
-                <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Max Entries Per User <span className="text-white/15">(optional)</span></label>
-                    <input type="number" value={maxEntriesPerUser} onChange={(e) => setMaxEntriesPerUser(e.target.value)} placeholder="Unlimited"
-                        min="1"
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:outline-none" />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] uppercase tracking-widest font-black text-white/30 ml-1">Media (Multiple allowed)</label>
-                    <div className="grid grid-cols-4 gap-2">
-                        {eventPreviews.map((preview: string, index: number) => (
-                            <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-white/10 group">
-                                {isVideo(preview) ? <video src={preview} className="w-full h-full object-cover" /> : <img src={preview} alt="Preview" className="w-full h-full object-cover" />}
-                                <button onClick={() => removeImage(index)} className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <X size={14} className="text-white" />
-                                </button>
-                            </div>
-                        ))}
-                        <label className="aspect-square bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-white/20 hover:text-white/40 cursor-pointer transition-colors group">
-                            <input type="file" className="hidden" accept="image/*,video/*" multiple onChange={handleFileChange} />
-                            <ImageIcon size={24} className="group-hover:scale-110 transition-transform" />
-                        </label>
-                    </div>
-                </div>
-                <button
-                    onClick={handleLaunchEvent}
-                    disabled={isLaunching || (!isAdmin && !isHostEligible)}
-                    className="w-full py-4 bg-primary text-black font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/10 mt-2 transition-transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    {isLaunching && <Loader2 size={18} className="animate-spin" />}
-                    {isLaunching ? 'Launching...' : 'Launch'}
-                </button>
             </div>
-        </div>
         </div >
     )
 }
