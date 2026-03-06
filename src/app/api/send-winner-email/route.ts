@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
             html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #000; color: #fff; padding: 40px; border-radius: 20px;">
                     <div style="text-align: center; margin-bottom: 20px;">
-                        <img src="https://8tonball.vercel.app/logo-8t.png" alt="8TONBALL" style="width: 80px; height: 80px; object-contain: center;" />
+                        <img src="${new URL('/logo-8t.png', request.url).href}" alt="8TONBALL" style="width: 80px; height: 80px; object-fit: contain;" />
                     </div>
                     <h1 style="color: #FFD700; margin-bottom: 20px; text-align: center;">🎉 You're a Winner!</h1>
                     
